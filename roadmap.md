@@ -1,0 +1,3 @@
+- [x] Improve the half-width mobile navigation with an explicit close button and accessible dismissal.
+- [x] Record unique product-detail views and toggle product likes; display shared counts.
+- [x] Verify the menu and counts in the browser and check diagnostics.

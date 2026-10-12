@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790839345258,
+      "tag": "0000_create_gk_furniture_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791180346617,
+      "tag": "0001_product_engagement_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791180378633,
+      "tag": "0002_track_detail_views_separately_from_likes",
+      "breakpoints": true
+    }
+  ]
+}

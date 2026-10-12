@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" fill="none" role="img" aria-label="GK furnish">
+  <defs>
+    <linearGradient id="bronze" x1="20" y1="200" x2="210" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6B3E1F"/>
+      <stop offset="0.35" stop-color="#A86B32"/>
+      <stop offset="0.7" stop-color="#C99245"/>
+      <stop offset="1" stop-color="#E2B86A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Lamp base -->
+  <ellipse cx="48" cy="188" rx="18" ry="8" fill="url(#bronze)"/>
+  <!-- Lamp stem / arc -->
+  <path
+    d="M48 180 C40 150 44 110 78 78 C112 46 160 34 198 58"
+    stroke="url(#bronze)"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+  <!-- Shade -->
+  <path
+    d="M198 58 C216 50 236 62 232 82 C229 98 210 106 196 98 C182 90 184 66 198 58Z"
+    fill="#2C3138"
+  />
+  <path d="M214 96 L214 108" stroke="#2C3138" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="214" cy="112" r="3.5" fill="#2C3138"/>
+
+  <!-- Interlocked GK letterforms -->
+  <g transform="translate(52 58)">
+    <!-- G -->
+    <path
+      d="M78 18 C52 18 32 40 32 72 C32 104 52 126 82 126 C102 126 118 116 126 100 L100 100 C94 108 88 112 80 112 C64 112 54 98 54 72 C54 46 64 32 80 32 C94 32 104 42 108 56 L134 56 C126 32 106 18 78 18Z"
+      fill="url(#bronze)"
+    />
+    <path d="M78 66 H126 V90 H94 V78 H78 Z" fill="url(#bronze)"/>
+    <!-- K connected from G crossbar -->
+    <path
+      d="M126 66 H146 V126 H126 V66Z"
+      fill="#2C3138"
+    />
+    <path
+      d="M146 90 L178 66 H204 L166 98 L206 126 H178 L146 104 V90Z"
+      fill="#2C3138"
+    />
+  </g>
+
+  <!-- Sofa -->
+  <g stroke="#2C3138" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 176 H190"/>
+    <path d="M76 176 V158 C76 150 82 144 90 144 H170 C178 144 184 150 184 158 V176"/>
+    <path d="M90 144 V132 C90 126 95 122 101 122 H126"/>
+    <path d="M134 122 H159 C165 122 170 126 170 132 V144"/>
+    <path d="M126 122 V144"/>
+    <path d="M134 122 V144"/>
+    <path d="M86 176 V188"/>
+    <path d="M112 176 V188"/>
+    <path d="M148 176 V188"/>
+    <path d="M174 176 V188"/>
+  </g>
+</svg>

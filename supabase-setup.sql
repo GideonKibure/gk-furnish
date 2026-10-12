@@ -1,0 +1,429 @@
+-- Combined setup: run this whole file in the Supabase SQL Editor (migrations 0000-0002 combined).
+-- Categories
+CREATE TABLE public.categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  name_sw text,
+  slug text NOT NULL UNIQUE,
+  description text,
+  description_sw text,
+  image_key text,
+  sort_order int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.categories TO anon, authenticated;
+GRANT ALL ON public.categories TO service_role;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Categories are publicly readable" ON public.categories FOR SELECT USING (true);
+
+-- Products
+CREATE TABLE public.products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id uuid NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+  name text NOT NULL,
+  name_sw text,
+  slug text NOT NULL UNIQUE,
+  description text NOT NULL DEFAULT '',
+  description_sw text,
+  short_description text,
+  price numeric(12,2) NOT NULL CHECK (price >= 0),
+  material text,
+  dimensions text,
+  features text[] NOT NULL DEFAULT '{}',
+  available_colors text[] NOT NULL DEFAULT '{}',
+  image_key text,
+  stock_quantity int NOT NULL DEFAULT 0,
+  is_available boolean NOT NULL DEFAULT true,
+  is_featured boolean NOT NULL DEFAULT false,
+  is_demo boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.products TO anon, authenticated;
+GRANT ALL ON public.products TO service_role;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Products are publicly readable" ON public.products FOR SELECT USING (true);
+CREATE INDEX products_category_idx ON public.products(category_id);
+
+-- Product images
+CREATE TABLE public.product_images (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  image_key text,
+  image_url text,
+  alt_text text,
+  sort_order int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.product_images TO anon, authenticated;
+GRANT ALL ON public.product_images TO service_role;
+ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Product images are publicly readable" ON public.product_images FOR SELECT USING (true);
+CREATE INDEX product_images_product_idx ON public.product_images(product_id);
+
+-- Order number sequence + generator
+CREATE SEQUENCE public.order_number_seq START 1;
+
+CREATE OR REPLACE FUNCTION public.generate_order_number()
+RETURNS text
+LANGUAGE sql
+VOLATILE
+SET search_path = public
+AS $$
+  SELECT 'GK-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('public.order_number_seq')::text, 4, '0');
+$$;
+
+-- Orders
+CREATE TABLE public.orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number text NOT NULL UNIQUE DEFAULT public.generate_order_number(),
+  customer_name text NOT NULL,
+  phone text NOT NULL,
+  email text,
+  delivery_location text NOT NULL,
+  preferred_color text,
+  preferred_size text,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','confirmed','in_production','ready','out_for_delivery','completed','cancelled')),
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT INSERT ON public.orders TO anon, authenticated;
+GRANT ALL ON public.orders TO service_role;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can submit an order" ON public.orders FOR INSERT WITH CHECK (true);
+
+-- Order items
+CREATE TABLE public.order_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  product_id uuid REFERENCES public.products(id) ON DELETE SET NULL,
+  product_name text NOT NULL,
+  quantity int NOT NULL CHECK (quantity > 0),
+  unit_price numeric(12,2) NOT NULL CHECK (unit_price >= 0),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT INSERT ON public.order_items TO anon, authenticated;
+GRANT ALL ON public.order_items TO service_role;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can submit order items" ON public.order_items FOR INSERT WITH CHECK (true);
+CREATE INDEX order_items_order_idx ON public.order_items(order_id);
+
+-- Order status history
+CREATE TABLE public.order_status_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  status text NOT NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public.order_status_history TO service_role;
+ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.log_order_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') OR (NEW.status IS DISTINCT FROM OLD.status) THEN
+    INSERT INTO public.order_status_history (order_id, status) VALUES (NEW.id, NEW.status);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER orders_status_log
+AFTER INSERT OR UPDATE OF status ON public.orders
+FOR EACH ROW EXECUTE FUNCTION public.log_order_status();
+
+-- Custom orders
+CREATE TABLE public.custom_orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_number text NOT NULL UNIQUE DEFAULT public.generate_order_number(),
+  full_name text NOT NULL,
+  phone text NOT NULL,
+  email text,
+  furniture_type text NOT NULL,
+  design_description text NOT NULL,
+  preferred_dimensions text,
+  preferred_material text,
+  preferred_color text,
+  quantity int NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  budget_range text,
+  delivery_location text NOT NULL,
+  additional_requirements text,
+  reference_image_url text,
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT INSERT ON public.custom_orders TO anon, authenticated;
+GRANT ALL ON public.custom_orders TO service_role;
+ALTER TABLE public.custom_orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can submit a custom request" ON public.custom_orders FOR INSERT WITH CHECK (true);
+
+-- Contact messages
+CREATE TABLE public.contact_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  phone text,
+  email text,
+  subject text,
+  message text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT INSERT ON public.contact_messages TO anon, authenticated;
+GRANT ALL ON public.contact_messages TO service_role;
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can send a message" ON public.contact_messages FOR INSERT WITH CHECK (true);
+
+-- Demo data
+INSERT INTO public.categories (name, name_sw, slug, description, description_sw, image_key, sort_order) VALUES
+('Chairs', 'Viti', 'chairs', 'Study, student and dining chairs built to last through long days.', 'Viti vya kusomea, vya wanafunzi na vya mezani vilivyotengenezwa kudumu.', 'chairs', 1),
+('Tables', 'Meza', 'tables', 'Study tables and desks sized for hostel rooms and home offices.', 'Meza za kusomea zinazofaa vyumba vya hosteli na ofisi za nyumbani.', 'tables', 2),
+('Beds', 'Vitanda', 'beds', 'Strong single and double bed frames in solid local timber.', 'Vitanda imara vya mtu mmoja na wawili kutoka mbao bora za hapa.', 'beds', 3),
+('Table Lamps', 'Taa za Meza', 'table-lamps', 'Handmade wooden lamps that make a study corner feel like home.', 'Taa za mbao zilizotengenezwa kwa mikono kwa pembe yako ya kusomea.', 'lamps', 4),
+('Custom Furniture', 'Samani Maalum', 'custom-furniture', 'Anything you can describe, built to your measurements.', 'Chochote unachoeleza, kinatengenezwa kwa vipimo vyako.', 'chairs', 5);
+
+INSERT INTO public.products (category_id, name, name_sw, slug, short_description, description, price, material, dimensions, features, available_colors, image_key, stock_quantity, is_available, is_featured)
+SELECT c.id, v.name, v.name_sw, v.slug, v.short_desc, v.descr, v.price, v.material, v.dims, v.features, v.colors, v.image_key, v.stock, v.avail, v.feat
+FROM (VALUES
+  ('chairs','Study Chair','Kiti cha Kusomea','study-chair','Strong and comfortable chair designed for long study sessions.','A solid wooden study chair with a shaped backrest and padded seat, built for students who spend long hours at the desk. Finished by hand in our Mbeya workshop.',30000,'Wood + fabric','45cm W x 48cm D x 86cm H', ARRAY['Strong wooden construction','Shaped backrest for comfort','Padded, easy-clean seat','Durable matte finish','Sized for hostel desks'], ARRAY['Natural wood','Dark walnut','Navy seat'],'chairs',12,true,true),
+  ('chairs','Student Chair','Kiti cha Mwanafunzi','student-chair','Light, stackable chair that fits any hostel room.','A simple, light chair that moves easily between desk, table and visitors. Built from the same hardwood frame as our study chair at a lower price.',22000,'Wood','42cm W x 45cm D x 84cm H', ARRAY['Light and easy to move','Stackable design','Sanded smooth edges','Affordable everyday seating'], ARRAY['Natural wood','Dark walnut'],'chairs',20,true,true),
+  ('chairs','Dining Chair','Kiti cha Mezani','dining-chair','Everyday dining chair with a clean modern line.','A comfortable dining chair with a woven fabric seat and gently curved back, made to match our tables.',35000,'Wood + fabric','45cm W x 50cm D x 88cm H', ARRAY['Woven fabric seat','Curved back support','Matches GK dining tables','Hardwood joints'], ARRAY['Natural wood','Dark walnut','Cream seat'],'chairs',8,true,false),
+  ('tables','Study Table','Meza ya Kusomea','study-table','A proper desk for books, a laptop and a lamp.','Our most popular desk. Wide enough for a laptop and open books, with one drawer for stationery and slim legs that keep the room feeling open.',85000,'Wood','110cm W x 55cm D x 75cm H', ARRAY['One stationery drawer','Fits a laptop and open books','Slim tapered legs','Scratch-resistant top','Stable hardwood frame'], ARRAY['Natural wood','Dark walnut'],'tables',6,true,true),
+  ('tables','Student Desk','Dawati la Mwanafunzi','student-desk','Compact desk made for small hostel rooms.','A smaller desk designed around standard hostel room space, with a lower shelf for books.',65000,'Wood','90cm W x 45cm D x 75cm H', ARRAY['Compact footprint','Lower book shelf','Easy to move','Smooth sanded finish'], ARRAY['Natural wood','Dark walnut'],'tables',10,true,true),
+  ('tables','Small Side Table','Meza Ndogo','small-side-table','Handy table for a lamp, books or a kettle.','A small, sturdy side table that works beside a bed or chair.',38000,'Wood','45cm W x 45cm D x 55cm H', ARRAY['Sturdy four-leg frame','Good beside a bed','Light to carry'], ARRAY['Natural wood','Dark walnut'],'tables',14,true,false),
+  ('beds','Single Bed','Kitanda cha Mtu Mmoja','single-bed','Solid single bed frame with a simple headboard.','A strong single bed frame in solid timber with slats that support a standard mattress. Built to survive moving between rooms.',180000,'Wood','95cm W x 195cm L x 90cm H', ARRAY['Solid timber frame','Supportive slat base','Simple flat headboard','Fits a standard single mattress','Assembles and disassembles easily'], ARRAY['Natural wood','Dark walnut'],'beds',4,true,true),
+  ('beds','Double Bed','Kitanda cha Watu Wawili','double-bed','Double bed frame built for daily use.','A wider version of our single bed with a reinforced centre rail for long-term stability.',260000,'Wood','140cm W x 195cm L x 90cm H', ARRAY['Reinforced centre rail','Solid timber frame','Supportive slat base','Fits a standard double mattress'], ARRAY['Natural wood','Dark walnut'],'beds',3,true,false),
+  ('table-lamps','Wooden Table Lamp','Taa ya Mbao','wooden-table-lamp','Turned wooden lamp with a warm linen shade.','A hand-turned wooden lamp base with a linen shade that gives a soft, warm light - good for reading without lighting the whole room.',45000,'Wood + fabric shade','28cm diameter x 45cm H', ARRAY['Hand-turned wooden base','Soft warm linen shade','Good reading light','Stable weighted base'], ARRAY['Natural wood','Dark walnut'],'lamps',9,true,true),
+  ('table-lamps','Decorative Table Lamp','Taa ya Mapambo','decorative-table-lamp','A sculptural lamp for a desk or bedside.','A slimmer decorative lamp with a shaped base, made as much for the look as the light.',52000,'Wood + fabric shade','24cm diameter x 50cm H', ARRAY['Sculptural shaped base','Slim profile','Warm ambient light'], ARRAY['Natural wood','Dark walnut'],'lamps',5,true,false),
+  ('custom-furniture','Custom Chair','Kiti Maalum','custom-chair','Tell us the shape, size and finish you want.','A chair built to your own measurements, material and colour. Share your idea and we will quote before any work begins.',0,'Your choice','Made to your measurements', ARRAY['Built to your measurements','Your choice of material','Your choice of colour','Quoted before work begins'], ARRAY['Your choice'],'chairs',0,true,false),
+  ('custom-furniture','Custom Table','Meza Maalum','custom-table','A table built to your exact space.','A table made to fit your room, with the height, width and finish you need.',0,'Your choice','Made to your measurements', ARRAY['Built to your measurements','Your choice of material','Your choice of colour','Quoted before work begins'], ARRAY['Your choice'],'tables',0,true,false)
+) AS v(cat_slug,name,name_sw,slug,short_desc,descr,price,material,dims,features,colors,image_key,stock,avail,feat)
+JOIN public.categories c ON c.slug = v.cat_slug;ALTER TABLE public.products ADD COLUMN view_count integer NOT NULL DEFAULT 0, ADD COLUMN like_count integer NOT NULL DEFAULT 0;
+
+CREATE TABLE public.product_engagement (
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  visitor_id uuid NOT NULL,
+  liked boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (product_id, visitor_id)
+);
+GRANT ALL ON public.product_engagement TO service_role;
+ALTER TABLE public.product_engagement ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.record_product_view(_product_id uuid, _visitor_id uuid)
+RETURNS TABLE(view_count integer, like_count integer, liked boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE _inserted integer;
+BEGIN
+  PERFORM 1 FROM public.products p WHERE p.id = _product_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN; END IF;
+  INSERT INTO public.product_engagement (product_id, visitor_id) VALUES (_product_id, _visitor_id)
+  ON CONFLICT (product_id, visitor_id) DO NOTHING;
+  GET DIAGNOSTICS _inserted = ROW_COUNT;
+  IF _inserted > 0 THEN
+    UPDATE public.products p SET view_count = p.view_count + 1 WHERE p.id = _product_id;
+  END IF;
+  RETURN QUERY SELECT p.view_count, p.like_count, e.liked FROM public.products p
+    JOIN public.product_engagement e ON e.product_id = p.id AND e.visitor_id = _visitor_id
+    WHERE p.id = _product_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.toggle_product_like(_product_id uuid, _visitor_id uuid)
+RETURNS TABLE(view_count integer, like_count integer, liked boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE _previous boolean;
+BEGIN
+  PERFORM 1 FROM public.products p WHERE p.id = _product_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN; END IF;
+  SELECT e.liked INTO _previous FROM public.product_engagement e WHERE e.product_id = _product_id AND e.visitor_id = _visitor_id;
+  IF _previous IS NULL THEN
+    INSERT INTO public.product_engagement (product_id, visitor_id, liked) VALUES (_product_id, _visitor_id, true);
+    UPDATE public.products p SET like_count = p.like_count + 1 WHERE p.id = _product_id;
+  ELSE
+    UPDATE public.product_engagement e SET liked = NOT _previous WHERE e.product_id = _product_id AND e.visitor_id = _visitor_id;
+    UPDATE public.products p SET like_count = GREATEST(0, p.like_count + CASE WHEN _previous THEN -1 ELSE 1 END) WHERE p.id = _product_id;
+  END IF;
+  RETURN QUERY SELECT p.view_count, p.like_count, e.liked FROM public.products p
+    JOIN public.product_engagement e ON e.product_id = p.id AND e.visitor_id = _visitor_id
+    WHERE p.id = _product_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.record_product_view(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.toggle_product_like(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.record_product_view(uuid, uuid) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.toggle_product_like(uuid, uuid) TO anon, authenticated, service_role;ALTER TABLE public.product_engagement ADD COLUMN viewed boolean NOT NULL DEFAULT false;
+
+CREATE OR REPLACE FUNCTION public.record_product_view(_product_id uuid, _visitor_id uuid)
+RETURNS TABLE(view_count integer, like_count integer, liked boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE _previous boolean;
+BEGIN
+  PERFORM 1 FROM public.products p WHERE p.id = _product_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN; END IF;
+  SELECT e.viewed INTO _previous FROM public.product_engagement e WHERE e.product_id = _product_id AND e.visitor_id = _visitor_id;
+  IF _previous IS NULL THEN
+    INSERT INTO public.product_engagement (product_id, visitor_id, viewed) VALUES (_product_id, _visitor_id, true);
+    UPDATE public.products p SET view_count = p.view_count + 1 WHERE p.id = _product_id;
+  ELSIF NOT _previous THEN
+    UPDATE public.product_engagement e SET viewed = true WHERE e.product_id = _product_id AND e.visitor_id = _visitor_id;
+    UPDATE public.products p SET view_count = p.view_count + 1 WHERE p.id = _product_id;
+  END IF;
+  RETURN QUERY SELECT p.view_count, p.like_count, e.liked FROM public.products p
+    JOIN public.product_engagement e ON e.product_id = p.id AND e.visitor_id = _visitor_id
+    WHERE p.id = _product_id;
+END;
+$$;
+
+-- ===== Admin CMS + payments (migration 0003) =====
+
+-- Admin CMS, payments, site content, offer popups
+-- Run in Supabase SQL Editor if not applying via drizzle.
+
+-- Admin allow-list (Supabase Auth user IDs)
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.admin_users TO authenticated;
+GRANT ALL ON public.admin_users TO service_role;
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can read own row" ON public.admin_users
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+-- Product primary image URL (uploaded); image_key remains bundled fallback
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS image_url text;
+
+-- Order payment fields
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'unpaid'
+    CHECK (payment_status IN ('unpaid','pending','paid','failed')),
+  ADD COLUMN IF NOT EXISTS payment_kind text NOT NULL DEFAULT 'none'
+    CHECK (payment_kind IN ('advance','full','none')),
+  ADD COLUMN IF NOT EXISTS amount_due numeric(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS amount_paid numeric(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS snippe_reference text,
+  ADD COLUMN IF NOT EXISTS payment_phone text;
+
+-- Payments audit trail
+CREATE TABLE IF NOT EXISTS public.payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  payment_kind text NOT NULL CHECK (payment_kind IN ('advance','full')),
+  amount numeric(12,2) NOT NULL CHECK (amount >= 0),
+  currency text NOT NULL DEFAULT 'TZS',
+  phone text,
+  provider text,
+  snippe_reference text,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','completed','failed','expired')),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public.payments TO service_role;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS payments_order_idx ON public.payments(order_id);
+CREATE INDEX IF NOT EXISTS payments_snippe_ref_idx ON public.payments(snippe_reference);
+
+-- Site-wide settings (single row)
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  id int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  phone_display text,
+  phone_dial text,
+  whatsapp_number text,
+  email text,
+  location text,
+  tagline text,
+  instagram_url text,
+  facebook_url text,
+  tiktok_url text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.site_settings TO anon, authenticated;
+GRANT ALL ON public.site_settings TO service_role;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Site settings are publicly readable" ON public.site_settings
+  FOR SELECT USING (true);
+
+INSERT INTO public.site_settings (
+  id, phone_display, phone_dial, whatsapp_number, email, location, tagline,
+  instagram_url, facebook_url, tiktok_url
+) VALUES (
+  1,
+  '+255 692 713 993',
+  '+255692713993',
+  '255692713993',
+  'gideonkibure@gmail.com',
+  'Mbeya, Tanzania',
+  'Locally made furniture from Mbeya, Tanzania',
+  'https://www.instagram.com/gkbottlebloom/',
+  'https://facebook.com',
+  'https://www.tiktok.com'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Editable bilingual page sections
+CREATE TABLE IF NOT EXISTS public.page_sections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_key text NOT NULL,
+  section_key text NOT NULL,
+  content_en text NOT NULL DEFAULT '',
+  content_sw text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (page_key, section_key)
+);
+GRANT SELECT ON public.page_sections TO anon, authenticated;
+GRANT ALL ON public.page_sections TO service_role;
+ALTER TABLE public.page_sections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Page sections are publicly readable" ON public.page_sections
+  FOR SELECT USING (true);
+
+INSERT INTO public.page_sections (page_key, section_key, content_en, content_sw) VALUES
+  ('home', 'hero_title', 'Furniture built for the way you work, rest and live', 'Samani zilizojengwa kwa ajili ya kufanya kazi, kupumzika na kuishi'),
+  ('home', 'hero_subtitle', 'Modern, durable and affordable furniture made by hand for offices, schools and homes across Tanzania.', 'Samani za kisasa, imara na nafuu zilizotengenezwa kwa mikono kwa ofisi, shule na nyumba nchini Tanzania.'),
+  ('home', 'custom_title', 'Can''t find what you''re looking for?', 'Hujapata unachotafuta?'),
+  ('home', 'custom_body', 'Tell us what you need — the size, the material, the colour — and we''ll build it for you.', 'Tuambie unachohitaji — ukubwa, nyenzo, rangi — nasi tutakutengenezea.'),
+  ('about', 'lead', 'GK Furniture is a furniture workshop in Mbeya, Tanzania, making chairs, tables, beds and lamps by hand.', 'GK Furniture ni warsha ya samani Mbeya, Tanzania, inayotengeneza viti, meza, vitanda na taa kwa mikono.'),
+  ('about', 'story', 'GK Furniture started from a simple problem: students needed furniture that was strong enough to last, small enough for a hostel room and cheap enough to actually afford.', 'GK Furniture ilianza kutokana na tatizo rahisi: wanafunzi walihitaji samani imara, ndogo kwa hosteli na nafuu.'),
+  ('about', 'mission', 'To make durable, well-made furniture that students and young households in Tanzania can genuinely afford.', 'Kutengeneza samani imara na bora ambazo wanafunzi na familia changa Tanzania wanaweza kumudu.'),
+  ('about', 'vision', 'To be the furniture workshop people in our region recommend first — for honest prices and work that lasts.', 'Kuwa warsha ya kwanza inayopendekezwa katika eneo letu — kwa bei za uaminifu na kazi inayodumu.'),
+  ('faq', 'subtitle', 'If your question isn''t here, message us on WhatsApp and we''ll answer directly.', 'Ikiwa swali lako halipo hapa, tutumie ujumbe WhatsApp nasi tutajibu moja kwa moja.'),
+  ('process', 'subtitle', 'Seven steps from your first message to the day you collect or receive your furniture.', 'Hatua saba kutoka ujumbe wako wa kwanza hadi siku unayopokea samani yako.'),
+  ('contact', 'subtitle', 'Message us, call us, or send a note through the form. We reply fastest on WhatsApp.', 'Tutumie ujumbe, tupigie, au tuma fomu. Tunajibu haraka zaidi kwenye WhatsApp.'),
+  ('gallery', 'subtitle', 'Finished pieces, rooms we''ve furnished and work in progress in the workshop.', 'Vipande vilivyomalizika, vyumba tulivyopamba na kazi inayoendelea warshani.'),
+  ('footer', 'blurb', 'A furniture workshop in Mbeya making durable, affordable chairs, tables, beds and lamps by hand.', 'Warsha ya samani Mbeya inayotengeneza viti, meza, vitanda na taa imara na nafuu kwa mikono.')
+ON CONFLICT (page_key, section_key) DO NOTHING;
+
+-- Offer / urgency popups above the nav
+CREATE TABLE IF NOT EXISTS public.offer_popups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_en text NOT NULL,
+  message_sw text,
+  delay_seconds int NOT NULL DEFAULT 3 CHECK (delay_seconds >= 0),
+  duration_seconds int NOT NULL DEFAULT 12 CHECK (duration_seconds >= 1),
+  is_active boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.offer_popups TO anon, authenticated;
+GRANT ALL ON public.offer_popups TO service_role;
+ALTER TABLE public.offer_popups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Active offer popups are publicly readable" ON public.offer_popups
+  FOR SELECT USING (is_active = true);
+
+-- Public product images bucket (create if missing via storage API; SQL for policies)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('product-images', 'product-images', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('custom-order-references', 'custom-order-references', false)
+ON CONFLICT (id) DO NOTHING;
