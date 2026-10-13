@@ -11,6 +11,7 @@ import workshop1 from "@/assets/workshop-1.jpg";
 import workshop2 from "@/assets/workshop-2.jpg";
 import lifestyleRoom from "@/assets/lifestyle-room.jpg";
 import customSketch from "@/assets/custom-sketch.jpg";
+import heroVideo from "@/data/videos/gk-furniture-hero.mp4";
 
 export const IMAGES = {
   hero: heroStudy,
@@ -26,8 +27,8 @@ export const IMAGES = {
 
 export type ImageKey = keyof typeof IMAGES;
 
-/** Hero background video. Drop a file at this path to enable it. */
-export const HERO_VIDEO_SRC = "/src/data/videos/gk-furniture-hero.mp4";
+/** Bundled so the production build includes the file. A raw /src path only works in dev. */
+export const HERO_VIDEO_SRC = heroVideo;
 
 /** Resolve a database `image_key` to a bundled image, with a safe fallback. */
 export function imageFor(key: string | null | undefined): string {

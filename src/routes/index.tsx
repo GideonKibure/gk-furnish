@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowRight, BadgeDollarSign, GraduationCap, Hammer, Ruler } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { HERO_VIDEO_SRC, IMAGES, GALLERY, imageFor } from "@/data/images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery } from "@/lib/catalog";
@@ -52,20 +53,29 @@ function Home() {
     { k: "custom", I: Ruler },
     { k: "student", I: GraduationCap },
   ] as const;
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.play().catch(() => undefined);
+  }, []);
 
   return (
     <>
       <section className="home-hero relative isolate flex min-h-svh items-end overflow-hidden bg-navy">
         <video
+          ref={heroVideoRef}
           className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover home-hero-video"
+          src={HERO_VIDEO_SRC}
           autoPlay
           muted
           loop
           playsInline
+          preload="auto"
           poster={IMAGES.hero}
-        >
-          <source src={HERO_VIDEO_SRC} type="video/mp4" />
-        </video>
+        />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-navy via-navy/55 to-navy/15" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklab,var(--gold)_18%,transparent),transparent_55%)]" />
 
