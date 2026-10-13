@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery } from "@/lib/catalog";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows } from "@/lib/order-options";
-import { ProductGrid } from "@/components/site/ProductCard";
 import { PageHeader } from "@/components/site/PageHeader";
+import { PriceFilter } from "@/components/site/PriceFilter";
+import { ProductGrid } from "@/components/site/ProductCard";
 
 export const Route = createFileRoute("/products/")({
   head: () => ({ meta: [
@@ -41,7 +42,6 @@ function Products() {
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
     return r;
   }, [products, q, cat, sort, max, avail]);
-  const pricePct = maxAll > 0 ? Math.min(100, Math.max(0, (max / maxAll) * 100)) : 0;
 
   return (
     <>
@@ -58,26 +58,14 @@ function Products() {
             <option value="high">{t.products.sortPriceHigh}</option><option value="name">{t.products.sortName}</option>
           </select>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={avail} onChange={(e) => setAvail(e.target.checked)} className="h-5 w-5 accent-[var(--gold)]" />{t.products.availableOnly}</label>
-          <div className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold-soft via-background to-sand p-4 shadow-[var(--shadow-card)] sm:col-span-2 lg:col-span-5">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t.products.maxPrice}</p>
-                <p className="mt-1 font-sans text-2xl font-bold tabular-nums text-navy">TSh {max.toLocaleString("en-US")}</p>
-              </div>
-              <p className="text-xs tabular-nums text-muted-foreground">TSh 0 – {maxAll.toLocaleString("en-US")}</p>
-            </div>
-            <input
-              type="range"
-              aria-label={t.products.maxPrice}
-              min={0}
-              max={maxAll}
-              step={1000}
-              value={max}
-              onChange={(e) => setMax(Number(e.target.value))}
-              className="mt-4 h-2 w-full cursor-pointer appearance-none rounded-full accent-[var(--navy)]"
-              style={{ background: `linear-gradient(to right, var(--navy) ${pricePct}%, color-mix(in oklab, var(--navy) 12%, white) ${pricePct}%)` }}
-            />
-          </div>
+          <PriceFilter
+            label={t.products.maxPrice}
+            value={max}
+            max={maxAll}
+            count={list.length}
+            resultsLabel={t.products.results}
+            onChange={setMax}
+          />
         </div>
         <p className="mb-4 text-sm text-muted-foreground">{list.length} {t.products.results}</p>
         <ProductGrid products={list} />
