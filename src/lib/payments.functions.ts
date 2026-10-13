@@ -2,7 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { composeOrderNotes } from "@/lib/order-options";
 
-const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
+const phone = z
+  .string()
+  .trim()
+  .min(7)
+  .max(20)
+  .regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
 const CheckoutInput = z.object({
@@ -87,7 +92,8 @@ export const submitOrderWithPayment = createServerFn({ method: "POST" })
       paymentKind: data.payment_kind,
       paymentStatus: "unpaid" as const,
       snippeReady: false as const,
-      message: "Order saved. We will confirm payment with you on WhatsApp or by phone. Once placed, your order will be completed within 48 hours.",
+      message:
+        "Order saved. We will confirm payment with you on WhatsApp or by phone. Once placed, your order will be completed within 48 hours.",
       customerName: data.customer_name,
       phone: data.phone,
       email: data.email || "",

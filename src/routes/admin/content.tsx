@@ -7,7 +7,9 @@ import { AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin
 import { listAdminPageSections, upsertAdminPageSection } from "@/lib/content.functions";
 
 export const Route = createFileRoute("/admin/content")({
-  head: () => ({ meta: [{ title: "Page content — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Page content — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: AdminContentPage,
 });
 
@@ -75,25 +77,42 @@ function AdminContentPage() {
               <h2 className="font-display text-xl text-navy">
                 {editing.page_key} / {editing.section_key}
               </h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Update both languages so the language switcher stays accurate.</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Update both languages so the language switcher stays accurate.
+              </p>
             </div>
           </div>
           <form onSubmit={onSave} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="field-label">English</label>
-                <textarea name="content_en" rows={5} className="field-input" defaultValue={editing.content_en} required />
+                <textarea
+                  name="content_en"
+                  rows={5}
+                  className="field-input"
+                  defaultValue={editing.content_en}
+                  required
+                />
               </div>
               <div>
                 <label className="field-label">Kiswahili</label>
-                <textarea name="content_sw" rows={5} className="field-input" defaultValue={editing.content_sw} />
+                <textarea
+                  name="content_sw"
+                  rows={5}
+                  className="field-input"
+                  defaultValue={editing.content_sw}
+                />
               </div>
             </div>
             <div className="flex gap-2">
               <button type="submit" className="btn-base btn-gold" disabled={busy}>
                 {busy ? "Saving…" : "Save section"}
               </button>
-              <button type="button" className="btn-base btn-outline-navy" onClick={() => setEditing(null)}>
+              <button
+                type="button"
+                className="btn-base btn-outline-navy"
+                onClick={() => setEditing(null)}
+              >
                 Cancel
               </button>
             </div>
@@ -104,7 +123,9 @@ function AdminContentPage() {
       <div className="space-y-6">
         {Object.entries(grouped).map(([page, items]) => (
           <section key={page}>
-            <h2 className="mb-3 font-display text-xl capitalize tracking-tight text-navy">{page}</h2>
+            <h2 className="mb-3 font-display text-xl capitalize tracking-tight text-navy">
+              {page}
+            </h2>
             <AdminCard hover={false} className="!p-0 overflow-hidden">
               <ul className="divide-y divide-border/70">
                 {items.map((s) => (
@@ -118,7 +139,9 @@ function AdminContentPage() {
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm text-navy">{s.content_en}</p>
                       {s.content_sw && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{s.content_sw}</p>
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          {s.content_sw}
+                        </p>
                       )}
                     </div>
                     <button

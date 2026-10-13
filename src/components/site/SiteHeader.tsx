@@ -113,7 +113,10 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
         )}
       >
         <div className="container-page flex h-16 items-center justify-between gap-4">
-          <Link to="/" className="group shrink-0 transition-transform duration-300 hover:scale-[1.02]">
+          <Link
+            to="/"
+            className="group shrink-0 transition-transform duration-300 hover:scale-[1.02]"
+          >
             <BrandLogo
               light={overlay}
               markClassName="h-10 drop-shadow-sm"
@@ -191,9 +194,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
                       to={l.to}
                       className={cn(
                         "desktop-dock-link relative z-10 rounded-full px-3 py-2 font-sans text-[0.8125rem] font-medium tracking-wide outline-none transition-colors duration-300 xl:px-3.5",
-                        active
-                          ? "text-navy"
-                          : "text-white/70 hover:text-white",
+                        active ? "text-navy" : "text-white/70 hover:text-white",
                         active && "desktop-dock-link-active font-semibold",
                       )}
                     >

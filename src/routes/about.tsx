@@ -11,7 +11,10 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About — GK furnish" },
-      { name: "description", content: "A furniture workshop in Mbeya making durable, affordable furniture by hand." },
+      {
+        name: "description",
+        content: "A furniture workshop in Mbeya making durable, affordable furniture by hand.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "About — GK furnish" },
@@ -40,7 +43,9 @@ function About() {
         <Reveal variant="left">
           <h2 className="display-lg text-navy">{a.storyTitle}</h2>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">{story}</p>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">{a.story2}</p>
+          <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">
+            {a.story2}
+          </p>
         </Reveal>
         <Reveal variant="right" delayMs={80}>
           <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)]">

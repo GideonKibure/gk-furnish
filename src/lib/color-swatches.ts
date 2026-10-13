@@ -34,4 +34,11 @@ export function colorSwatch(name: string) {
   return hashColor(name);
 }
 
-export const STANDARD_COLORS = ["Natural wood", "Dark walnut", "Navy", "Cream", "Black", "White"] as const;
+export const STANDARD_COLORS = [
+  "Natural wood",
+  "Dark walnut",
+  "Navy",
+  "Cream",
+  "Black",
+  "White",
+] as const;

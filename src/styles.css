@@ -50,9 +50,11 @@
   --color-sand: var(--sand);
   --color-ink: var(--ink);
 
-  --shadow-card: 0 1px 2px color-mix(in oklab, var(--navy) 6%, transparent),
+  --shadow-card:
+    0 1px 2px color-mix(in oklab, var(--navy) 6%, transparent),
     0 12px 32px -16px color-mix(in oklab, var(--navy) 22%, transparent);
-  --shadow-lift: 0 2px 6px color-mix(in oklab, var(--navy) 8%, transparent),
+  --shadow-lift:
+    0 2px 6px color-mix(in oklab, var(--navy) 8%, transparent),
     0 28px 56px -24px color-mix(in oklab, var(--navy) 32%, transparent);
   --shadow-gold: 0 12px 28px -12px color-mix(in oklab, var(--gold) 55%, transparent);
 }
@@ -467,13 +469,12 @@
   z-index: 1;
   border-radius: 999px;
   /* Opaque so the spin layer only shows in the thin border ring */
-  background:
-    linear-gradient(
-      155deg,
-      var(--navy-soft),
-      var(--navy) 52%,
-      color-mix(in oklab, var(--navy) 88%, black)
-    );
+  background: linear-gradient(
+    155deg,
+    var(--navy-soft),
+    var(--navy) 52%,
+    color-mix(in oklab, var(--navy) 88%, black)
+  );
   box-shadow:
     inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
     inset 0 -1px 0 color-mix(in oklab, black 28%, transparent);
@@ -483,13 +484,12 @@
   left: 0;
   will-change: transform, width, height, top;
   border-radius: 999px;
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--gold) 95%, white),
-      var(--gold) 42%,
-      color-mix(in oklab, var(--gold) 80%, var(--navy))
-    );
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--gold) 95%, white),
+    var(--gold) 42%,
+    color-mix(in oklab, var(--gold) 80%, var(--navy))
+  );
   border: 1px solid color-mix(in oklab, white 40%, var(--gold));
   box-shadow:
     0 8px 18px -10px color-mix(in oklab, var(--gold) 70%, transparent),
@@ -630,26 +630,24 @@
   position: relative;
   z-index: 1;
   border-radius: 999px;
-  background:
-    linear-gradient(
-      155deg,
-      var(--navy-soft),
-      var(--navy) 52%,
-      color-mix(in oklab, var(--navy) 88%, black)
-    );
+  background: linear-gradient(
+    155deg,
+    var(--navy-soft),
+    var(--navy) 52%,
+    color-mix(in oklab, var(--navy) 88%, black)
+  );
   box-shadow:
     inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
     inset 0 -1px 0 color-mix(in oklab, black 28%, transparent);
 }
 
 .desktop-dock-mark {
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--gold) 95%, white),
-      var(--gold) 45%,
-      color-mix(in oklab, var(--gold) 78%, var(--navy))
-    );
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--gold) 95%, white),
+    var(--gold) 45%,
+    color-mix(in oklab, var(--gold) 78%, var(--navy))
+  );
   border: 1px solid color-mix(in oklab, white 45%, var(--gold));
   box-shadow:
     0 0 16px -4px color-mix(in oklab, var(--gold) 55%, transparent),
@@ -673,13 +671,12 @@
 .desktop-dock-indicator {
   left: 0;
   will-change: transform, width;
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--gold) 95%, white),
-      var(--gold) 42%,
-      color-mix(in oklab, var(--gold) 80%, var(--navy))
-    );
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--gold) 95%, white),
+    var(--gold) 42%,
+    color-mix(in oklab, var(--gold) 80%, var(--navy))
+  );
   border: 1px solid color-mix(in oklab, white 40%, var(--gold));
   box-shadow:
     0 8px 18px -10px color-mix(in oklab, var(--gold) 65%, transparent),
@@ -712,13 +709,12 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
   color: var(--navy);
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--gold) 95%, white),
-      var(--gold) 45%,
-      color-mix(in oklab, var(--gold) 80%, var(--navy))
-    );
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--gold) 95%, white),
+    var(--gold) 45%,
+    color-mix(in oklab, var(--gold) 80%, var(--navy))
+  );
   border: 1px solid color-mix(in oklab, white 40%, var(--gold));
   box-shadow:
     0 8px 18px -10px color-mix(in oklab, var(--gold) 60%, transparent),

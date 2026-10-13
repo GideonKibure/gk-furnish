@@ -69,13 +69,21 @@ function Success() {
   return (
     <div className="container-page section-y max-w-xl text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CheckCircle2 className="mx-auto h-16 w-16 text-gold" />
-      <h1 className="display-lg mt-4 text-navy">{s.custom ? t.success.customTitle : t.success.title}</h1>
-      <p className="mt-3 text-muted-foreground">{s.custom ? t.success.customBody : t.success.body}</p>
+      <h1 className="display-lg mt-4 text-navy">
+        {s.custom ? t.success.customTitle : t.success.title}
+      </h1>
+      <p className="mt-3 text-muted-foreground">
+        {s.custom ? t.success.customBody : t.success.body}
+      </p>
       <div className="card-surface mt-8 p-6 text-left">
         <p className="text-sm text-muted-foreground">{t.success.reference}</p>
         <p className="font-display text-3xl font-bold text-navy">{s.ref}</p>
         <p className="mt-1 text-xs text-muted-foreground">{t.success.keepRef}</p>
-        {s.name && <p className="mt-4 text-sm">Customer: <strong>{s.name}</strong></p>}
+        {s.name && (
+          <p className="mt-4 text-sm">
+            Customer: <strong>{s.name}</strong>
+          </p>
+        )}
         {s.item && (
           <p className="mt-2 text-sm">
             {t.success.product}: <strong>{s.item}</strong> × {s.qty}
@@ -89,7 +97,13 @@ function Success() {
         {s.kind && (
           <p className="mt-2 text-sm">
             {t.success.paymentKind}:{" "}
-            <strong>{s.kind === "advance" ? t.order.payAdvance : s.kind === "full" ? t.order.payFull : s.kind}</strong>
+            <strong>
+              {s.kind === "advance"
+                ? t.order.payAdvance
+                : s.kind === "full"
+                  ? t.order.payFull
+                  : s.kind}
+            </strong>
           </p>
         )}
         {s.material && (
@@ -108,10 +122,16 @@ function Success() {
             {t.success.paymentStatus}: <strong>{s.pay}</strong>
           </p>
         )}
-        {s.msg && <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-muted-foreground">{s.msg}</p>}
+        {s.msg && (
+          <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-muted-foreground">{s.msg}</p>
+        )}
       </div>
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={onDownloadInvoice} className="btn-base btn-navy sm:col-span-2">
+        <button
+          type="button"
+          onClick={onDownloadInvoice}
+          className="btn-base btn-navy sm:col-span-2"
+        >
           <Download className="h-4 w-4" />
           {t.success.downloadInvoice}
         </button>

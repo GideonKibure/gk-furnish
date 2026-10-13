@@ -2,7 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { composeOrderNotes } from "@/lib/order-options";
 
-const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
+const phone = z
+  .string()
+  .trim()
+  .min(7)
+  .max(20)
+  .regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
 const OrderInput = z.object({
@@ -124,5 +129,9 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       .select("request_number")
       .single();
     if (error || !row) throw new Error("Could not save request");
-    return { requestNumber: row.request_number, type: data.furniture_type, quantity: data.quantity };
+    return {
+      requestNumber: row.request_number,
+      type: data.furniture_type,
+      quantity: data.quantity,
+    };
   });

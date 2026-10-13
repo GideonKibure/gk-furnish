@@ -6,7 +6,11 @@ import { activeOfferQuery } from "@/lib/site-content";
 
 const DISMISS_KEY = "gk-offer-dismissed";
 
-export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visible: boolean) => void }) {
+export function OfferBanner({
+  onVisibilityChange,
+}: {
+  onVisibilityChange?: (visible: boolean) => void;
+}) {
   const { lang, t } = useLang();
   const { data: offer } = useQuery(activeOfferQuery);
   const [visible, setVisible] = useState(false);
@@ -27,20 +31,26 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
       /* ignore */
     }
 
-    const showTimer = window.setTimeout(() => {
-      setVisible(true);
-      onVisibilityChange?.(true);
-    }, Math.max(0, offer.delay_seconds) * 1000);
+    const showTimer = window.setTimeout(
+      () => {
+        setVisible(true);
+        onVisibilityChange?.(true);
+      },
+      Math.max(0, offer.delay_seconds) * 1000,
+    );
 
     return () => window.clearTimeout(showTimer);
   }, [offer, onVisibilityChange]);
 
   useEffect(() => {
     if (!visible || !offer) return;
-    const hideTimer = window.setTimeout(() => {
-      setVisible(false);
-      onVisibilityChange?.(false);
-    }, Math.max(1, offer.duration_seconds) * 1000);
+    const hideTimer = window.setTimeout(
+      () => {
+        setVisible(false);
+        onVisibilityChange?.(false);
+      },
+      Math.max(1, offer.duration_seconds) * 1000,
+    );
     return () => window.clearTimeout(hideTimer);
   }, [visible, offer, onVisibilityChange]);
 

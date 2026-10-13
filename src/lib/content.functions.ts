@@ -6,7 +6,11 @@ export const getAdminSiteSettings = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const { data, error } = await supabaseAdmin
+      .from("site_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
     if (error) throw new Error(error.message);
     return data;
   });
@@ -130,7 +134,10 @@ export const upsertAdminOfferPopup = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.is_active) {
-      await supabaseAdmin.from("offer_popups").update({ is_active: false }).neq("id", data.id ?? "00000000-0000-0000-0000-000000000000");
+      await supabaseAdmin
+        .from("offer_popups")
+        .update({ is_active: false })
+        .neq("id", data.id ?? "00000000-0000-0000-0000-000000000000");
     }
     const payload = {
       message_en: data.message_en,
@@ -150,7 +157,11 @@ export const upsertAdminOfferPopup = createServerFn({ method: "POST" })
       if (error || !row) throw new Error(error?.message ?? "Update failed");
       return row;
     }
-    const { data: row, error } = await supabaseAdmin.from("offer_popups").insert(payload).select("*").single();
+    const { data: row, error } = await supabaseAdmin
+      .from("offer_popups")
+      .insert(payload)
+      .select("*")
+      .single();
     if (error || !row) throw new Error(error?.message ?? "Create failed");
     return row;
   });

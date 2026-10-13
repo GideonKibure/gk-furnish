@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { useLang } from "@/i18n/LanguageProvider";
-import { sectionText, settingsToSite, siteSettingsQuery, pageSectionsQuery } from "@/lib/site-content";
+import {
+  sectionText,
+  settingsToSite,
+  siteSettingsQuery,
+  pageSectionsQuery,
+} from "@/lib/site-content";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { SITE } from "@/config/site";
 
@@ -22,7 +27,9 @@ export function SiteFooter() {
   const blurb = sectionText(sections, "footer", "blurb", lang, t.footer.blurb);
   const link = "text-sm text-primary-foreground/70 transition-colors hover:text-gold";
 
-  const dial = site.phoneDial.startsWith("+") ? site.phoneDial : `+${site.phoneDial.replace(/\D/g, "")}`;
+  const dial = site.phoneDial.startsWith("+")
+    ? site.phoneDial
+    : `+${site.phoneDial.replace(/\D/g, "")}`;
   const wa = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(t.whatsapp.general)}`;
 
   return (
@@ -34,7 +41,13 @@ export function SiteFooter() {
               <span className="footer-logo-glow-spin" />
               <span className="footer-logo-glow-pulse" />
               <span className="footer-logo-glow-inner">
-                <img src="/brand/gk-furnish-logo.svg" alt="" width={40} height={40} decoding="async" />
+                <img
+                  src="/brand/gk-furnish-logo.svg"
+                  alt=""
+                  width={40}
+                  height={40}
+                  decoding="async"
+                />
               </span>
             </span>
             <span className="font-display text-lg font-semibold tracking-tight text-white md:text-xl">
@@ -62,56 +75,108 @@ export function SiteFooter() {
           </div>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.explore}</h3>
+          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">
+            {t.footer.explore}
+          </h3>
           <ul className="mt-4 space-y-2.5">
-            <li><Link to="/about" className={link}>{t.nav.about}</Link></li>
-            <li><Link to="/process" className={link}>{t.nav.process}</Link></li>
-            <li><Link to="/gallery" className={link}>{t.nav.gallery}</Link></li>
-            <li><Link to="/faq" className={link}>{t.nav.faq}</Link></li>
-            <li><Link to="/custom-order" className={link}>{t.nav.custom}</Link></li>
+            <li>
+              <Link to="/about" className={link}>
+                {t.nav.about}
+              </Link>
+            </li>
+            <li>
+              <Link to="/process" className={link}>
+                {t.nav.process}
+              </Link>
+            </li>
+            <li>
+              <Link to="/gallery" className={link}>
+                {t.nav.gallery}
+              </Link>
+            </li>
+            <li>
+              <Link to="/faq" className={link}>
+                {t.nav.faq}
+              </Link>
+            </li>
+            <li>
+              <Link to="/custom-order" className={link}>
+                {t.nav.custom}
+              </Link>
+            </li>
           </ul>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.shop}</h3>
+          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">
+            {t.footer.shop}
+          </h3>
           <ul className="mt-4 space-y-2.5">
             {(["chairs", "tables", "beds", "table-lamps"] as const).map((s) => (
               <li key={s}>
                 <Link to="/categories/$slug" params={{ slug: s }} className={link}>
-                  {s === "chairs" ? t.gallery.chairs : s === "tables" ? t.gallery.tables : s === "beds" ? t.gallery.beds : t.gallery.lamps}
+                  {s === "chairs"
+                    ? t.gallery.chairs
+                    : s === "tables"
+                      ? t.gallery.tables
+                      : s === "beds"
+                        ? t.gallery.beds
+                        : t.gallery.lamps}
                 </Link>
               </li>
             ))}
-            <li><Link to="/products" className={link}>{t.nav.products}</Link></li>
+            <li>
+              <Link to="/products" className={link}>
+                {t.nav.products}
+              </Link>
+            </li>
           </ul>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.contact}</h3>
+          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">
+            {t.footer.contact}
+          </h3>
           <ul className="mt-4 space-y-3 text-sm">
             <li>
-              <a href={wa} target="_blank" rel="noreferrer" className={`${link} inline-flex items-center gap-2`}>
-                <MessageCircle className="h-4 w-4" />WhatsApp {site.phoneDisplay}
+              <a
+                href={wa}
+                target="_blank"
+                rel="noreferrer"
+                className={`${link} inline-flex items-center gap-2`}
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp {site.phoneDisplay}
               </a>
             </li>
             <li>
               <a href={`tel:${dial}`} className={`${link} inline-flex items-center gap-2`}>
-                <Phone className="h-4 w-4" />{site.phoneDisplay}
+                <Phone className="h-4 w-4" />
+                {site.phoneDisplay}
               </a>
             </li>
             <li>
-              <a href={`mailto:${site.email}`} className={`${link} inline-flex items-center gap-2 break-all`}>
-                <Mail className="h-4 w-4 shrink-0" />{site.email}
+              <a
+                href={`mailto:${site.email}`}
+                className={`${link} inline-flex items-center gap-2 break-all`}
+              >
+                <Mail className="h-4 w-4 shrink-0" />
+                {site.email}
               </a>
             </li>
             <li className="inline-flex items-center gap-2 text-primary-foreground/70">
-              <MapPin className="h-4 w-4" />{site.location}
+              <MapPin className="h-4 w-4" />
+              {site.location}
             </li>
           </ul>
-          <div className="mt-5"><LanguageSwitcher dark /></div>
+          <div className="mt-5">
+            <LanguageSwitcher dark />
+          </div>
         </div>
       </div>
       <div className="border-t border-primary-foreground/10">
         <div className="container-page flex flex-col gap-2 py-5 text-xs text-primary-foreground/50 sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} {SITE.name}. {t.footer.rights}</span>
+          <span>
+            © {new Date().getFullYear()} {SITE.name}. {t.footer.rights}
+          </span>
           <span>{t.footer.demoNote}</span>
         </div>
       </div>

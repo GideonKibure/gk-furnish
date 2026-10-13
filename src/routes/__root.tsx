@@ -1,7 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter, useRouterState, HeadContent, Scripts, type ErrorComponentProps } from "@tanstack/react-router";
+import {
+  Outlet,
+  Link,
+  createRootRouteWithContext,
+  useRouter,
+  useRouterState,
+  HeadContent,
+  Scripts,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import appCss from "../styles.css?url";
 import { reportRuntimeError } from "../lib/error-reporting";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
@@ -14,18 +24,30 @@ function NotFoundComponent() {
     <div className="container-page py-24 text-center">
       <h1 className="display-xl text-navy">404</h1>
       <p className="mt-4 text-muted-foreground">This page doesn't exist or has moved.</p>
-      <Link to="/" className="btn-base btn-gold mt-8">Back to home</Link>
+      <Link to="/" className="btn-base btn-gold mt-8">
+        Back to home
+      </Link>
     </div>
   );
 }
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
-  useEffect(() => { reportRuntimeError(error, { boundary: "root_error_component" }); }, [error]);
+  useEffect(() => {
+    reportRuntimeError(error, { boundary: "root_error_component" });
+  }, [error]);
   return (
     <div className="container-page py-24 text-center">
       <h1 className="text-2xl text-navy">This page didn't load</h1>
-      <button onClick={() => { router.invalidate(); reset(); }} className="btn-base btn-gold mt-6">Try again</button>
+      <button
+        onClick={() => {
+          router.invalidate();
+          reset();
+        }}
+        className="btn-base btn-gold mt-6"
+      >
+        Try again
+      </button>
     </div>
   );
 }
@@ -36,7 +58,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "GK furnish — Locally made furniture, Mbeya" },
-      { name: "description", content: "Durable, affordable furniture handmade in Mbeya, Tanzania." },
+      {
+        name: "description",
+        content: "Durable, affordable furniture handmade in Mbeya, Tanzania.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -60,8 +85,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }
@@ -81,12 +111,15 @@ function RootComponent() {
           <>
             <OfferBanner onVisibilityChange={setOfferVisible} />
             <SiteHeader offerVisible={offerVisible} />
-            <main><Outlet /></main>
+            <main>
+              <Outlet />
+            </main>
             <SiteFooter />
             <WhatsAppFab />
           </>
         )}
         <Toaster position="top-center" />
+        <Analytics />
       </LanguageProvider>
     </QueryClientProvider>
   );

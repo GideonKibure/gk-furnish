@@ -4,10 +4,16 @@ import { ImageIcon, Phone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
-import { deleteAdminCustomOrder, listAdminCustomOrders, updateCustomOrderStatus } from "@/lib/admin.functions";
+import {
+  deleteAdminCustomOrder,
+  listAdminCustomOrders,
+  updateCustomOrderStatus,
+} from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin/custom-orders")({
-  head: () => ({ meta: [{ title: "Custom orders — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Custom orders — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: AdminCustomOrdersPage,
 });
 
@@ -77,7 +83,9 @@ function AdminCustomOrdersPage() {
                   <p className="font-display text-lg text-navy">{r.request_number}</p>
                   <AdminBadge tone={statusTone(r.status)}>{r.status.replace(/_/g, " ")}</AdminBadge>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {new Date(r.created_at).toLocaleString()}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -106,7 +114,9 @@ function AdminCustomOrdersPage() {
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_220px]">
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Customer</p>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Customer
+                  </p>
                   <p className="mt-1 font-semibold text-navy">{r.full_name}</p>
                   <a
                     href={`tel:${r.phone.replace(/[^\d+]/g, "")}`}
@@ -116,22 +126,32 @@ function AdminCustomOrdersPage() {
                   </a>
                 </div>
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Request</p>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Request
+                  </p>
                   <p className="mt-1 text-navy">
                     {r.furniture_type} ×{r.quantity}
                   </p>
-                  <p className="mt-1 leading-relaxed text-muted-foreground">{r.design_description}</p>
+                  <p className="mt-1 leading-relaxed text-muted-foreground">
+                    {r.design_description}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Delivery
+                  </p>
                   <p className="mt-1">{r.delivery_location}</p>
                   {(r.preferred_dimensions || r.preferred_material || r.preferred_color) && (
                     <p className="mt-1 text-muted-foreground">
-                      {[r.preferred_dimensions, r.preferred_material, r.preferred_color].filter(Boolean).join(" · ")}
+                      {[r.preferred_dimensions, r.preferred_material, r.preferred_color]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   )}
                   {r.additional_requirements && (
-                    <p className="mt-2 whitespace-pre-line text-sm text-navy">{r.additional_requirements}</p>
+                    <p className="mt-2 whitespace-pre-line text-sm text-navy">
+                      {r.additional_requirements}
+                    </p>
                   )}
                 </div>
               </div>
