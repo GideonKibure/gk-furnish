@@ -7,7 +7,7 @@ import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices"
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Product } from "@/lib/catalog";
-import { optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
+import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { submitOrderWithPayment } from "@/lib/payments.functions";
 
 function todayIso() {
@@ -173,7 +173,7 @@ export function OrderDialog({
                 name="preferred_size"
                 value={size}
                 onChange={setSize}
-                options={dimensions.map((value) => ({ value, label: value }))}
+                options={dimensions.map((value) => ({ value, label: optionLabel(value, product.dimensions, lang) }))}
               />
               {err("preferred_size")}
             </div>
@@ -185,7 +185,7 @@ export function OrderDialog({
                 name="preferred_material"
                 value={material}
                 onChange={setMaterial}
-                options={materials.map((value) => ({ value, label: value }))}
+                options={materials.map((value) => ({ value, label: optionLabel(value, product.material, lang) }))}
               />
               {err("preferred_material")}
             </div>

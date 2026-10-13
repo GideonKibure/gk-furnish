@@ -3,6 +3,12 @@ export const BED_SIZES = ["4ft x 6ft", "5ft x 6ft", "6ft x 6ft"] as const;
 export const MATERIAL_OPTIONS = ["Wood", "Fabric", "MDF", "Metal"] as const;
 
 const OPTION_SEP = " | ";
+const LOCALE_SEP = "\u001e";
+
+export type LocalizedOption = {
+  en: string;
+  sw: string;
+};
 
 export type CatalogColor = {
   stored: string;
@@ -37,7 +43,7 @@ export function serializeCatalogColor(hex: string, name: string) {
   return label ? `${label}|${clean}` : clean;
 }
 
-export function parseOptionList(stored?: string | null) {
+function splitOptionItems(stored?: string | null) {
   if (!stored?.trim()) return [];
   return stored
     .split(/\s*\|\s*|\r?\n+/)
@@ -45,11 +51,40 @@ export function parseOptionList(stored?: string | null) {
     .filter(Boolean);
 }
 
-export function joinOptionList(items: string[]) {
+/** English is the stored choice. Swahili is an optional translation after a hidden separator. */
+export function parseLocalizedOptions(stored?: string | null): LocalizedOption[] {
+  return splitOptionItems(stored)
+    .map((item) => {
+      const cut = item.indexOf(LOCALE_SEP);
+      if (cut < 0) return { en: item, sw: "" };
+      return { en: item.slice(0, cut).trim(), sw: item.slice(cut + 1).trim() };
+    })
+    .filter((item) => item.en);
+}
+
+export function parseOptionList(stored?: string | null) {
+  return parseLocalizedOptions(stored).map((item) => item.en);
+}
+
+export function joinLocalizedOptions(items: LocalizedOption[]) {
   return items
-    .map((item) => item.trim())
+    .map((item) => {
+      const en = item.en.trim().replaceAll(LOCALE_SEP, "").replaceAll("|", "");
+      const sw = item.sw.trim().replaceAll(LOCALE_SEP, "").replaceAll("|", "");
+      if (!en) return "";
+      return sw ? `${en}${LOCALE_SEP}${sw}` : en;
+    })
     .filter(Boolean)
     .join(OPTION_SEP);
+}
+
+export function joinOptionList(items: string[]) {
+  return joinLocalizedOptions(items.map((item) => ({ en: item, sw: "" })));
+}
+
+export function optionLabel(en: string, stored: string | null | undefined, lang: "en" | "sw") {
+  if (lang !== "sw") return en;
+  return parseLocalizedOptions(stored).find((item) => item.en === en)?.sw || en;
 }
 
 export const OPTION_PRICE_PREFIX = "[[optprice]]";

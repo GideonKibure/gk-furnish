@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageIcon, Phone, Trash2 } from "lucide-react";
+import { Download, ImageIcon, Phone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { deleteAdminCustomOrder, listAdminCustomOrders, updateCustomOrderStatus } from "@/lib/admin.functions";
+import { downloadToDevice, photoFileName } from "@/lib/download-file";
 
 export const Route = createFileRoute("/admin/custom-orders")({
   head: () => ({ meta: [{ title: "Custom orders — Admin" }, { name: "robots", content: "noindex" }] }),
@@ -136,18 +137,34 @@ function AdminCustomOrdersPage() {
                 </div>
               </div>
               {r.signed_url ? (
-                <a
-                  href={r.signed_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group block overflow-hidden rounded-xl border border-border/80 transition-all hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
-                >
-                  <img
-                    src={r.signed_url}
-                    alt="Reference"
-                    className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </a>
+                <div className="space-y-2">
+                  <a
+                    href={r.signed_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group block overflow-hidden rounded-xl border border-border/80 transition-all hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
+                  >
+                    <img
+                      src={r.signed_url}
+                      alt="Reference"
+                      className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </a>
+                  <button
+                    type="button"
+                    className="btn-base btn-outline-navy !h-9 w-full text-xs"
+                    onClick={() => {
+                      const url = r.signed_url;
+                      if (!url) return;
+                      downloadToDevice(url, photoFileName(`${r.request_number}-reference`, url)).catch(() => {
+                        toast.error("Could not download this photo");
+                      });
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download photo
+                  </button>
+                </div>
               ) : (
                 <div className="grid h-48 place-items-center rounded-xl border border-dashed border-border bg-secondary/40 text-xs text-muted-foreground">
                   <span className="inline-flex flex-col items-center gap-2">

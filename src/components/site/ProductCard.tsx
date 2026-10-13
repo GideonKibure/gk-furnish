@@ -3,7 +3,7 @@ import { useState } from "react";
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Product } from "@/lib/catalog";
-import { optionPriceRows, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
+import { optionLabel, optionPriceRows, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 import { OrderDialog } from "./OrderDialog";
@@ -126,7 +126,7 @@ export function ProductCard({ product }: { product: Product }) {
                     name={`card-material-${product.id}`}
                     value={materials.includes(material) ? material : ""}
                     onChange={setMaterial}
-                    options={materials.map((value) => ({ value, label: value }))}
+                    options={materials.map((value) => ({ value, label: optionLabel(value, product.material, lang) }))}
                   />
                 </div>
               )}
@@ -138,7 +138,7 @@ export function ProductCard({ product }: { product: Product }) {
                     name={`card-size-${product.id}`}
                     value={dimensions.includes(dimension) ? dimension : ""}
                     onChange={setDimension}
-                    options={dimensions.map((value) => ({ value, label: value }))}
+                    options={dimensions.map((value) => ({ value, label: optionLabel(value, product.dimensions, lang) }))}
                   />
                 </div>
               )}

@@ -11,7 +11,7 @@ import { ZoomGallery } from "@/components/site/ZoomGallery";
 import { formatPrice, formatPriceSpan, waLink } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { productsQuery } from "@/lib/catalog";
-import { optionPriceRows, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
+import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { ProductVideo } from "@/components/site/ProductVideo";
 import { cn } from "@/lib/utils";
@@ -168,7 +168,7 @@ function Detail() {
                   name="material"
                   value={selectedMaterial}
                   onChange={setMaterial}
-                  options={materials.map((value) => ({ value, label: value }))}
+                  options={materials.map((value) => ({ value, label: optionLabel(value, p.material, lang) }))}
                 />
               </div>
             )}
@@ -183,7 +183,7 @@ function Detail() {
                   name="dimensions"
                   value={selectedSize}
                   onChange={setSize}
-                  options={dimensions.map((value) => ({ value, label: value }))}
+                  options={dimensions.map((value) => ({ value, label: optionLabel(value, p.dimensions, lang) }))}
                 />
               </div>
             )}

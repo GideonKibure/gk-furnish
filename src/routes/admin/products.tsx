@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { Download, ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { HexSwatch } from "@/components/site/SelectChoices";
@@ -16,21 +16,23 @@ import {
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
+import { downloadToDevice, photoFileName } from "@/lib/download-file";
 import {
   encodeOptionPrices,
-  joinOptionList,
+  joinLocalizedOptions,
   normalizeHex,
   optionPriceKey,
   optionPriceRows,
   parseCatalogColor,
-  parseOptionList,
+  parseLocalizedOptions,
   parseOptionPrices,
   publicFeatures,
   serializeCatalogColor,
   type CatalogColor,
+  type LocalizedOption,
   type OptionPrice,
 } from "@/lib/order-options";
-import { PRODUCT_ANGLE_SLOTS, productImageSrc, sortedProductImages } from "@/lib/product-image";
+import { PRODUCT_ANGLE_SLOTS, productGalleryItems, productImageSrc, productVideoSrc, sortedProductImages } from "@/lib/product-image";
 
 function padFeatures(list: string[] | null | undefined) {
   const cleaned = publicFeatures(list).map((s) => s.trim()).filter(Boolean);
@@ -107,92 +109,93 @@ function anglesFromProduct(p: ProductRow | null): AngleSlotState[] {
 function OptionNameList({
   label,
   hint,
-  placeholder,
+  placeholderEn,
+  placeholderSw,
   rows,
-  draft,
-  onDraft,
+  draftEn,
+  draftSw,
+  onDraftEn,
+  onDraftSw,
   onAdd,
   onRename,
   onRemove,
 }: {
   label: string;
   hint: string;
-  placeholder: string;
-  rows: string[];
-  draft: string;
-  onDraft: (value: string) => void;
+  placeholderEn: string;
+  placeholderSw: string;
+  rows: LocalizedOption[];
+  draftEn: string;
+  draftSw: string;
+  onDraftEn: (value: string) => void;
+  onDraftSw: (value: string) => void;
   onAdd: () => void;
-  onRename: (index: number, next: string) => boolean;
+  onRename: (index: number, next: LocalizedOption) => boolean;
   onRemove: (value: string) => void;
 }) {
-  const [editing, setEditing] = useState<number | null>(null);
-  const [text, setText] = useState("");
+  const [englishDrafts, setEnglishDrafts] = useState<Record<number, string>>({});
 
-  function startEdit(index: number) {
-    setEditing(index);
-    setText(rows[index] ?? "");
-  }
-
-  function commit() {
-    if (editing == null) return;
-    if (onRename(editing, text)) setEditing(null);
+  function addFromKeyboard(event: KeyboardEvent) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onAdd();
   }
 
   return (
     <div className="md:col-span-2">
       <label className="field-label">{label}</label>
       <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
-      <div className="flex gap-2">
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <input
           className="field-input"
-          value={draft}
-          placeholder={placeholder}
-          onChange={(e) => onDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            onAdd();
-          }}
+          value={draftEn}
+          placeholder={placeholderEn}
+          onChange={(e) => onDraftEn(e.target.value)}
+          onKeyDown={addFromKeyboard}
+        />
+        <input
+          className="field-input"
+          value={draftSw}
+          placeholder={placeholderSw}
+          onChange={(e) => onDraftSw(e.target.value)}
+          onKeyDown={addFromKeyboard}
         />
         <button type="button" className="btn-base btn-outline-navy shrink-0" onClick={onAdd}>
           Add
         </button>
       </div>
       {rows.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-2">
+        <ul className="mt-3 space-y-2">
           {rows.map((row, index) => (
-            <li key={`${row}-${index}`} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
-              {editing === index ? (
-                <input
-                  className="field-input !h-7 w-36 !px-2 !text-sm"
-                  value={text}
-                  autoFocus
-                  onChange={(e) => setText(e.target.value)}
-                  onBlur={commit}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commit();
-                    }
-                    if (e.key === "Escape") setEditing(null);
-                  }}
-                />
-              ) : (
-                <span>{row}</span>
-              )}
+            <li key={`${row.en}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <input
+                className="field-input"
+                value={englishDrafts[index] ?? row.en}
+                aria-label={`${label} English ${index + 1}`}
+                onChange={(e) => setEnglishDrafts((drafts) => ({ ...drafts, [index]: e.target.value }))}
+                onBlur={() => {
+                  const next = (englishDrafts[index] ?? row.en).trim();
+                  if (onRename(index, { en: next, sw: row.sw })) {
+                    setEnglishDrafts((drafts) => {
+                      const copy = { ...drafts };
+                      delete copy[index];
+                      return copy;
+                    });
+                  }
+                }}
+              />
+              <input
+                className="field-input"
+                value={row.sw}
+                placeholder={placeholderSw}
+                aria-label={`${label} Kiswahili ${index + 1}`}
+                onChange={(e) => onRename(index, { en: row.en, sw: e.target.value })}
+              />
               <button
                 type="button"
-                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-navy"
-                onClick={() => (editing === index ? commit() : startEdit(index))}
-                aria-label={`Edit ${row}`}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                onClick={() => onRemove(row)}
-                aria-label={`Remove ${row}`}
+                className="grid h-10 w-10 place-items-center rounded-lg border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+                onClick={() => onRemove(row.en)}
+                aria-label={`Remove ${row.en}`}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -228,10 +231,12 @@ function AdminProductsPage() {
   const [colorRows, setColorRows] = useState<CatalogColor[]>([]);
   const [draftHex, setDraftHex] = useState("#8B5A2B");
   const [draftColorName, setDraftColorName] = useState("");
-  const [materialRows, setMaterialRows] = useState<string[]>([]);
-  const [materialDraft, setMaterialDraft] = useState("");
-  const [dimensionRows, setDimensionRows] = useState<string[]>([]);
-  const [dimensionDraft, setDimensionDraft] = useState("");
+  const [materialRows, setMaterialRows] = useState<LocalizedOption[]>([]);
+  const [materialDraftEn, setMaterialDraftEn] = useState("");
+  const [materialDraftSw, setMaterialDraftSw] = useState("");
+  const [dimensionRows, setDimensionRows] = useState<LocalizedOption[]>([]);
+  const [dimensionDraftEn, setDimensionDraftEn] = useState("");
+  const [dimensionDraftSw, setDimensionDraftSw] = useState("");
   const [priceMap, setPriceMap] = useState<Record<string, string>>({});
 
   async function refresh() {
@@ -272,10 +277,12 @@ function AdminProductsPage() {
     setColorRows((p?.available_colors ?? []).map(parseCatalogColor));
     setDraftHex("#8B5A2B");
     setDraftColorName("");
-    setMaterialRows(parseOptionList(p?.material));
-    setMaterialDraft("");
-    setDimensionRows(parseOptionList(p?.dimensions));
-    setDimensionDraft("");
+    setMaterialRows(parseLocalizedOptions(p?.material));
+    setMaterialDraftEn("");
+    setMaterialDraftSw("");
+    setDimensionRows(parseLocalizedOptions(p?.dimensions));
+    setDimensionDraftEn("");
+    setDimensionDraftSw("");
     const nextPrices: Record<string, string> = {};
     for (const row of parseOptionPrices(p?.features)) {
       nextPrices[optionPriceKey(row.material, row.dimension)] = String(row.price);
@@ -283,33 +290,34 @@ function AdminProductsPage() {
     setPriceMap(nextPrices);
   }
 
-  function renameOption(kind: "material" | "dimension", index: number, next: string) {
+  function renameOption(kind: "material" | "dimension", index: number, next: LocalizedOption) {
     const rows = kind === "material" ? materialRows : dimensionRows;
     const current = rows[index];
-    const cleaned = next.trim();
-    if (!current || !cleaned) return false;
-    if (rows.some((row, i) => i !== index && row.toLowerCase() === cleaned.toLowerCase())) return false;
-    if (cleaned === current) return true;
+    const cleaned = { en: next.en.trim(), sw: next.sw.trim() };
+    if (!current || !cleaned.en) return false;
+    if (rows.some((row, i) => i !== index && row.en.toLowerCase() === cleaned.en.toLowerCase())) return false;
     const setRows = kind === "material" ? setMaterialRows : setDimensionRows;
     setRows(rows.map((row, i) => (i === index ? cleaned : row)));
-    setPriceMap((map) => {
-      const renamed: Record<string, string> = { ...map };
-      for (const key of Object.keys(map)) {
-        const [material = "", dimension = ""] = key.split("\u001f");
-        const hit = kind === "material" ? material === current : dimension === current;
-        if (!hit) continue;
-        const value = map[key] ?? "";
-        delete renamed[key];
-        renamed[optionPriceKey(kind === "material" ? cleaned : material, kind === "dimension" ? cleaned : dimension)] = value;
-      }
-      return renamed;
-    });
+    if (cleaned.en !== current.en) {
+      setPriceMap((map) => {
+        const renamed: Record<string, string> = { ...map };
+        for (const key of Object.keys(map)) {
+          const [material = "", dimension = ""] = key.split("\u001f");
+          const hit = kind === "material" ? material === current.en : dimension === current.en;
+          if (!hit) continue;
+          const value = map[key] ?? "";
+          delete renamed[key];
+          renamed[optionPriceKey(kind === "material" ? cleaned.en : material, kind === "dimension" ? cleaned.en : dimension)] = value;
+        }
+        return renamed;
+      });
+    }
     return true;
   }
 
   function removeOption(kind: "material" | "dimension", value: string) {
-    if (kind === "material") setMaterialRows((rows) => rows.filter((row) => row !== value));
-    else setDimensionRows((rows) => rows.filter((row) => row !== value));
+    if (kind === "material") setMaterialRows((rows) => rows.filter((row) => row.en !== value));
+    else setDimensionRows((rows) => rows.filter((row) => row.en !== value));
     setPriceMap((map) => {
       const next = { ...map };
       for (const key of Object.keys(next)) {
@@ -415,12 +423,14 @@ function AdminProductsPage() {
     };
     if (materialRows.length && dimensionRows.length) {
       for (const material of materialRows) {
-        for (const dimension of dimensionRows) optionPrices.push({ material, dimension, price: cell(material, dimension) });
+        for (const dimension of dimensionRows) {
+          optionPrices.push({ material: material.en, dimension: dimension.en, price: cell(material.en, dimension.en) });
+        }
       }
     } else if (materialRows.length) {
-      for (const material of materialRows) optionPrices.push({ material, dimension: "", price: cell(material, "") });
+      for (const material of materialRows) optionPrices.push({ material: material.en, dimension: "", price: cell(material.en, "") });
     } else if (dimensionRows.length) {
-      for (const dimension of dimensionRows) optionPrices.push({ material: "", dimension, price: cell("", dimension) });
+      for (const dimension of dimensionRows) optionPrices.push({ material: "", dimension: dimension.en, price: cell("", dimension.en) });
     }
     const features = [...featureRows.map((s) => s.trim()).filter(Boolean), ...encodeOptionPrices(optionPrices)];
     const colors = colorRows.map((color) => color.stored);
@@ -462,8 +472,8 @@ function AdminProductsPage() {
           description_sw: String(fd.get("description_sw") ?? ""),
           short_description: String(fd.get("short_description") ?? ""),
           price: Number(fd.get("price") || 0),
-          material: joinOptionList(materialRows),
-          dimensions: joinOptionList(dimensionRows),
+          material: joinLocalizedOptions(materialRows),
+          dimensions: joinLocalizedOptions(dimensionRows),
           features,
           available_colors: colors,
           stock_quantity: Number(fd.get("stock_quantity") || 0),
@@ -558,32 +568,42 @@ function AdminProductsPage() {
             </div>
             <OptionNameList
               label="Materials customers can choose"
-              hint="Add, rename or remove each material. Prices for every size are set below."
-              placeholder="e.g. Hardwood"
+              hint="Add each material in English and Kiswahili. Prices for every size are set below."
+              placeholderEn="English, e.g. Hardwood"
+              placeholderSw="Kiswahili, e.g. Mbao ngumu"
               rows={materialRows}
-              draft={materialDraft}
-              onDraft={setMaterialDraft}
+              draftEn={materialDraftEn}
+              draftSw={materialDraftSw}
+              onDraftEn={setMaterialDraftEn}
+              onDraftSw={setMaterialDraftSw}
               onAdd={() => {
-                const next = materialDraft.trim();
-                if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                setMaterialRows((list) => [...list, next]);
-                setMaterialDraft("");
+                const en = materialDraftEn.trim();
+                const sw = materialDraftSw.trim();
+                if (!en || materialRows.some((row) => row.en.toLowerCase() === en.toLowerCase())) return;
+                setMaterialRows((list) => [...list, { en, sw }]);
+                setMaterialDraftEn("");
+                setMaterialDraftSw("");
               }}
               onRename={(index, next) => renameOption("material", index, next)}
               onRemove={(value) => removeOption("material", value)}
             />
             <OptionNameList
               label="Dimensions customers can choose"
-              hint="Add, rename or remove each size, for example 4ft x 6ft."
-              placeholder="e.g. 5ft x 6ft"
+              hint="Add each size in English and Kiswahili, for example 4ft x 6ft."
+              placeholderEn="English, e.g. 5ft x 6ft"
+              placeholderSw="Kiswahili, e.g. 5ft kwa 6ft"
               rows={dimensionRows}
-              draft={dimensionDraft}
-              onDraft={setDimensionDraft}
+              draftEn={dimensionDraftEn}
+              draftSw={dimensionDraftSw}
+              onDraftEn={setDimensionDraftEn}
+              onDraftSw={setDimensionDraftSw}
               onAdd={() => {
-                const next = dimensionDraft.trim();
-                if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                setDimensionRows((list) => [...list, next]);
-                setDimensionDraft("");
+                const en = dimensionDraftEn.trim();
+                const sw = dimensionDraftSw.trim();
+                if (!en || dimensionRows.some((row) => row.en.toLowerCase() === en.toLowerCase())) return;
+                setDimensionRows((list) => [...list, { en, sw }]);
+                setDimensionDraftEn("");
+                setDimensionDraftSw("");
               }}
               onRename={(index, next) => renameOption("dimension", index, next)}
               onRemove={(value) => removeOption("dimension", value)}
@@ -599,19 +619,31 @@ function AdminProductsPage() {
                     <thead>
                       <tr className="bg-secondary/50 text-left">
                         {materialRows.length > 0 && <th className="p-2 font-medium text-navy">Material</th>}
-                        {(dimensionRows.length ? dimensionRows : [""]).map((dimension) => (
-                          <th key={dimension || "price"} className="p-2 font-medium text-navy">
-                            {dimension || "Price (TZS)"}
+                        {(dimensionRows.length ? dimensionRows : [{ en: "", sw: "" }]).map((dimension) => (
+                          <th key={dimension.en || "price"} className="p-2 font-medium text-navy">
+                            {dimension.en ? (
+                              <>
+                                {dimension.en}
+                                {dimension.sw && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{dimension.sw}</span>}
+                              </>
+                            ) : (
+                              "Price (TZS)"
+                            )}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {(materialRows.length ? materialRows : [""]).map((material) => (
-                        <tr key={material || "price-row"} className="border-t border-border">
-                          {materialRows.length > 0 && <td className="p-2 font-medium text-navy">{material}</td>}
-                          {(dimensionRows.length ? dimensionRows : [""]).map((dimension) => {
-                            const key = optionPriceKey(material, dimension);
+                      {(materialRows.length ? materialRows : [{ en: "", sw: "" }]).map((material) => (
+                        <tr key={material.en || "price-row"} className="border-t border-border">
+                          {materialRows.length > 0 && (
+                            <td className="p-2 font-medium text-navy">
+                              {material.en}
+                              {material.sw && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{material.sw}</span>}
+                            </td>
+                          )}
+                          {(dimensionRows.length ? dimensionRows : [{ en: "", sw: "" }]).map((dimension) => {
+                            const key = optionPriceKey(material.en, dimension.en);
                             return (
                               <td key={key} className="p-2">
                                 <input
@@ -622,7 +654,7 @@ function AdminProductsPage() {
                                   placeholder={String(editing?.price ?? 0)}
                                   value={priceMap[key] ?? ""}
                                   onChange={(e) => setPriceMap((map) => ({ ...map, [key]: e.target.value }))}
-                                  aria-label={`Price for ${[material, dimension].filter(Boolean).join(" and ") || "this option"}`}
+                                  aria-label={`Price for ${[material.en, dimension.en].filter(Boolean).join(" and ") || "this option"}`}
                                 />
                               </td>
                             );
@@ -843,6 +875,22 @@ function AdminProductsPage() {
                             onChange={(e) => setAngleFile(slot, e.target.files?.[0] ?? null)}
                           />
                         </label>
+                        {shown && (
+                          <button
+                            type="button"
+                            className="btn-base btn-outline-navy !h-9 w-full text-xs"
+                            onClick={() => {
+                              const source = a.file ?? a.existingUrl ?? shown;
+                              const base = `${editing?.slug || "product"}-${meta.label.toLowerCase().replace(/\s+/g, "-")}`;
+                              downloadToDevice(source, photoFileName(base, source)).catch(() => {
+                                toast.error("Could not download this photo");
+                              });
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -884,6 +932,23 @@ function AdminProductsPage() {
                         onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
                       />
                     </label>
+                    {video.previewUrl && (
+                      <button
+                        type="button"
+                        className="btn-base btn-outline-navy !h-9 w-full text-xs"
+                        onClick={() => {
+                          const source = video.file ?? video.existingUrl ?? video.previewUrl;
+                          if (!source) return;
+                          const base = `${editing?.slug || "product"}-video`;
+                          downloadToDevice(source, photoFileName(base, source)).catch(() => {
+                            toast.error("Could not download this video");
+                          });
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -979,6 +1044,34 @@ function AdminProductsPage() {
                           onClick={() => openEdit(p)}
                         >
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-navy transition-colors hover:border-gold/40 hover:bg-gold-soft"
+                          onClick={() => {
+                            const photos = productGalleryItems(p);
+                            const videoSrc = productVideoSrc(p);
+                            if (!photos.length && !videoSrc) {
+                              toast.error("No photos or video to download");
+                              return;
+                            }
+                            void (async () => {
+                              try {
+                                for (const [index, photo] of photos.entries()) {
+                                  await downloadToDevice(photo.src, photoFileName(`${p.slug}-photo-${index + 1}`, photo.src));
+                                }
+                                if (videoSrc) {
+                                  await downloadToDevice(videoSrc, photoFileName(`${p.slug}-video`, videoSrc));
+                                }
+                                toast.success("Download started");
+                              } catch {
+                                toast.error("Could not download the files");
+                              }
+                            })();
+                          }}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download
                         </button>
                         <button
                           type="button"
