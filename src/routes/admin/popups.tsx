@@ -4,10 +4,16 @@ import { Megaphone, Plus } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
-import { deleteAdminOfferPopup, listAdminOfferPopups, upsertAdminOfferPopup } from "@/lib/content.functions";
+import {
+  deleteAdminOfferPopup,
+  listAdminOfferPopups,
+  upsertAdminOfferPopup,
+} from "@/lib/content.functions";
 
 export const Route = createFileRoute("/admin/popups")({
-  head: () => ({ meta: [{ title: "Offer popups — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Offer popups — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: AdminPopupsPage,
 });
 
@@ -103,8 +109,12 @@ function AdminPopupsPage() {
               <Megaphone className="h-4 w-4" />
             </span>
             <div>
-              <h2 className="font-display text-xl text-navy">{editing ? "Edit offer" : "New offer"}</h2>
-              <p className="text-sm text-muted-foreground">Live preview updates as you type the English message.</p>
+              <h2 className="font-display text-xl text-navy">
+                {editing ? "Edit offer" : "New offer"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Live preview updates as you type the English message.
+              </p>
             </div>
           </div>
 
@@ -129,7 +139,11 @@ function AdminPopupsPage() {
               </div>
               <div>
                 <label className="field-label">Message (SW)</label>
-                <input name="message_sw" className="field-input" defaultValue={draft?.message_sw ?? ""} />
+                <input
+                  name="message_sw"
+                  className="field-input"
+                  defaultValue={draft?.message_sw ?? ""}
+                />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -155,7 +169,12 @@ function AdminPopupsPage() {
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-medium text-navy">
-              <input type="checkbox" name="is_active" defaultChecked={draft?.is_active ?? false} className="accent-gold" />
+              <input
+                type="checkbox"
+                name="is_active"
+                defaultChecked={draft?.is_active ?? false}
+                className="accent-gold"
+              />
               Active on site (deactivates other popups)
             </label>
             <div className="flex gap-2">
@@ -188,7 +207,9 @@ function AdminPopupsPage() {
                     {r.is_active ? "Active" : "Inactive"}
                   </AdminBadge>
                 </div>
-                {r.message_sw && <p className="mt-1 text-sm text-muted-foreground">{r.message_sw}</p>}
+                {r.message_sw && (
+                  <p className="mt-1 text-sm text-muted-foreground">{r.message_sw}</p>
+                )}
                 <p className="mt-2 text-xs text-muted-foreground">
                   Delay {r.delay_seconds}s · Visible {r.duration_seconds}s
                 </p>
@@ -215,7 +236,9 @@ function AdminPopupsPage() {
             </div>
           </AdminCard>
         ))}
-        {!rows.length && <AdminEmpty>No offer popups yet. Add one to promote a sale or announcement.</AdminEmpty>}
+        {!rows.length && (
+          <AdminEmpty>No offer popups yet. Add one to promote a sale or announcement.</AdminEmpty>
+        )}
       </div>
     </div>
   );

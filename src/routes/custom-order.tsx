@@ -87,7 +87,10 @@ function Custom() {
     if (!f.needed_by) x["needed_by"] = t.validation.dateRequired;
     if (bed && !f.preferred_dimensions) x["preferred_dimensions"] = t.validation.sizeRequired;
     if (f.email && !/^\S+@\S+\.\S+$/.test(f.email)) x["email"] = t.validation.emailInvalid;
-    if (img && (!IMG_TYPES.includes(img.type as (typeof IMG_TYPES)[number]) || img.size > 5 * 1024 * 1024)) {
+    if (
+      img &&
+      (!IMG_TYPES.includes(img.type as (typeof IMG_TYPES)[number]) || img.size > 5 * 1024 * 1024)
+    ) {
       x["reference_image"] = t.validation.imageInvalid;
     }
     setErrs(x);
@@ -95,7 +98,11 @@ function Custom() {
     setBusy(true);
     try {
       const reference_image = img
-        ? { name: img.name, type: img.type as (typeof IMG_TYPES)[number], base64: await toBase64(img) }
+        ? {
+            name: img.name,
+            type: img.type as (typeof IMG_TYPES)[number],
+            base64: await toBase64(img),
+          }
         : undefined;
       const r = await send({ data: { ...f, reference_image } });
       nav({
@@ -150,7 +157,12 @@ function Custom() {
             <div className="rounded-[1.75rem] border border-border bg-sand/60 p-6 md:p-7">
               <p className="text-sm font-semibold text-navy">{t.custom.preferContact}</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <a href={waLink(t.whatsapp.general)} target="_blank" rel="noreferrer" className="btn-base btn-gold flex-1">
+                <a
+                  href={waLink(t.whatsapp.general)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-base btn-gold flex-1"
+                >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
                 </a>
@@ -161,7 +173,10 @@ function Custom() {
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
                 {t.custom.orBrowse}{" "}
-                <Link to="/products" className="font-semibold text-navy underline-offset-2 hover:underline">
+                <Link
+                  to="/products"
+                  className="font-semibold text-navy underline-offset-2 hover:underline"
+                >
                   {t.nav.products}
                 </Link>
               </p>
@@ -186,39 +201,66 @@ function Custom() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">{t.custom.contactSection}</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">
+                    {t.custom.contactSection}
+                  </p>
                 </div>
                 <div>
                   <label className="field-label" htmlFor="full_name">
                     {t.custom.fullName} *
                   </label>
-                  <input id="full_name" name="full_name" className="field-input" autoComplete="name" />
+                  <input
+                    id="full_name"
+                    name="full_name"
+                    className="field-input"
+                    autoComplete="name"
+                  />
                   {fieldErr("full_name")}
                 </div>
                 <div>
                   <label className="field-label" htmlFor="phone">
                     {t.custom.phone} *
                   </label>
-                  <input id="phone" name="phone" type="tel" className="field-input" placeholder="+255…" autoComplete="tel" />
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    className="field-input"
+                    placeholder="+255…"
+                    autoComplete="tel"
+                  />
                   {fieldErr("phone")}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="email">
                     {t.custom.email}
                   </label>
-                  <input id="email" name="email" type="email" className="field-input" autoComplete="email" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    className="field-input"
+                    autoComplete="email"
+                  />
                   {fieldErr("email")}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="delivery_location">
                     {t.custom.location} *
                   </label>
-                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, hostel, street…" />
+                  <input
+                    id="delivery_location"
+                    name="delivery_location"
+                    className="field-input"
+                    placeholder="Mbeya, hostel, street…"
+                  />
                   {fieldErr("delivery_location")}
                 </div>
 
                 <div className="sm:col-span-2 pt-2">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">{t.custom.designSection}</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">
+                    {t.custom.designSection}
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="furniture_type">
@@ -251,7 +293,14 @@ function Custom() {
                   <label className="field-label" htmlFor="quantity">
                     {t.custom.quantity}
                   </label>
-                  <input id="quantity" name="quantity" type="number" min={1} defaultValue={1} className="field-input" />
+                  <input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    min={1}
+                    defaultValue={1}
+                    className="field-input"
+                  />
                 </div>
                 <div>
                   <label className="field-label" htmlFor="reference_image">
@@ -264,7 +313,9 @@ function Custom() {
                     )}
                   >
                     <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
-                    <span className="truncate">{preview ? t.custom.photoChosen : t.custom.attachHint}</span>
+                    <span className="truncate">
+                      {preview ? t.custom.photoChosen : t.custom.attachHint}
+                    </span>
                   </label>
                   <input
                     id="reference_image"
@@ -277,7 +328,9 @@ function Custom() {
                       setPreview(fl ? URL.createObjectURL(fl) : null);
                     }}
                   />
-                  {preview && <img src={preview} alt="" className="mt-3 h-28 w-28 rounded-xl object-cover" />}
+                  {preview && (
+                    <img src={preview} alt="" className="mt-3 h-28 w-28 rounded-xl object-cover" />
+                  )}
                   {fieldErr("reference_image")}
                 </div>
 
@@ -304,7 +357,12 @@ function Custom() {
                 </div>
                 <div className="sm:col-span-2">
                   <p className="field-label">{t.custom.color}</p>
-                  <ColorImageChoices name="preferred_color" value={color} onChange={setColor} options={[...STANDARD_COLORS]} />
+                  <ColorImageChoices
+                    name="preferred_color"
+                    value={color}
+                    onChange={setColor}
+                    options={[...STANDARD_COLORS]}
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="needed_by">
@@ -343,14 +401,23 @@ function Custom() {
                         <label className="field-label" htmlFor="preferred_dimensions">
                           {t.custom.dimensions}
                         </label>
-                        <input id="preferred_dimensions" name="preferred_dimensions" className="field-input" />
+                        <input
+                          id="preferred_dimensions"
+                          name="preferred_dimensions"
+                          className="field-input"
+                        />
                       </div>
                     )}
                     <div className={bed ? "sm:col-span-2" : undefined}>
                       <label className="field-label" htmlFor="additional_requirements">
                         {t.custom.requirements}
                       </label>
-                      <textarea id="additional_requirements" name="additional_requirements" rows={3} className="field-input" />
+                      <textarea
+                        id="additional_requirements"
+                        name="additional_requirements"
+                        rows={3}
+                        className="field-input"
+                      />
                     </div>
                   </>
                 )}

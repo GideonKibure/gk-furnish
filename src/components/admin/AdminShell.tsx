@@ -37,11 +37,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-navy text-primary-foreground md:flex lg:w-64">
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-5">
             <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-white p-1 shadow-[0_0_20px_-6px_color-mix(in_oklab,var(--gold)_55%,transparent)]">
-              <img src="/brand/gk-furnish-logo.svg" alt="" className="h-full w-full object-contain" />
+              <img
+                src="/brand/gk-furnish-logo.svg"
+                alt=""
+                className="h-full w-full object-contain"
+              />
             </span>
             <div className="min-w-0">
-              <p className="truncate font-display text-base font-semibold tracking-tight">{SITE.name}</p>
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gold/80">Admin portal</p>
+              <p className="truncate font-display text-base font-semibold tracking-tight">
+                {SITE.name}
+              </p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gold/80">
+                Admin portal
+              </p>
             </div>
           </div>
 
@@ -83,14 +91,24 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between gap-2 px-3 py-3">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-white p-0.5 ring-1 ring-border">
-                  <img src="/brand/gk-furnish-logo.svg" alt="" className="h-full w-full object-contain" />
+                  <img
+                    src="/brand/gk-furnish-logo.svg"
+                    alt=""
+                    className="h-full w-full object-contain"
+                  />
                 </span>
                 <div>
                   <p className="font-display text-sm font-semibold text-navy">{SITE.name}</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Admin</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Admin
+                  </p>
                 </div>
               </div>
-              <button type="button" onClick={signOut} className="rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-navy">
+              <button
+                type="button"
+                onClick={signOut}
+                className="rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-navy"
+              >
                 Sign out
               </button>
             </div>
@@ -103,7 +121,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     to={to as "/admin"}
                     className={cn(
                       "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                      active ? "bg-navy text-primary-foreground" : "bg-secondary text-navy hover:bg-secondary/80",
+                      active
+                        ? "bg-navy text-primary-foreground"
+                        : "bg-secondary text-navy hover:bg-secondary/80",
                     )}
                   >
                     {label}

@@ -58,8 +58,7 @@ export function reportRuntimeError(error: unknown, context: Record<string, unkno
         ? error.message
         : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
-  const forward =
-    window.__reportRuntimeError ?? window.__lovableReportRuntimeError;
+  const forward = window.__reportRuntimeError ?? window.__lovableReportRuntimeError;
   forward?.({
     message,
     ...(stack !== undefined && { stack }),

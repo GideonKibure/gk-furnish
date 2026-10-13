@@ -71,7 +71,8 @@ function AdminOrdersPage() {
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       if (filter === "all") return true;
-      if (filter === "paid_advance") return o.payment_kind === "advance" && o.payment_status === "paid";
+      if (filter === "paid_advance")
+        return o.payment_kind === "advance" && o.payment_status === "paid";
       if (filter === "paid_full") return o.payment_kind === "full" && o.payment_status === "paid";
       return group(o.status) === filter;
     });
@@ -119,7 +120,8 @@ function AdminOrdersPage() {
           notes: String(fd.get("notes") ?? "").trim(),
           status: String(fd.get("status") ?? "confirmed") as (typeof STATUSES)[number],
           payment_kind: String(fd.get("payment_kind") ?? "full") as "advance" | "full",
-          payment_status: String(fd.get("payment_status") ?? "unpaid") as "unpaid" | "pending" | "paid" | "failed",
+          payment_status: String(fd.get("payment_status") ?? "unpaid") as
+            "unpaid" | "pending" | "paid" | "failed",
           amount_paid: Number(fd.get("amount_paid") || 0),
         },
       });
@@ -148,7 +150,11 @@ function AdminOrdersPage() {
         title="Orders"
         description="Add walk-in or phone orders — reference numbers generate automatically."
         action={
-          <button type="button" className="btn-base btn-gold" onClick={() => setShowForm((v) => !v)}>
+          <button
+            type="button"
+            className="btn-base btn-gold"
+            onClick={() => setShowForm((v) => !v)}
+          >
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {showForm ? "Close" : "Add order"}
           </button>
@@ -157,103 +163,131 @@ function AdminOrdersPage() {
 
       {showForm && (
         <AdminCard hover={false} className="mb-6 grid gap-3 md:grid-cols-2">
-        <form onSubmit={onCreate} className="contents">
-          <h2 className="font-display text-xl text-navy md:col-span-2">New order</h2>
-          <p className="text-sm text-muted-foreground md:col-span-2">
-            Reference number is assigned automatically (e.g. GK-2026-0001).
-          </p>
+          <form onSubmit={onCreate} className="contents">
+            <h2 className="font-display text-xl text-navy md:col-span-2">New order</h2>
+            <p className="text-sm text-muted-foreground md:col-span-2">
+              Reference number is assigned automatically (e.g. GK-2026-0001).
+            </p>
 
-          <div>
-            <label className="field-label">Customer name *</label>
-            <input name="customer_name" required className="field-input" />
-          </div>
-          <div>
-            <label className="field-label">Phone *</label>
-            <input name="phone" required type="tel" className="field-input" placeholder="+255…" />
-          </div>
-          <div>
-            <label className="field-label">Email</label>
-            <input name="email" type="email" className="field-input" />
-          </div>
-          <div>
-            <label className="field-label">Delivery location *</label>
-            <input name="delivery_location" required className="field-input" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="field-label">Product *</label>
-            <select name="product_id" required className="field-input" defaultValue="">
-              <option value="" disabled>
-                Select product…
-              </option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {formatPrice(p.price) ?? "quote"}
+            <div>
+              <label className="field-label">Customer name *</label>
+              <input name="customer_name" required className="field-input" />
+            </div>
+            <div>
+              <label className="field-label">Phone *</label>
+              <input name="phone" required type="tel" className="field-input" placeholder="+255…" />
+            </div>
+            <div>
+              <label className="field-label">Email</label>
+              <input name="email" type="email" className="field-input" />
+            </div>
+            <div>
+              <label className="field-label">Delivery location *</label>
+              <input name="delivery_location" required className="field-input" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="field-label">Product *</label>
+              <select name="product_id" required className="field-input" defaultValue="">
+                <option value="" disabled>
+                  Select product…
                 </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Quantity *</label>
-            <input name="quantity" type="number" min={1} defaultValue={1} required className="field-input" />
-          </div>
-          <div>
-            <label className="field-label">Colour *</label>
-            <input name="preferred_color" required className="field-input" defaultValue="Natural wood" />
-          </div>
-          <div>
-            <label className="field-label">Size *</label>
-            <select name="preferred_size" className="field-input" defaultValue="Standard">
-              <option value="Small">Small</option>
-              <option value="Standard">Standard</option>
-              <option value="Large">Large</option>
-              <option value="4ft x 6ft">4ft x 6ft</option>
-              <option value="5ft x 6ft">5ft x 6ft</option>
-              <option value="6ft x 6ft">6ft x 6ft</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Order status</label>
-            <select name="status" className="field-input" defaultValue="confirmed">
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Payment kind</label>
-            <select name="payment_kind" className="field-input" defaultValue="full">
-              <option value="advance">Advance</option>
-              <option value="full">Full</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Payment status</label>
-            <select name="payment_status" className="field-input" defaultValue="unpaid">
-              <option value="unpaid">Unpaid</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Amount already paid (TZS)</label>
-            <input name="amount_paid" type="number" min={0} step={100} defaultValue={0} className="field-input" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="field-label">Notes</label>
-            <textarea name="notes" rows={2} className="field-input" placeholder="Walk-in, WhatsApp order…" />
-          </div>
-          <div className="flex gap-2 md:col-span-2">
-            <button type="submit" className="btn-base btn-gold" disabled={busy}>
-              {busy ? "Creating…" : "Create order"}
-            </button>
-            <button type="button" className="btn-base btn-outline-navy" onClick={() => setShowForm(false)}>
-              Cancel
-            </button>
-          </div>
-        </form>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {formatPrice(p.price) ?? "quote"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Quantity *</label>
+              <input
+                name="quantity"
+                type="number"
+                min={1}
+                defaultValue={1}
+                required
+                className="field-input"
+              />
+            </div>
+            <div>
+              <label className="field-label">Colour *</label>
+              <input
+                name="preferred_color"
+                required
+                className="field-input"
+                defaultValue="Natural wood"
+              />
+            </div>
+            <div>
+              <label className="field-label">Size *</label>
+              <select name="preferred_size" className="field-input" defaultValue="Standard">
+                <option value="Small">Small</option>
+                <option value="Standard">Standard</option>
+                <option value="Large">Large</option>
+                <option value="4ft x 6ft">4ft x 6ft</option>
+                <option value="5ft x 6ft">5ft x 6ft</option>
+                <option value="6ft x 6ft">6ft x 6ft</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Order status</label>
+              <select name="status" className="field-input" defaultValue="confirmed">
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Payment kind</label>
+              <select name="payment_kind" className="field-input" defaultValue="full">
+                <option value="advance">Advance</option>
+                <option value="full">Full</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Payment status</label>
+              <select name="payment_status" className="field-input" defaultValue="unpaid">
+                <option value="unpaid">Unpaid</option>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Amount already paid (TZS)</label>
+              <input
+                name="amount_paid"
+                type="number"
+                min={0}
+                step={100}
+                defaultValue={0}
+                className="field-input"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="field-label">Notes</label>
+              <textarea
+                name="notes"
+                rows={2}
+                className="field-input"
+                placeholder="Walk-in, WhatsApp order…"
+              />
+            </div>
+            <div className="flex gap-2 md:col-span-2">
+              <button type="submit" className="btn-base btn-gold" disabled={busy}>
+                {busy ? "Creating…" : "Create order"}
+              </button>
+              <button
+                type="button"
+                className="btn-base btn-outline-navy"
+                onClick={() => setShowForm(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </AdminCard>
       )}
 
@@ -277,14 +311,19 @@ function AdminOrdersPage() {
       <div className="space-y-4">
         {filtered.map((o) => {
           const items =
-            (o as { order_items?: { product_name: string; quantity: number; unit_price: number }[] }).order_items ??
-            [];
+            (
+              o as {
+                order_items?: { product_name: string; quantity: number; unit_price: number }[];
+              }
+            ).order_items ?? [];
           return (
             <AdminCard key={o.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-display text-lg text-navy">{o.order_number}</p>
-                  <p className="text-sm text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(o.created_at).toLocaleString()}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <AdminBadge>{o.status.replace(/_/g, " ")}</AdminBadge>
@@ -296,7 +335,9 @@ function AdminOrdersPage() {
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Customer</p>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Customer
+                  </p>
                   <p className="mt-1 font-medium text-navy">{o.customer_name}</p>
                   <a
                     href={dialHref(o.phone)}
@@ -308,19 +349,28 @@ function AdminOrdersPage() {
                   {o.email && <p className="text-sm text-muted-foreground">{o.email}</p>}
                 </div>
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Delivery
+                  </p>
                   <p className="mt-1 text-sm">{o.delivery_location}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {o.preferred_color} · {o.preferred_size}
                   </p>
-                  {o.notes && <p className="mt-2 whitespace-pre-line text-sm text-navy">{o.notes}</p>}
+                  {o.notes && (
+                    <p className="mt-2 whitespace-pre-line text-sm text-navy">{o.notes}</p>
+                  )}
                 </div>
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Payment</p>
-                  <p className="mt-1 text-sm">
-                    Due {formatPrice(o.amount_due) ?? "—"} · Paid {formatPrice(o.amount_paid) ?? "—"}
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Payment
                   </p>
-                  {o.payment_phone && <p className="text-xs text-muted-foreground">MM: {o.payment_phone}</p>}
+                  <p className="mt-1 text-sm">
+                    Due {formatPrice(o.amount_due) ?? "—"} · Paid{" "}
+                    {formatPrice(o.amount_paid) ?? "—"}
+                  </p>
+                  {o.payment_phone && (
+                    <p className="text-xs text-muted-foreground">MM: {o.payment_phone}</p>
+                  )}
                 </div>
               </div>
 

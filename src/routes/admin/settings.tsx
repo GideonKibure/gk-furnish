@@ -7,7 +7,9 @@ import { AdminCard, AdminPageHeader } from "@/components/admin/admin-ui";
 import { getAdminSiteSettings, updateAdminSiteSettings } from "@/lib/content.functions";
 
 export const Route = createFileRoute("/admin/settings")({
-  head: () => ({ meta: [{ title: "Site settings — Admin" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Site settings — Admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: AdminSettingsPage,
 });
 
@@ -25,7 +27,9 @@ function SettingsGroup({
   return (
     <AdminCard hover={false} className="space-y-4">
       <div className="flex items-start gap-3 border-b border-border/70 pb-4">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy">{icon}</span>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy">
+          {icon}
+        </span>
         <div>
           <h2 className="font-display text-xl text-navy">{title}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
@@ -99,7 +103,10 @@ function AdminSettingsPage() {
   if (!row) {
     return (
       <div>
-        <AdminPageHeader title="Site settings" description="Contact details and social links used across the site." />
+        <AdminPageHeader
+          title="Site settings"
+          description="Contact details and social links used across the site."
+        />
         <AdminCard hover={false}>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="h-2 w-2 animate-pulse rounded-full bg-gold" />
@@ -125,7 +132,11 @@ function AdminSettingsPage() {
         >
           <Field name="phone_display" label="Phone display" value={row.phone_display} />
           <Field name="phone_dial" label="Phone dial (tel:)" value={row.phone_dial} />
-          <Field name="whatsapp_number" label="WhatsApp number (255…)" value={row.whatsapp_number} />
+          <Field
+            name="whatsapp_number"
+            label="WhatsApp number (255…)"
+            value={row.whatsapp_number}
+          />
           <Field name="email" label="Email" value={row.email} />
         </SettingsGroup>
 

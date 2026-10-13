@@ -23,7 +23,9 @@ export const productsQuery = queryOptions({
   queryFn: async () => {
     const { data, error } = await supabase
       .from("products")
-      .select("*, categories(slug,name,name_sw), product_images(id,image_url,image_key,alt_text,sort_order)")
+      .select(
+        "*, categories(slug,name,name_sw), product_images(id,image_url,image_key,alt_text,sort_order)",
+      )
       .order("created_at", { ascending: false });
     if (error) throw error;
     return (data as Product[]).map((p) => ({

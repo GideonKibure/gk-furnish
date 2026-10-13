@@ -74,12 +74,22 @@ function anglesFromProduct(p: ProductRow | null): AngleSlotState[] {
     const order = row.sort_order ?? 0;
     if (order < 0 || order > 1) continue;
     const url = row.image_url?.trim() || (row.image_key ? imageFor(row.image_key) : null);
-    slots[order] = { existingUrl: row.image_url?.trim() || null, previewUrl: url, file: null, clear: false };
+    slots[order] = {
+      existingUrl: row.image_url?.trim() || null,
+      previewUrl: url,
+      file: null,
+      clear: false,
+    };
   }
   if (!rows.length) {
     const url = p.image_url?.trim() || (p.image_key ? imageFor(p.image_key) : null);
     if (url) {
-      slots[0] = { existingUrl: p.image_url?.trim() || null, previewUrl: url, file: null, clear: false };
+      slots[0] = {
+        existingUrl: p.image_url?.trim() || null,
+        previewUrl: url,
+        file: null,
+        clear: false,
+      };
     }
   }
   return slots;
@@ -289,7 +299,12 @@ function AdminProductsPage() {
             </h2>
             <div>
               <label className="field-label">Name (EN) *</label>
-              <input name="name" required className="field-input" defaultValue={editing?.name ?? ""} />
+              <input
+                name="name"
+                required
+                className="field-input"
+                defaultValue={editing?.name ?? ""}
+              />
             </div>
             <div>
               <label className="field-label">Name (SW)</label>
@@ -297,7 +312,12 @@ function AdminProductsPage() {
             </div>
             <div>
               <label className="field-label">Slug</label>
-              <input name="slug" className="field-input" placeholder="auto from name" defaultValue={editing?.slug ?? ""} />
+              <input
+                name="slug"
+                className="field-input"
+                placeholder="auto from name"
+                defaultValue={editing?.slug ?? ""}
+              />
             </div>
             <div>
               <label className="field-label">Category *</label>
@@ -339,7 +359,9 @@ function AdminProductsPage() {
             </div>
             <div className="md:col-span-2">
               <label className="field-label">Materials customers can choose</label>
-              <p className="mb-2 text-xs text-muted-foreground">Add each material, then save the product.</p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add each material, then save the product.
+              </p>
               <div className="flex gap-2">
                 <input
                   className="field-input"
@@ -350,7 +372,11 @@ function AdminProductsPage() {
                     if (e.key !== "Enter") return;
                     e.preventDefault();
                     const next = materialDraft.trim();
-                    if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                    if (
+                      !next ||
+                      materialRows.some((row) => row.toLowerCase() === next.toLowerCase())
+                    )
+                      return;
                     setMaterialRows((rows) => [...rows, next]);
                     setMaterialDraft("");
                   }}
@@ -360,7 +386,11 @@ function AdminProductsPage() {
                   className="btn-base btn-outline-navy shrink-0"
                   onClick={() => {
                     const next = materialDraft.trim();
-                    if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                    if (
+                      !next ||
+                      materialRows.some((row) => row.toLowerCase() === next.toLowerCase())
+                    )
+                      return;
                     setMaterialRows((rows) => [...rows, next]);
                     setMaterialDraft("");
                   }}
@@ -371,12 +401,17 @@ function AdminProductsPage() {
               {materialRows.length > 0 && (
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {materialRows.map((row) => (
-                    <li key={row} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
+                    <li
+                      key={row}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy"
+                    >
                       {row}
                       <button
                         type="button"
                         className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                        onClick={() => setMaterialRows((rows) => rows.filter((item) => item !== row))}
+                        onClick={() =>
+                          setMaterialRows((rows) => rows.filter((item) => item !== row))
+                        }
                         aria-label={`Remove ${row}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -388,7 +423,9 @@ function AdminProductsPage() {
             </div>
             <div className="md:col-span-2">
               <label className="field-label">Dimensions customers can choose</label>
-              <p className="mb-2 text-xs text-muted-foreground">Add each size, for example 4ft x 6ft.</p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add each size, for example 4ft x 6ft.
+              </p>
               <div className="flex gap-2">
                 <input
                   className="field-input"
@@ -399,7 +436,11 @@ function AdminProductsPage() {
                     if (e.key !== "Enter") return;
                     e.preventDefault();
                     const next = dimensionDraft.trim();
-                    if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                    if (
+                      !next ||
+                      dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())
+                    )
+                      return;
                     setDimensionRows((rows) => [...rows, next]);
                     setDimensionDraft("");
                   }}
@@ -409,7 +450,11 @@ function AdminProductsPage() {
                   className="btn-base btn-outline-navy shrink-0"
                   onClick={() => {
                     const next = dimensionDraft.trim();
-                    if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                    if (
+                      !next ||
+                      dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())
+                    )
+                      return;
                     setDimensionRows((rows) => [...rows, next]);
                     setDimensionDraft("");
                   }}
@@ -420,12 +465,17 @@ function AdminProductsPage() {
               {dimensionRows.length > 0 && (
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {dimensionRows.map((row) => (
-                    <li key={row} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
+                    <li
+                      key={row}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy"
+                    >
                       {row}
                       <button
                         type="button"
                         className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                        onClick={() => setDimensionRows((rows) => rows.filter((item) => item !== row))}
+                        onClick={() =>
+                          setDimensionRows((rows) => rows.filter((item) => item !== row))
+                        }
                         aria-label={`Remove ${row}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -445,7 +495,12 @@ function AdminProductsPage() {
             </div>
             <div>
               <label className="field-label">Description (EN)</label>
-              <textarea name="description" rows={3} className="field-input" defaultValue={editing?.description ?? ""} />
+              <textarea
+                name="description"
+                rows={3}
+                className="field-input"
+                defaultValue={editing?.description ?? ""}
+              />
             </div>
             <div>
               <label className="field-label">Description (SW)</label>
@@ -469,7 +524,8 @@ function AdminProductsPage() {
                 </button>
               </div>
               <p className="mb-3 text-xs text-muted-foreground">
-                Start with three highlights — add or remove as needed. Shown as feature cards on the product page.
+                Start with three highlights — add or remove as needed. Shown as feature cards on the
+                product page.
               </p>
               <div className="space-y-2">
                 {featureRows.map((row, i) => (
@@ -490,14 +546,18 @@ function AdminProductsPage() {
                               : "Another unique feature"
                       }
                       onChange={(e) =>
-                        setFeatureRows((rows) => rows.map((r, idx) => (idx === i ? e.target.value : r)))
+                        setFeatureRows((rows) =>
+                          rows.map((r, idx) => (idx === i ? e.target.value : r)),
+                        )
                       }
                     />
                     <button
                       type="button"
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive"
                       onClick={() =>
-                        setFeatureRows((rows) => (rows.length <= 1 ? [""] : rows.filter((_, idx) => idx !== i)))
+                        setFeatureRows((rows) =>
+                          rows.length <= 1 ? [""] : rows.filter((_, idx) => idx !== i),
+                        )
                       }
                       aria-label="Remove feature"
                     >
@@ -524,7 +584,9 @@ function AdminProductsPage() {
                   />
                 </label>
                 <div>
-                  <label className="field-label" htmlFor="color-hex">Hex</label>
+                  <label className="field-label" htmlFor="color-hex">
+                    Hex
+                  </label>
                   <input
                     id="color-hex"
                     className="field-input w-32 font-mono uppercase"
@@ -534,7 +596,9 @@ function AdminProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="color-name">Name (optional)</label>
+                  <label className="field-label" htmlFor="color-name">
+                    Name (optional)
+                  </label>
                   <input
                     id="color-name"
                     className="field-input w-40"
@@ -552,7 +616,8 @@ function AdminProductsPage() {
                       toast.error("Enter a hex colour like #8B5A2B");
                       return;
                     }
-                    if (colorRows.some((row) => row.stored.toLowerCase() === stored.toLowerCase())) return;
+                    if (colorRows.some((row) => row.stored.toLowerCase() === stored.toLowerCase()))
+                      return;
                     setColorRows((rows) => [...rows, parseCatalogColor(stored)]);
                     setDraftColorName("");
                   }}
@@ -563,18 +628,25 @@ function AdminProductsPage() {
               {colorRows.length > 0 && (
                 <ul className="mt-4 flex flex-wrap gap-3">
                   {colorRows.map((row) => (
-                    <li key={row.stored} className="flex items-center gap-2 rounded-xl border border-border bg-background px-2 py-2">
+                    <li
+                      key={row.stored}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-background px-2 py-2"
+                    >
                       <HexSwatch hex={row.hex} label={row.label} />
                       <span className="text-sm text-navy">
                         {row.label}
                         {row.hex && row.label !== row.hex && (
-                          <span className="mt-0.5 block font-mono text-[0.65rem] text-muted-foreground">{row.hex}</span>
+                          <span className="mt-0.5 block font-mono text-[0.65rem] text-muted-foreground">
+                            {row.hex}
+                          </span>
                         )}
                       </span>
                       <button
                         type="button"
                         className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                        onClick={() => setColorRows((rows) => rows.filter((item) => item.stored !== row.stored))}
+                        onClick={() =>
+                          setColorRows((rows) => rows.filter((item) => item.stored !== row.stored))
+                        }
                         aria-label={`Remove ${row.label}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -653,10 +725,20 @@ function AdminProductsPage() {
 
             <div className="flex items-center gap-6 md:col-span-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_available" defaultChecked={editing?.is_available ?? true} /> Available
+                <input
+                  type="checkbox"
+                  name="is_available"
+                  defaultChecked={editing?.is_available ?? true}
+                />{" "}
+                Available
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_featured" defaultChecked={editing?.is_featured ?? false} /> Featured
+                <input
+                  type="checkbox"
+                  name="is_featured"
+                  defaultChecked={editing?.is_featured ?? false}
+                />{" "}
+                Featured
               </label>
             </div>
             <div className="flex gap-2 md:col-span-2">
@@ -692,7 +774,10 @@ function AdminProductsPage() {
                   (r) => r.image_url && (r.sort_order ?? 0) <= 1,
                 ).length;
                 return (
-                  <tr key={p.id} className="border-b border-border/60 transition-colors hover:bg-secondary/35">
+                  <tr
+                    key={p.id}
+                    className="border-b border-border/60 transition-colors hover:bg-secondary/35"
+                  >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img
@@ -707,7 +792,9 @@ function AdminProductsPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <AdminBadge tone={angleCount >= 2 ? "success" : angleCount > 0 ? "gold" : "neutral"}>
+                      <AdminBadge
+                        tone={angleCount >= 2 ? "success" : angleCount > 0 ? "gold" : "neutral"}
+                      >
                         {angleCount}/2 photos
                       </AdminBadge>
                     </td>
@@ -719,7 +806,11 @@ function AdminProductsPage() {
                         className="field-input !h-9 w-24"
                         defaultValue={p.stock_quantity}
                         onBlur={(e) =>
-                          onStockBlur(p.id, Math.max(0, Number(e.target.value) || 0), p.is_available)
+                          onStockBlur(
+                            p.id,
+                            Math.max(0, Number(e.target.value) || 0),
+                            p.is_available,
+                          )
                         }
                       />
                     </td>

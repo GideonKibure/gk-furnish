@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 type GalleryImage = { src: string; label?: string };
 
 function normalizeImages(images: string[] | GalleryImage[]): GalleryImage[] {
-  return images.map((item) => (typeof item === "string" ? { src: item } : item)).filter((item) => Boolean(item.src));
+  return images
+    .map((item) => (typeof item === "string" ? { src: item } : item))
+    .filter((item) => Boolean(item.src));
 }
 
 /** Product gallery with hover magnifier, labeled angle thumbs, and a pan/zoom lightbox. */
@@ -136,7 +138,12 @@ export function ZoomGallery({
               {viewsHint && n > 1 && <p className="text-xs text-muted-foreground">{viewsHint}</p>}
             </div>
           )}
-          <div className={cn("grid gap-2.5", n >= 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1 max-w-[9rem]")}>
+          <div
+            className={cn(
+              "grid gap-2.5",
+              n >= 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1 max-w-[9rem]",
+            )}
+          >
             {items.map((item, k) => (
               <button
                 key={`${item.src}-${k}`}
@@ -319,7 +326,11 @@ export function Lightbox({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-ink/96 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[80] flex flex-col bg-ink/96 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="flex items-center justify-between gap-3 px-4 py-3 text-primary-foreground">
         <p className="text-sm font-medium tabular-nums opacity-80">
           {captions?.[index] ?? `${index + 1} / ${n}`}
@@ -380,8 +391,16 @@ export function Lightbox({
         />
         {n > 1 && (
           <>
-            <NavBtn side="left" className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index - 1)} />
-            <NavBtn side="right" className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index + 1)} />
+            <NavBtn
+              side="left"
+              className="!bg-white/15 !text-white hover:!bg-white/25"
+              onClick={() => change(index - 1)}
+            />
+            <NavBtn
+              side="right"
+              className="!bg-white/15 !text-white hover:!bg-white/25"
+              onClick={() => change(index + 1)}
+            />
           </>
         )}
       </div>
@@ -395,7 +414,9 @@ export function Lightbox({
               onClick={() => change(k)}
               className={cn(
                 "h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-opacity",
-                k === index ? "border-gold opacity-100" : "border-transparent opacity-50 hover:opacity-90",
+                k === index
+                  ? "border-gold opacity-100"
+                  : "border-transparent opacity-50 hover:opacity-90",
               )}
             >
               <img src={src} alt="" className="h-full w-full object-cover" />

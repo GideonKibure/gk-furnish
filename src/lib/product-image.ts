@@ -75,7 +75,9 @@ export function productGalleryItems(product: {
     if (primary) bySlot.set(0, { src: primary, slot: 0, label: "" });
   }
 
-  return [0, 1].map((slot) => bySlot.get(slot)).filter((item): item is ProductGalleryItem => Boolean(item));
+  return [0, 1]
+    .map((slot) => bySlot.get(slot))
+    .filter((item): item is ProductGalleryItem => Boolean(item));
 }
 
 /** Convenience: src strings only (max 2). */

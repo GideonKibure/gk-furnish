@@ -20,11 +20,11 @@ VALUES ('PASTE-USER-UUID-HERE');
 
 Add these environment variables in your hosting environment:
 
-| Variable | Purpose |
-|---|---|
-| `SNIPPE_API_KEY` | API key from [snippe.sh](https://snippe.sh) (`snp_…`) |
-| `SNIPPE_WEBHOOK_SECRET` | Webhook signing secret |
-| `SNIPPE_WEBHOOK_URL` | Public URL: `https://YOUR-DOMAIN/api/webhooks/snippe` |
+| Variable                | Purpose                                               |
+| ----------------------- | ----------------------------------------------------- |
+| `SNIPPE_API_KEY`        | API key from [snippe.sh](https://snippe.sh) (`snp_…`) |
+| `SNIPPE_WEBHOOK_SECRET` | Webhook signing secret                                |
+| `SNIPPE_WEBHOOK_URL`    | Public URL: `https://YOUR-DOMAIN/api/webhooks/snippe` |
 
 Until keys are set, orders still save and customers are directed to WhatsApp to finish payment. Advance amount is **TSh 10,000**; full payment uses the product line total. Networks: Airtel Money, M-Pesa, HaloPesa / Halotel, Yas (Mixx) — auto-detected from the MSISDN.
 

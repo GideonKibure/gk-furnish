@@ -29,7 +29,11 @@ export function settingsToSite(s: SiteSettings | null | undefined) {
 export const siteSettingsQuery = queryOptions({
   queryKey: ["site_settings"],
   queryFn: async () => {
-    const { data, error } = await supabase.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
     if (error) throw error;
     return data;
   },

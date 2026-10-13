@@ -14,11 +14,18 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "GK furnish — Student furniture made in Mbeya" },
-      { name: "description", content: "Chairs, study tables, beds and lamps handmade in Mbeya. Order online or on WhatsApp." },
+      {
+        name: "description",
+        content:
+          "Chairs, study tables, beds and lamps handmade in Mbeya. Order online or on WhatsApp.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "GK furnish — Student furniture made in Mbeya" },
-      { property: "og:description", content: "Durable, affordable furniture for students and homes in Tanzania." },
+      {
+        property: "og:description",
+        content: "Durable, affordable furniture for students and homes in Tanzania.",
+      },
     ],
   }),
   loader: ({ context }) =>
@@ -85,7 +92,10 @@ function Home() {
           >
             {heroSubtitle}
           </p>
-          <div className="home-hero-line mt-8 flex flex-col gap-3 sm:flex-row" style={{ animationDelay: "420ms" }}>
+          <div
+            className="home-hero-line mt-8 flex flex-col gap-3 sm:flex-row"
+            style={{ animationDelay: "420ms" }}
+          >
             <Link to="/products" className="btn-base btn-gold group">
               {t.home.heroCta1}
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -96,7 +106,6 @@ function Home() {
             </Link>
           </div>
         </div>
-
       </section>
 
       <section id="start-here" className="container-page section-y">

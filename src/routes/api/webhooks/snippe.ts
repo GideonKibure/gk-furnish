@@ -11,8 +11,10 @@ export const Route = createFileRoute("/api/webhooks/snippe")({
         }
 
         const rawBody = Buffer.from(await request.arrayBuffer());
-        const signature = request.headers.get("X-Webhook-Signature") ?? request.headers.get("x-webhook-signature");
-        const timestamp = request.headers.get("X-Webhook-Timestamp") ?? request.headers.get("x-webhook-timestamp");
+        const signature =
+          request.headers.get("X-Webhook-Signature") ?? request.headers.get("x-webhook-signature");
+        const timestamp =
+          request.headers.get("X-Webhook-Timestamp") ?? request.headers.get("x-webhook-timestamp");
 
         try {
           const { verifyWebhook, SnippeWebhookVerificationError } = await import("@snippe/sdk");

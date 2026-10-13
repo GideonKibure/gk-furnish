@@ -21,14 +21,22 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
     const [orders, products, custom, payments] = await Promise.all([
       supabaseAdmin
         .from("orders")
-        .select("id,order_number,customer_name,status,payment_status,payment_kind,amount_paid,created_at")
+        .select(
+          "id,order_number,customer_name,status,payment_status,payment_kind,amount_paid,created_at",
+        )
         .order("created_at", { ascending: false }),
-      supabaseAdmin.from("products").select("id,stock_quantity,is_available,name").order("stock_quantity", { ascending: true }),
+      supabaseAdmin
+        .from("products")
+        .select("id,stock_quantity,is_available,name")
+        .order("stock_quantity", { ascending: true }),
       supabaseAdmin
         .from("custom_orders")
         .select("id,request_number,full_name,furniture_type,status,created_at")
         .order("created_at", { ascending: false }),
-      supabaseAdmin.from("payments").select("id,status,payment_kind,amount").eq("status", "completed"),
+      supabaseAdmin
+        .from("payments")
+        .select("id,status,payment_kind,amount")
+        .eq("status", "completed"),
     ]);
 
     const orderRows = orders.data ?? [];
@@ -41,7 +49,9 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
     const paidAdvanceSum = paidRows
       .filter((p) => p.payment_kind === "advance")
       .reduce((s, p) => s + Number(p.amount), 0);
-    const paidFullSum = paidRows.filter((p) => p.payment_kind === "full").reduce((s, p) => s + Number(p.amount), 0);
+    const paidFullSum = paidRows
+      .filter((p) => p.payment_kind === "full")
+      .reduce((s, p) => s + Number(p.amount), 0);
 
     return {
       ordersTotal: orderRows.length,
@@ -53,9 +63,12 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       paidAdvanceSum,
       paidFullSum,
       revenueTotal: paidAdvanceSum + paidFullSum,
-      lowStock: productRows.filter((p) => p.is_available && p.stock_quantity > 0 && p.stock_quantity <= 3).length,
+      lowStock: productRows.filter(
+        (p) => p.is_available && p.stock_quantity > 0 && p.stock_quantity <= 3,
+      ).length,
       outOfStock: productRows.filter((p) => p.stock_quantity <= 0).length,
-      customOpen: customRows.filter((c) => c.status !== "completed" && c.status !== "cancelled").length,
+      customOpen: customRows.filter((c) => c.status !== "completed" && c.status !== "cancelled")
+        .length,
       productsTotal: productRows.length,
       recentOrders: orderRows.slice(0, 5).map((o) => ({
         id: o.id,
@@ -68,7 +81,12 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       lowStockItems: productRows
         .filter((p) => p.stock_quantity <= 3)
         .slice(0, 5)
-        .map((p) => ({ id: p.id, name: p.name, stock_quantity: p.stock_quantity, is_available: p.is_available })),
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          stock_quantity: p.stock_quantity,
+          is_available: p.is_available,
+        })),
       recentCustom: customRows
         .filter((c) => c.status !== "completed" && c.status !== "cancelled")
         .slice(0, 4)
@@ -89,7 +107,9 @@ export const listAdminProducts = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("products")
-      .select("*, categories(slug,name), product_images(id,image_url,image_key,alt_text,sort_order)")
+      .select(
+        "*, categories(slug,name), product_images(id,image_url,image_key,alt_text,sort_order)",
+      )
       .order("created_at", { ascending: false })
       .order("sort_order", { referencedTable: "product_images", ascending: true });
     if (error) throw new Error(error.message);
@@ -100,7 +120,10 @@ export const listAdminCategories = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.from("categories").select("id,name,slug").order("sort_order");
+    const { data, error } = await supabaseAdmin
+      .from("categories")
+      .select("id,name,slug")
+      .order("sort_order");
     if (error) throw new Error(error.message);
     return data ?? [];
   });
@@ -320,7 +343,11 @@ export const deleteAdminProduct = createServerFn({ method: "POST" })
       .filter((p): p is string => Boolean(p));
     if (paths.length) await supabaseAdmin.storage.from("product-images").remove(paths);
 
-    const { data: product } = await supabaseAdmin.from("products").select("image_url").eq("id", data.id).maybeSingle();
+    const { data: product } = await supabaseAdmin
+      .from("products")
+      .select("image_url")
+      .eq("id", data.id)
+      .maybeSingle();
     const primaryPath = storagePathFromPublicUrl(product?.image_url);
     if (primaryPath && !paths.includes(primaryPath)) {
       await supabaseAdmin.storage.from("product-images").remove([primaryPath]);
@@ -334,7 +361,13 @@ export const deleteAdminProduct = createServerFn({ method: "POST" })
 export const updateProductStock = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) =>
-    z.object({ id: z.string().uuid(), stock_quantity: z.number().int().min(0), is_available: z.boolean().optional() }).parse(d),
+    z
+      .object({
+        id: z.string().uuid(),
+        stock_quantity: z.number().int().min(0),
+        is_available: z.boolean().optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -376,11 +409,20 @@ const ORDER_STATUSES = [
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) =>
-    z.object({ id: z.string().uuid(), status: z.enum(ORDER_STATUSES), note: z.string().max(500).optional() }).parse(d),
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(ORDER_STATUSES),
+        note: z.string().max(500).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.id);
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({ status: data.status })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     if (data.note) {
       await supabaseAdmin.from("order_status_history").insert({
@@ -404,7 +446,12 @@ export const deleteAdminOrder = createServerFn({ method: "POST" })
 
 const AdminOrderInput = z.object({
   customer_name: z.string().trim().min(1).max(120),
-  phone: z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/),
+  phone: z
+    .string()
+    .trim()
+    .min(7)
+    .max(20)
+    .regex(/^[+\d\s()-]+$/),
   email: z.string().trim().email().max(200).optional().or(z.literal("")),
   product_id: z.string().uuid(),
   quantity: z.number().int().min(1).max(100),
@@ -522,7 +569,10 @@ export const updateCustomOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("custom_orders").update({ status: data.status }).eq("id", data.id);
+    const { error } = await supabaseAdmin
+      .from("custom_orders")
+      .update({ status: data.status })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

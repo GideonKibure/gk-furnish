@@ -7,7 +7,12 @@ import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
-import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
+import {
+  pageSectionsQuery,
+  sectionText,
+  settingsToSite,
+  siteSettingsQuery,
+} from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contact")({
@@ -31,7 +36,9 @@ function Contact() {
   const { data: sections = [] } = useQuery(pageSectionsQuery);
   const site = settingsToSite(settings);
   const subtitle = sectionText(sections, "contact", "subtitle", lang, c.subtitle);
-  const dial = site.phoneDial.startsWith("+") ? site.phoneDial : `+${site.phoneDial.replace(/\D/g, "")}`;
+  const dial = site.phoneDial.startsWith("+")
+    ? site.phoneDial
+    : `+${site.phoneDial.replace(/\D/g, "")}`;
   const wa = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(t.whatsapp.general)}`;
   const [busy, setBusy] = useState(false);
 
@@ -67,7 +74,13 @@ function Contact() {
 
   const channels = [
     { href: `tel:${dial}`, Icon: Phone, label: c.phoneLabel, value: site.phoneDisplay },
-    { href: wa, Icon: MessageCircle, label: c.whatsappLabel, value: site.phoneDisplay, external: true },
+    {
+      href: wa,
+      Icon: MessageCircle,
+      label: c.whatsappLabel,
+      value: site.phoneDisplay,
+      external: true,
+    },
     { href: `mailto:${site.email}`, Icon: Mail, label: c.emailLabel, value: site.email },
   ] as const;
 
@@ -80,7 +93,9 @@ function Contact() {
             <a
               key={label}
               href={href}
-              {...("external" in rest && rest.external ? { target: "_blank", rel: "noreferrer" } : {})}
+              {...("external" in rest && rest.external
+                ? { target: "_blank", rel: "noreferrer" }
+                : {})}
               className="group flex items-center gap-4 rounded-2xl border border-border bg-background p-4 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
             >
               <span className="grid h-12 w-12 place-items-center rounded-full bg-gold text-navy transition-transform duration-300 group-hover:scale-105">
@@ -88,7 +103,9 @@ function Contact() {
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-navy">{label}</span>
-                <span className="mt-0.5 block break-all text-sm text-muted-foreground">{value}</span>
+                <span className="mt-0.5 block break-all text-sm text-muted-foreground">
+                  {value}
+                </span>
               </span>
             </a>
           ))}
@@ -122,13 +139,25 @@ function Contact() {
                   <label className="field-label" htmlFor="c-phone">
                     {c.phone}
                   </label>
-                  <input id="c-phone" name="phone" type="tel" className="field-input" autoComplete="tel" />
+                  <input
+                    id="c-phone"
+                    name="phone"
+                    type="tel"
+                    className="field-input"
+                    autoComplete="tel"
+                  />
                 </div>
                 <div>
                   <label className="field-label" htmlFor="c-email">
                     {c.email}
                   </label>
-                  <input id="c-email" name="email" type="email" className="field-input" autoComplete="email" />
+                  <input
+                    id="c-email"
+                    name="email"
+                    type="email"
+                    className="field-input"
+                    autoComplete="email"
+                  />
                 </div>
               </div>
               <div>

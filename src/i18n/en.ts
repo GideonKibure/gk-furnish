@@ -73,14 +73,24 @@ export const en = {
     beds: { title: "Beds & lamps", body: "Rest and warm light, carefully made." },
   },
   why: {
-    affordable: { title: "Affordable", body: "Clear prices set with students in mind — no hidden extras." },
+    affordable: {
+      title: "Affordable",
+      body: "Clear prices set with students in mind — no hidden extras.",
+    },
     durable: { title: "Durable", body: "Solid timber and real joints that survive moving rooms." },
-    custom: { title: "Custom designs", body: "Any size, material or colour you describe, we can build." },
-    student: { title: "Student friendly", body: "Order on WhatsApp or a short form. No account needed." },
+    custom: {
+      title: "Custom designs",
+      body: "Any size, material or colour you describe, we can build.",
+    },
+    student: {
+      title: "Student friendly",
+      body: "Order on WhatsApp or a short form. No account needed.",
+    },
   },
   products: {
     title: "All furniture",
-    subtitle: "Every piece is made in our Mbeya workshop. Order ready pieces, or ask for your own design.",
+    subtitle:
+      "Every piece is made in our Mbeya workshop. Order ready pieces, or ask for your own design.",
     search: "Search furniture",
     searchPlaceholder: "Search by name…",
     category: "Category",
@@ -115,7 +125,8 @@ export const en = {
   },
   order: {
     title: "Place your order",
-    intro: "Fill in this short form and we will confirm on WhatsApp or by phone. No account needed.",
+    intro:
+      "Fill in this short form and we will confirm on WhatsApp or by phone. No account needed.",
     name: "Your name",
     phone: "Phone number",
     email: "Email (optional)",
@@ -234,9 +245,18 @@ export const en = {
       "To be the furniture workshop people in our region recommend first — for honest prices and work that lasts.",
     valuesTitle: "What we stand by",
     values: [
-      { title: "Honest work", body: "Real timber, real joints. We don't hide shortcuts inside the frame." },
-      { title: "Fair pricing", body: "We quote clearly before we build, and the price we agree is the price you pay." },
-      { title: "Made for you", body: "Sizes, colours and finishes change from customer to customer. That's normal here." },
+      {
+        title: "Honest work",
+        body: "Real timber, real joints. We don't hide shortcuts inside the frame.",
+      },
+      {
+        title: "Fair pricing",
+        body: "We quote clearly before we build, and the price we agree is the price you pay.",
+      },
+      {
+        title: "Made for you",
+        body: "Sizes, colours and finishes change from customer to customer. That's normal here.",
+      },
       { title: "Local craft", body: "Made in Mbeya by people who do this work every day." },
     ],
     forTitle: "Who we build for",
@@ -245,15 +265,31 @@ export const en = {
   },
   process: {
     title: "How your furniture gets made",
-    subtitle: "Seven steps from your first message to the day you collect or receive your furniture.",
+    subtitle:
+      "Seven steps from your first message to the day you collect or receive your furniture.",
     steps: [
-      { title: "Your inquiry", body: "You message us on WhatsApp, call, or send an order through this site." },
-      { title: "Design & selection", body: "We agree on the piece, the size, the material and the colour." },
+      {
+        title: "Your inquiry",
+        body: "You message us on WhatsApp, call, or send an order through this site.",
+      },
+      {
+        title: "Design & selection",
+        body: "We agree on the piece, the size, the material and the colour.",
+      },
       { title: "Material preparation", body: "We select and prepare the timber for your piece." },
-      { title: "Construction", body: "The frame is cut, joined and assembled by hand in our workshop." },
+      {
+        title: "Construction",
+        body: "The frame is cut, joined and assembled by hand in our workshop.",
+      },
       { title: "Finishing", body: "Sanding, then the finish and colour you chose." },
-      { title: "Quality check", body: "We check the joints, the stability and the finish before it leaves." },
-      { title: "Delivery or collection", body: "We arrange collection or delivery with you directly." },
+      {
+        title: "Quality check",
+        body: "We check the joints, the stability and the finish before it leaves.",
+      },
+      {
+        title: "Delivery or collection",
+        body: "We arrange collection or delivery with you directly.",
+      },
     ],
   },
   faq: {
@@ -343,7 +379,8 @@ export const en = {
     materialRequired: "Please choose a material.",
     dateRequired: "Please choose the date you need it completed.",
     imageInvalid: "Please attach a JPG, PNG or WebP image under 5MB.",
-    paymentUnavailable: "Full payment isn't available for this piece — choose advance or request a quote.",
+    paymentUnavailable:
+      "Full payment isn't available for this piece — choose advance or request a quote.",
   },
   whatsapp: {
     general: "Hello GK furnish, I would like to know more about your furniture.",

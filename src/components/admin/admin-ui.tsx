@@ -14,7 +14,11 @@ export function AdminPageHeader({
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4 md:mb-8">
       <div className="min-w-0">
         <h1 className="font-display text-3xl tracking-tight text-navy md:text-4xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground md:text-base">{description}</p>}
+        {description && (
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground md:text-base">
+            {description}
+          </p>
+        )}
       </div>
       {action}
     </div>
@@ -34,7 +38,8 @@ export function AdminCard({
     <div
       className={cn(
         "rounded-2xl border border-border/80 bg-background p-5 shadow-[var(--shadow-card)] md:p-6",
-        hover && "transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[var(--shadow-lift)]",
+        hover &&
+          "transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[var(--shadow-lift)]",
         className,
       )}
     >
@@ -77,7 +82,9 @@ export function AdminStatCard({
         )}
       />
       <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {label}
+        </p>
         {icon && (
           <span
             className={cn(
@@ -93,7 +100,9 @@ export function AdminStatCard({
           </span>
         )}
       </div>
-      <p className="relative mt-3 font-display text-3xl tracking-tight text-navy md:text-[2rem]">{value}</p>
+      <p className="relative mt-3 font-display text-3xl tracking-tight text-navy md:text-[2rem]">
+        {value}
+      </p>
       {hint && <p className="relative mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

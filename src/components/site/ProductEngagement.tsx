@@ -21,7 +21,13 @@ function visitorId() {
   }
 }
 
-export function ProductEngagement({ product, trackView = false }: { product: Product; trackView?: boolean }) {
+export function ProductEngagement({
+  product,
+  trackView = false,
+}: {
+  product: Product;
+  trackView?: boolean;
+}) {
   const { lang } = useLang();
   const queryClient = useQueryClient();
   const [liked, setLiked] = useState(false);
@@ -34,29 +40,44 @@ export function ProductEngagement({ product, trackView = false }: { product: Pro
   }, [product.view_count, product.like_count]);
 
   useEffect(() => {
-    try { setLiked(window.localStorage.getItem(`gk-liked-${product.id}`) === "true"); }
-    catch { /* Storage unavailable */ }
+    try {
+      setLiked(window.localStorage.getItem(`gk-liked-${product.id}`) === "true");
+    } catch {
+      /* Storage unavailable */
+    }
   }, [product.id]);
 
   const update = (views: number, likes: number, isLiked: boolean) => {
     setCounts({ views, likes });
     setLiked(isLiked);
-    try { window.localStorage.setItem(`gk-liked-${product.id}`, String(isLiked)); }
-    catch { /* Storage unavailable */ }
+    try {
+      window.localStorage.setItem(`gk-liked-${product.id}`, String(isLiked));
+    } catch {
+      /* Storage unavailable */
+    }
     queryClient.setQueryData<Product[]>(["products"], (list) =>
-      list?.map((item) => item.id === product.id ? { ...item, view_count: views, like_count: likes } : item));
+      list?.map((item) =>
+        item.id === product.id ? { ...item, view_count: views, like_count: likes } : item,
+      ),
+    );
   };
 
   useEffect(() => {
     if (!trackView) return;
     let active = true;
-    supabase.rpc("record_product_view", { _product_id: product.id, _visitor_id: visitorId() })
+    supabase
+      .rpc("record_product_view", { _product_id: product.id, _visitor_id: visitorId() })
       .then(({ data, error: requestError }) => {
         if (!active) return;
-        if (requestError || !data?.[0]) { setError(true); return; }
+        if (requestError || !data?.[0]) {
+          setError(true);
+          return;
+        }
         update(data[0].view_count, data[0].like_count, data[0].liked);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [product.id, trackView]);
 
   const toggleLike = async () => {
@@ -65,26 +86,53 @@ export function ProductEngagement({ product, trackView = false }: { product: Pro
     setError(false);
     try {
       const { data, error: requestError } = await supabase.rpc("toggle_product_like", {
-        _product_id: product.id, _visitor_id: visitorId(),
+        _product_id: product.id,
+        _visitor_id: visitorId(),
       });
       if (requestError || !data?.[0]) throw requestError ?? new Error("Product unavailable");
       update(data[0].view_count, data[0].like_count, data[0].liked);
-    } catch { setError(true); }
-    finally { setBusy(false); }
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5" aria-label={`${counts.views} ${lang === "sw" ? "waliotazama" : "views"}`}>
-        <Eye className="h-4 w-4" aria-hidden="true" /> {counts.views.toLocaleString()} {lang === "sw" ? "waliotazama" : "views"}
+      <span
+        className="inline-flex items-center gap-1.5"
+        aria-label={`${counts.views} ${lang === "sw" ? "waliotazama" : "views"}`}
+      >
+        <Eye className="h-4 w-4" aria-hidden="true" /> {counts.views.toLocaleString()}{" "}
+        {lang === "sw" ? "waliotazama" : "views"}
       </span>
-      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={toggleLike}
-        aria-label={lang === "sw" ? (liked ? "Ondoa kupenda" : "Penda bidhaa") : (liked ? "Unlike product" : "Like product")}
-        aria-pressed={liked} className={`h-9 gap-1.5 px-2 text-sm ${liked ? "text-destructive" : "text-muted-foreground"}`}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={toggleLike}
+        aria-label={
+          lang === "sw"
+            ? liked
+              ? "Ondoa kupenda"
+              : "Penda bidhaa"
+            : liked
+              ? "Unlike product"
+              : "Like product"
+        }
+        aria-pressed={liked}
+        className={`h-9 gap-1.5 px-2 text-sm ${liked ? "text-destructive" : "text-muted-foreground"}`}
+      >
         <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} aria-hidden="true" />
         {counts.likes.toLocaleString()} {lang === "sw" ? "waliopenda" : "likes"}
       </Button>
-      {error && <span role="status" className="text-destructive">{lang === "sw" ? "Jaribu tena" : "Please try again"}</span>}
+      {error && (
+        <span role="status" className="text-destructive">
+          {lang === "sw" ? "Jaribu tena" : "Please try again"}
+        </span>
+      )}
     </div>
   );
 }

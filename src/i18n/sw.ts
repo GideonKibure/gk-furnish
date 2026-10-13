@@ -75,10 +75,19 @@ export const sw: Dictionary = {
     beds: { title: "Vitanda na taa", body: "Mapumziko na mwanga laini, kazi safi." },
   },
   why: {
-    affordable: { title: "Bei nafuu", body: "Bei wazi zinazowafikiria wanafunzi — bila gharama za kujificha." },
+    affordable: {
+      title: "Bei nafuu",
+      body: "Bei wazi zinazowafikiria wanafunzi — bila gharama za kujificha.",
+    },
     durable: { title: "Imara", body: "Mbao bora na viungio halisi vinavyodumu unapohama." },
-    custom: { title: "Miundo maalum", body: "Ukubwa, mbao au rangi yoyote unayoeleza, tunaweza kutengeneza." },
-    student: { title: "Rafiki wa wanafunzi", body: "Agiza kwa WhatsApp au fomu fupi. Hakuna akaunti inayohitajika." },
+    custom: {
+      title: "Miundo maalum",
+      body: "Ukubwa, mbao au rangi yoyote unayoeleza, tunaweza kutengeneza.",
+    },
+    student: {
+      title: "Rafiki wa wanafunzi",
+      body: "Agiza kwa WhatsApp au fomu fupi. Hakuna akaunti inayohitajika.",
+    },
   },
   products: {
     title: "Samani zote",
@@ -117,7 +126,8 @@ export const sw: Dictionary = {
   },
   order: {
     title: "Weka agizo lako",
-    intro: "Jaza fomu hii fupi na tutathibitisha kwa WhatsApp au simu. Hakuna akaunti inayohitajika.",
+    intro:
+      "Jaza fomu hii fupi na tutathibitisha kwa WhatsApp au simu. Hakuna akaunti inayohitajika.",
     name: "Jina lako",
     phone: "Namba ya simu",
     email: "Barua pepe (si lazima)",
@@ -236,10 +246,22 @@ export const sw: Dictionary = {
       "Kuwa karakana ya samani ambayo watu wa mkoa wetu wanaipendekeza kwanza — kwa bei ya haki na kazi inayodumu.",
     valuesTitle: "Tunayosimamia",
     values: [
-      { title: "Kazi ya uaminifu", body: "Mbao halisi na viungio halisi. Hatufichi mikato ndani ya fremu." },
-      { title: "Bei ya haki", body: "Tunatoa bei kabla ya kutengeneza, na bei tunayokubaliana ni bei unayolipa." },
-      { title: "Imetengenezwa kwako", body: "Ukubwa, rangi na umaliziaji hubadilika kwa kila mteja. Hiyo ni kawaida hapa." },
-      { title: "Ufundi wa hapa", body: "Inatengenezwa Mbeya na watu wanaofanya kazi hii kila siku." },
+      {
+        title: "Kazi ya uaminifu",
+        body: "Mbao halisi na viungio halisi. Hatufichi mikato ndani ya fremu.",
+      },
+      {
+        title: "Bei ya haki",
+        body: "Tunatoa bei kabla ya kutengeneza, na bei tunayokubaliana ni bei unayolipa.",
+      },
+      {
+        title: "Imetengenezwa kwako",
+        body: "Ukubwa, rangi na umaliziaji hubadilika kwa kila mteja. Hiyo ni kawaida hapa.",
+      },
+      {
+        title: "Ufundi wa hapa",
+        body: "Inatengenezwa Mbeya na watu wanaofanya kazi hii kila siku.",
+      },
     ],
     forTitle: "Tunawatengenezea nani",
     forBody:
@@ -249,12 +271,18 @@ export const sw: Dictionary = {
     title: "Samani yako inatengenezwa vipi",
     subtitle: "Hatua saba kutoka ujumbe wako wa kwanza hadi siku unapopokea samani.",
     steps: [
-      { title: "Ombi lako", body: "Unatuma ujumbe WhatsApp, unapiga simu, au unaagiza kwenye tovuti hii." },
+      {
+        title: "Ombi lako",
+        body: "Unatuma ujumbe WhatsApp, unapiga simu, au unaagiza kwenye tovuti hii.",
+      },
       { title: "Muundo na uchaguzi", body: "Tunakubaliana kipande, ukubwa, mbao na rangi." },
       { title: "Kutayarisha malighafi", body: "Tunachagua na kutayarisha mbao kwa kipande chako." },
       { title: "Ujenzi", body: "Fremu inakatwa, kuunganishwa na kuundwa kwa mikono karakana." },
       { title: "Umaliziaji", body: "Kupiga sandi, kisha umaliziaji na rangi uliyochagua." },
-      { title: "Ukaguzi wa ubora", body: "Tunakagua viungio, uimara na umaliziaji kabla ya kutoka." },
+      {
+        title: "Ukaguzi wa ubora",
+        body: "Tunakagua viungio, uimara na umaliziaji kabla ya kutoka.",
+      },
       { title: "Kupeleka au kuchukua", body: "Tunapanga nawe kuchukua au kupeleka." },
     ],
   },
@@ -344,7 +372,8 @@ export const sw: Dictionary = {
     colorRequired: "Tafadhali chagua rangi.",
     materialRequired: "Tafadhali chagua mbao.",
     dateRequired: "Tafadhali chagua tarehe unayohitaji agizo likamilike.",
-    paymentUnavailable: "Malipo kamili hayapatikani kwa samani hii — chagua malipo ya awali au omba bei.",
+    paymentUnavailable:
+      "Malipo kamili hayapatikani kwa samani hii — chagua malipo ya awali au omba bei.",
     imageInvalid: "Tafadhali ambatisha picha ya JPG, PNG au WebP chini ya 5MB.",
   },
   whatsapp: {

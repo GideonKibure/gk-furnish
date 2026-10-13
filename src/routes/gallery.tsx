@@ -13,7 +13,10 @@ export const Route = createFileRoute("/gallery")({
   head: () => ({
     meta: [
       { title: "Gallery — GK furnish" },
-      { name: "description", content: "Finished furniture, rooms and workshop photos from GK furnish." },
+      {
+        name: "description",
+        content: "Finished furniture, rooms and workshop photos from GK furnish.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "Gallery — GK furnish" },
@@ -32,10 +35,7 @@ function Gallery() {
   const [g, setG] = useState<(typeof GROUPS)[number]>("all");
   const [i, setI] = useState<number | null>(null);
 
-  const items = useMemo(
-    () => GALLERY.filter((x) => g === "all" || x.group === g),
-    [g],
-  );
+  const items = useMemo(() => GALLERY.filter((x) => g === "all" || x.group === g), [g]);
 
   return (
     <>
@@ -66,7 +66,12 @@ function Gallery() {
 
         <div className="columns-2 gap-3 md:columns-3 md:gap-4">
           {items.map((x, k) => (
-            <Reveal key={`${x.key}-${x.caption}`} delayMs={(k % 6) * 40} variant="scale" className="mb-3 break-inside-avoid md:mb-4">
+            <Reveal
+              key={`${x.key}-${x.caption}`}
+              delayMs={(k % 6) * 40}
+              variant="scale"
+              className="mb-3 break-inside-avoid md:mb-4"
+            >
               <button
                 type="button"
                 onClick={() => setI(k)}

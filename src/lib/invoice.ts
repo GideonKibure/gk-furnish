@@ -26,9 +26,7 @@ export function downloadInvoice(data: InvoiceData) {
   const total = formatPrice(data.total) ?? "—";
   const qty = data.qty ?? 1;
   const unit =
-    data.total && data.qty
-      ? formatPrice(Math.round(data.total / Math.max(1, data.qty)))
-      : null;
+    data.total && data.qty ? formatPrice(Math.round(data.total / Math.max(1, data.qty))) : null;
 
   const html = `<!DOCTYPE html>
 <html lang="en">

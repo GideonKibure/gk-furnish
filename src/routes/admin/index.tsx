@@ -14,7 +14,13 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader, AdminStatCard } from "@/components/admin/admin-ui";
+import {
+  AdminBadge,
+  AdminCard,
+  AdminEmpty,
+  AdminPageHeader,
+  AdminStatCard,
+} from "@/components/admin/admin-ui";
 import { formatPrice, SITE } from "@/config/site";
 import { getAdminDashboard } from "@/lib/admin.functions";
 import { cn } from "@/lib/utils";
@@ -29,7 +35,8 @@ export const Route = createFileRoute("/admin/")({
 function statusTone(status: string): "neutral" | "gold" | "success" | "danger" {
   if (status === "completed") return "success";
   if (status === "cancelled" || status === "failed") return "danger";
-  if (["in_production", "ready", "out_for_delivery", "quoted", "in_progress"].includes(status)) return "gold";
+  if (["in_production", "ready", "out_for_delivery", "quoted", "in_progress"].includes(status))
+    return "gold";
   return "neutral";
 }
 
@@ -50,7 +57,8 @@ function AdminDashboard() {
         <p className="font-display text-xl text-destructive">Access error</p>
         <p className="mt-2 text-sm text-muted-foreground">{error}</p>
         <p className="mt-3 text-sm">
-          Ensure your Auth user is listed in <code className="rounded bg-muted px-1.5 py-0.5">admin_users</code>.
+          Ensure your Auth user is listed in{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5">admin_users</code>.
         </p>
         <Link to="/admin/login" className="btn-base btn-outline-navy mt-5 inline-flex">
           Back to login
@@ -72,12 +80,37 @@ function AdminDashboard() {
 
   const attention = data.ordersNotDone + data.lowStock + data.customOpen + data.outOfStock;
   const shortcuts = [
-    { to: "/admin/orders" as const, label: "Manage orders", desc: "Walk-in and online", Icon: ShoppingBag },
-    { to: "/admin/products" as const, label: "Edit products", desc: "Stock, photos, features", Icon: Package },
-    { to: "/admin/custom-orders" as const, label: "Custom requests", desc: "Quotes and builds", Icon: Sparkles },
-    { to: "/admin/popups" as const, label: "Offer popup", desc: "Homepage banner", Icon: Megaphone },
+    {
+      to: "/admin/orders" as const,
+      label: "Manage orders",
+      desc: "Walk-in and online",
+      Icon: ShoppingBag,
+    },
+    {
+      to: "/admin/products" as const,
+      label: "Edit products",
+      desc: "Stock, photos, features",
+      Icon: Package,
+    },
+    {
+      to: "/admin/custom-orders" as const,
+      label: "Custom requests",
+      desc: "Quotes and builds",
+      Icon: Sparkles,
+    },
+    {
+      to: "/admin/popups" as const,
+      label: "Offer popup",
+      desc: "Homepage banner",
+      Icon: Megaphone,
+    },
     { to: "/admin/content" as const, label: "Page content", desc: "EN / SW copy", Icon: FileText },
-    { to: "/admin/settings" as const, label: "Site settings", desc: "Contact & socials", Icon: Settings },
+    {
+      to: "/admin/settings" as const,
+      label: "Site settings",
+      desc: "Contact & socials",
+      Icon: Settings,
+    },
   ];
 
   return (
@@ -99,7 +132,9 @@ function AdminDashboard() {
         />
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div className="min-w-0">
-            <p className="text-[0.7rem] font-bold uppercase tracking-[0.16em] text-gold/90">Workshop overview</p>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.16em] text-gold/90">
+              Workshop overview
+            </p>
             <h2 className="mt-2 font-display text-3xl tracking-tight md:text-4xl">
               Welcome back to {SITE.name}
             </h2>
@@ -111,17 +146,23 @@ function AdminDashboard() {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Orders</p>
+              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">
+                Orders
+              </p>
               <p className="mt-1 font-display text-2xl text-white">{data.ordersTotal}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Revenue</p>
+              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">
+                Revenue
+              </p>
               <p className="mt-1 font-display text-xl text-gold sm:text-2xl">
                 {formatPrice(data.revenueTotal) ?? "—"}
               </p>
             </div>
             <div className="col-span-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur sm:col-span-1">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Open custom</p>
+              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">
+                Open custom
+              </p>
               <p className="mt-1 font-display text-2xl text-white">{data.customOpen}</p>
             </div>
           </div>
@@ -236,7 +277,10 @@ function AdminDashboard() {
           {data.recentOrders.length ? (
             <ul className="divide-y divide-border/60">
               {data.recentOrders.map((o) => (
-                <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-secondary/35 md:px-6">
+                <li
+                  key={o.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-secondary/35 md:px-6"
+                >
                   <div className="min-w-0">
                     <p className="font-semibold text-navy">{o.order_number}</p>
                     <p className="truncate text-sm text-muted-foreground">
@@ -244,7 +288,9 @@ function AdminDashboard() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <AdminBadge tone={statusTone(o.status)}>{o.status.replace(/_/g, " ")}</AdminBadge>
+                    <AdminBadge tone={statusTone(o.status)}>
+                      {o.status.replace(/_/g, " ")}
+                    </AdminBadge>
                     <AdminBadge tone={o.payment_status === "paid" ? "success" : "neutral"}>
                       {o.payment_status}
                     </AdminBadge>
@@ -253,7 +299,9 @@ function AdminDashboard() {
               ))}
             </ul>
           ) : (
-            <p className="px-5 py-10 text-center text-sm text-muted-foreground md:px-6">No orders yet.</p>
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground md:px-6">
+              No orders yet.
+            </p>
           )}
         </AdminCard>
 
@@ -261,14 +309,20 @@ function AdminDashboard() {
           <AdminCard hover={false} className="!p-0 overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
               <h2 className="font-display text-lg text-navy">Stock alerts</h2>
-              <Link to="/admin/products" className="text-sm font-semibold text-gold hover:underline">
+              <Link
+                to="/admin/products"
+                className="text-sm font-semibold text-gold hover:underline"
+              >
                 Products
               </Link>
             </div>
             {data.lowStockItems.length ? (
               <ul className="divide-y divide-border/60">
                 {data.lowStockItems.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                  >
                     <span className="truncate font-medium text-navy">{p.name}</span>
                     <AdminBadge tone={p.stock_quantity <= 0 ? "danger" : "warn"}>
                       {p.stock_quantity <= 0 ? "Out" : `${p.stock_quantity} left`}
@@ -277,14 +331,19 @@ function AdminDashboard() {
                 ))}
               </ul>
             ) : (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Stock levels look healthy.</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                Stock levels look healthy.
+              </p>
             )}
           </AdminCard>
 
           <AdminCard hover={false} className="!p-0 overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
               <h2 className="font-display text-lg text-navy">Open custom</h2>
-              <Link to="/admin/custom-orders" className="text-sm font-semibold text-gold hover:underline">
+              <Link
+                to="/admin/custom-orders"
+                className="text-sm font-semibold text-gold hover:underline"
+              >
                 View
               </Link>
             </div>
@@ -294,18 +353,24 @@ function AdminDashboard() {
                   <li key={c.id} className="px-5 py-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-navy">{c.request_number}</p>
+                        <p className="truncate text-sm font-semibold text-navy">
+                          {c.request_number}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {c.full_name} · {c.furniture_type}
                         </p>
                       </div>
-                      <AdminBadge tone={statusTone(c.status)}>{c.status.replace(/_/g, " ")}</AdminBadge>
+                      <AdminBadge tone={statusTone(c.status)}>
+                        {c.status.replace(/_/g, " ")}
+                      </AdminBadge>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No open custom requests.</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                No open custom requests.
+              </p>
             )}
           </AdminCard>
         </div>

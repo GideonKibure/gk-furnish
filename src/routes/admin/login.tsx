@@ -39,8 +39,14 @@ function AdminLoginPage() {
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-navy px-4 py-10">
-      <div aria-hidden className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-gold/10 blur-3xl" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-gold/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-gold/10 blur-3xl"
+      />
 
       <form
         onSubmit={onSubmit}
@@ -48,7 +54,11 @@ function AdminLoginPage() {
       >
         <div className="mb-8 text-center">
           <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-white p-1.5 shadow-[0_0_28px_-8px_color-mix(in_oklab,var(--gold)_60%,transparent)] ring-1 ring-border">
-            <img src="/brand/gk-furnish-logo.svg" alt={SITE.name} className="h-full w-full object-contain" />
+            <img
+              src="/brand/gk-furnish-logo.svg"
+              alt={SITE.name}
+              className="h-full w-full object-contain"
+            />
           </span>
           <h1 className="mt-5 font-display text-3xl tracking-tight text-navy">Admin sign in</h1>
           <p className="mt-2 text-sm text-muted-foreground">
