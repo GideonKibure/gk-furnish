@@ -1,26 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { Megaphone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang } from "@/i18n/LanguageProvider";
 import { activeOfferQuery } from "@/lib/site-content";
+import { cn } from "@/lib/utils";
 
 const DISMISS_KEY = "gk-offer-dismissed";
 
 export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visible: boolean) => void }) {
   const { lang, t } = useLang();
   const { data: offer } = useQuery(activeOfferQuery);
-  const [visible, setVisible] = useState(false);
+  const [phase, setPhase] = useState<"hidden" | "in" | "out">("hidden");
+  const onVisibilityChangeRef = useRef(onVisibilityChange);
+  onVisibilityChangeRef.current = onVisibilityChange;
+
+  function finishHide() {
+    setPhase((current) => {
+      if (current !== "in") return current;
+      onVisibilityChangeRef.current?.(false);
+      return "out";
+    });
+  }
 
   useEffect(() => {
     if (!offer) {
-      setVisible(false);
-      onVisibilityChange?.(false);
+      setPhase("hidden");
+      onVisibilityChangeRef.current?.(false);
       return;
     }
     try {
       if (sessionStorage.getItem(`${DISMISS_KEY}:${offer.id}`) === "1") {
-        setVisible(false);
-        onVisibilityChange?.(false);
+        setPhase("hidden");
+        onVisibilityChangeRef.current?.(false);
         return;
       }
     } catch {
@@ -28,23 +39,26 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
     }
 
     const showTimer = window.setTimeout(() => {
-      setVisible(true);
-      onVisibilityChange?.(true);
+      setPhase("in");
+      onVisibilityChangeRef.current?.(true);
     }, Math.max(0, offer.delay_seconds) * 1000);
 
     return () => window.clearTimeout(showTimer);
-  }, [offer, onVisibilityChange]);
+  }, [offer]);
 
   useEffect(() => {
-    if (!visible || !offer) return;
-    const hideTimer = window.setTimeout(() => {
-      setVisible(false);
-      onVisibilityChange?.(false);
-    }, Math.max(1, offer.duration_seconds) * 1000);
+    if (phase !== "in" || !offer) return;
+    const hideTimer = window.setTimeout(finishHide, Math.max(1, offer.duration_seconds) * 1000);
     return () => window.clearTimeout(hideTimer);
-  }, [visible, offer, onVisibilityChange]);
+  }, [phase, offer]);
 
-  if (!offer || !visible) return null;
+  useEffect(() => {
+    if (phase !== "out") return;
+    const done = window.setTimeout(() => setPhase("hidden"), 680);
+    return () => window.clearTimeout(done);
+  }, [phase]);
+
+  if (!offer || phase === "hidden") return null;
 
   const message = lang === "sw" && offer.message_sw ? offer.message_sw : offer.message_en;
   const badge = t.common.offer;
@@ -55,14 +69,15 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
     } catch {
       /* ignore */
     }
-    setVisible(false);
-    onVisibilityChange?.(false);
+    finishHide();
   }
 
   return (
+    <>
+    <div className={cn("offer-banner-spacer", phase === "out" && "is-leaving")} aria-hidden />
     <div
       role="status"
-      className="offer-banner sticky top-0 z-50 animate-in slide-in-from-top duration-500"
+      className={cn("offer-banner", phase === "out" && "is-leaving")}
     >
       <div className="offer-banner-stripe" aria-hidden />
       <div className="container-page relative flex items-center justify-center gap-3 py-3 pr-12 text-center sm:py-3.5">
@@ -89,5 +104,6 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
         />
       </div>
     </div>
+    </>
   );
 }

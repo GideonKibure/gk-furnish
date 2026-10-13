@@ -19,7 +19,9 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
   const isHome = pathname === "/";
   const [scrolled, setScrolled] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
+  const [hasSlid, setHasSlid] = useState(false);
   const lastY = useRef(0);
+  const scrollAcc = useRef(0);
   const overlay = isHome && !scrolled;
   const trackRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -44,16 +46,25 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
     lastY.current = window.scrollY;
     const on = () => {
       const y = window.scrollY;
-      setScrolled(y > 12);
       const delta = y - lastY.current;
-      if (y < 48) {
+      lastY.current = y;
+      setScrolled(y > 12);
+      if (y < 56) {
+        scrollAcc.current = 0;
         setNavHidden(false);
-      } else if (delta > 8) {
+        return;
+      }
+      if (delta === 0) return;
+      if (Math.sign(delta) !== Math.sign(scrollAcc.current)) scrollAcc.current = 0;
+      scrollAcc.current += delta;
+      if (scrollAcc.current > 28) {
+        scrollAcc.current = 0;
+        setHasSlid(true);
         setNavHidden(true);
-      } else if (delta < -8) {
+      } else if (scrollAcc.current < -16) {
+        scrollAcc.current = 0;
         setNavHidden(false);
       }
-      lastY.current = y;
     };
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
@@ -62,6 +73,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
   // Show nav again when the route changes
   useEffect(() => {
     setNavHidden(false);
+    scrollAcc.current = 0;
     lastY.current = window.scrollY;
   }, [pathname]);
 
@@ -102,9 +114,10 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
       {/* Compact header — mobile / tablet (bottom dock carries primary nav) */}
       <header
         className={cn(
-          "z-40 border-b border-transparent transition-[top,box-shadow,border-color,background-color,color] duration-300 lg:hidden",
-          isHome ? "fixed inset-x-0" : "sticky",
+          "nav-reveal fixed inset-x-0 z-40 border-b border-transparent lg:hidden",
+          "transition-[top,box-shadow,border-color,background-color,color] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
           offerVisible ? "top-[3.25rem] sm:top-[3.5rem]" : "top-0",
+          navHidden ? "is-hidden" : hasSlid && "is-shown",
           overlay
             ? "bg-transparent text-white !shadow-none"
             : scrolled
@@ -127,10 +140,10 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
       {/* Desktop floating navy dock — hides on scroll down, returns on scroll up */}
       <header
         className={cn(
-          "desktop-dock pointer-events-none z-40 hidden lg:block",
-          "fixed inset-x-0 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "desktop-dock nav-reveal pointer-events-none z-40 hidden lg:block",
+          "fixed inset-x-0 transition-[top] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
           offerVisible ? "top-[3.5rem]" : "top-0",
-          navHidden ? "-translate-y-[120%]" : "translate-y-0",
+          navHidden ? "is-hidden" : hasSlid && "is-shown",
         )}
       >
         <div className="container-page pointer-events-none px-4 pt-4 pb-2 xl:px-6">
@@ -216,10 +229,11 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
         </div>
       </header>
 
-      {/* Clearance for the fixed floating desktop dock (non-home only) */}
+      {/* Clearance for the fixed bars (non-home only) */}
+      {!isHome && <div className="h-16 lg:hidden" aria-hidden />}
       {!isHome && <div className="hidden h-[5rem] lg:block" aria-hidden />}
 
-      <MobileBottomNav />
+      <MobileBottomNav hidden={navHidden} />
     </>
   );
 }

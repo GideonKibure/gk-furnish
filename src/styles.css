@@ -384,20 +384,6 @@
 }
 
 /* Floating mobile bottom dock — animated glow border + morphing pill */
-.mobile-dock {
-  animation: mobile-dock-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes mobile-dock-in {
-  from {
-    opacity: 0;
-    transform: translateY(36px) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 
 .mobile-dock-glow {
   position: relative;
@@ -559,18 +545,119 @@
 }
 
 /* Desktop floating top dock — same navy / gold language as mobile */
-.desktop-dock {
-  animation: desktop-dock-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+/* Scroll hide / show — kept off the dock element so the pill shape stays put */
+.nav-reveal {
+  animation: nav-enter 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity, filter;
 }
 
-@keyframes desktop-dock-in {
+.nav-reveal.is-hidden {
+  animation: nav-leave 680ms cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+  pointer-events: none;
+}
+
+.nav-reveal.is-shown {
+  animation: nav-return 860ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.nav-reveal-down {
+  animation-name: nav-enter-up;
+}
+
+.nav-reveal-down.is-hidden {
+  animation-name: nav-leave-down;
+}
+
+.nav-reveal-down.is-shown {
+  animation-name: nav-return-up;
+}
+
+@keyframes nav-enter {
   from {
     opacity: 0;
-    transform: translateY(-22px) scale(0.97);
+    transform: translate3d(0, -22px, 0) scale(0.98);
+    filter: blur(5px);
   }
   to {
     opacity: 1;
-    transform: none;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav-enter-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 36px, 0) scale(0.94);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav-leave {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -130%, 0) scale(0.92);
+    filter: blur(10px);
+  }
+}
+
+@keyframes nav-return {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -120%, 0) scale(0.94);
+    filter: blur(8px);
+  }
+  58% {
+    opacity: 1;
+    transform: translate3d(0, 10px, 0) scale(1.02);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav-leave-down {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 140%, 0) scale(0.9);
+    filter: blur(8px);
+  }
+}
+
+@keyframes nav-return-up {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 130%, 0) scale(0.92);
+    filter: blur(8px);
+  }
+  62% {
+    opacity: 1;
+    transform: translate3d(0, -8px, 0) scale(1.02);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
   }
 }
 
@@ -744,11 +831,18 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .desktop-dock,
+  .nav-reveal,
+  .nav-reveal.is-hidden,
+  .nav-reveal.is-shown,
   .desktop-dock-glow-spin,
   .desktop-dock-glow-pulse,
   .desktop-dock-link-active {
     animation: none !important;
+  }
+
+  .nav-reveal.is-hidden {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 
@@ -874,14 +968,70 @@
   }
 }
 
-/* Sticky offer banner — original strip, lightly refined */
+/* Offer banner stays fixed until its own timer or dismiss */
+.offer-banner-spacer {
+  height: 3.25rem;
+  transition: height 680ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.offer-banner-spacer.is-leaving {
+  height: 0;
+}
+
+@media (min-width: 640px) {
+  .offer-banner-spacer {
+    height: 3.5rem;
+  }
+}
+
 .offer-banner {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
   overflow: hidden;
   border-bottom: 1px solid color-mix(in oklab, #7f1d1d 55%, transparent);
   background: linear-gradient(90deg, #b91c1c 0%, #dc2626 48%, #e11d48 100%);
   color: white;
   box-shadow: 0 8px 24px -12px color-mix(in oklab, #b91c1c 75%, transparent);
+  animation: offer-banner-in 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.offer-banner.is-leaving {
+  animation: offer-banner-out 680ms cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+  pointer-events: none;
+}
+
+@keyframes offer-banner-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -110%, 0) scaleY(0.86);
+    filter: blur(8px);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(0, 4px, 0) scaleY(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scaleY(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes offer-banner-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scaleY(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -120%, 0) scaleY(0.8);
+    filter: blur(8px);
+  }
 }
 
 .offer-banner-stripe {
@@ -977,9 +1127,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .offer-banner,
+  .offer-banner.is-leaving,
   .offer-banner-icon,
-  .offer-banner-progress-bar {
+  .offer-banner-progress-bar,
+  .offer-banner-spacer {
     animation: none !important;
+    transition: none !important;
   }
 }
 

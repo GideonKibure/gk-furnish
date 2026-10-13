@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, Images, Package, Phone, Sparkles } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLang } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 
@@ -13,13 +13,18 @@ type DockLink = {
   match: (pathname: string) => boolean;
 };
 
-export function MobileBottomNav() {
+export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
   const { t } = useLang();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const trackRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ x: 0, y: 0, w: 0, h: 0, ready: false });
   const [pressed, setPressed] = useState<string | null>(null);
+  const [hasSlid, setHasSlid] = useState(false);
+
+  useEffect(() => {
+    if (hidden) setHasSlid(true);
+  }, [hidden]);
 
   const links: DockLink[] = useMemo(
     () => [
@@ -80,7 +85,10 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label={t.nav.menu}
-      className="mobile-dock pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden"
+      className={cn(
+        "mobile-dock nav-reveal nav-reveal-down pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden",
+        hidden ? "is-hidden" : hasSlid && "is-shown",
+      )}
     >
       <div className="mobile-dock-glow pointer-events-auto relative mx-auto w-full max-w-md sm:max-w-lg">
         <span className="mobile-dock-glow-spin" aria-hidden />
