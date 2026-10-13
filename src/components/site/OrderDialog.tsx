@@ -4,10 +4,10 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
-import { formatPrice } from "@/config/site";
+import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Product } from "@/lib/catalog";
-import { parseCatalogColor, parseOptionList } from "@/lib/order-options";
+import { optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { submitOrderWithPayment } from "@/lib/payments.functions";
 
 function todayIso() {
@@ -49,8 +49,13 @@ export function OrderDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
-  const lineTotal = product.price * qty;
+  const unitPrice = selectedOptionPrice(product, material, size);
+  const shownUnit = unitPrice ?? null;
+  const lineTotal = (shownUnit ?? 0) * qty;
   const total = formatPrice(lineTotal);
+  const unitLabel = shownUnit != null
+    ? formatPrice(shownUnit)
+    : formatPriceSpan(optionPriceRows(product).map((row) => row.price)) ?? formatPrice(product.price);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -129,7 +134,7 @@ export function OrderDialog({
         <div className="rounded-xl bg-sand p-4 text-sm">
           <span className="text-muted-foreground">{t.order.product}: </span>
           <strong className="text-navy">{name}</strong>
-          {formatPrice(product.price) && <span className="ml-2 font-semibold">{formatPrice(product.price)}</span>}
+          {unitLabel && <span className="ml-2 font-semibold">{unitLabel}</span>}
         </div>
         <form onSubmit={onSubmit} noValidate className="grid gap-4">
           <div>

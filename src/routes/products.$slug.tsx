@@ -8,10 +8,10 @@ import { ProductGrid } from "@/components/site/ProductCard";
 import { Reveal } from "@/components/site/Reveal";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { ZoomGallery } from "@/components/site/ZoomGallery";
-import { formatPrice, waLink } from "@/config/site";
+import { formatPrice, formatPriceSpan, waLink } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { productsQuery } from "@/lib/catalog";
-import { parseCatalogColor, parseOptionList } from "@/lib/order-options";
+import { optionPriceRows, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
 import { productGalleryItems } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 
@@ -52,10 +52,23 @@ function Detail() {
   if (!p) return null;
 
   const name = localized(lang, p.name, p.name_sw);
-  const price = formatPrice(p.price);
-  const gallery = productGalleryItems(p).map((item) => ({ src: item.src }));
   const materials = parseOptionList(p.material);
   const dimensions = parseOptionList(p.dimensions);
+  const features = publicFeatures(p.features);
+  const chosenPrice = selectedOptionPrice(p, material, size);
+  const choiceRows = optionPriceRows(p);
+  const pricesVary = new Set(choiceRows.map((row) => row.price)).size > 1;
+  const price = chosenPrice != null
+    ? formatPrice(chosenPrice)
+    : formatPriceSpan(choiceRows.map((row) => row.price)) ?? formatPrice(p.price);
+  const priceHint = materials.length && dimensions.length
+    ? t.products.priceHintBoth
+    : materials.length
+      ? t.products.priceHintMaterial
+      : dimensions.length
+        ? t.products.priceHintSize
+        : "";
+  const gallery = productGalleryItems(p).map((item) => ({ src: item.src }));
   const colors = p.available_colors.map(parseCatalogColor);
   const selectedMaterial = materials.includes(material) ? material : "";
   const selectedSize = dimensions.includes(size) ? size : "";
@@ -111,10 +124,15 @@ function Detail() {
             </p>
             <h1 className="display-lg mt-2 text-navy">{name}</h1>
 
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <p className="font-sans text-3xl font-bold tracking-tight text-navy">
+            <div className="mt-4 rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-soft to-background px-4 py-3">
+              <p className="font-sans text-3xl font-bold tracking-tight text-navy tabular-nums">
                 {price ?? t.common.priceOnRequest}
               </p>
+              {chosenPrice == null && pricesVary && priceHint && (
+                <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>
+              )}
+            </div>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
               <span
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-semibold",
@@ -163,14 +181,14 @@ function Detail() {
               </div>
             )}
 
-            {p.features.length > 0 && (
+            {features.length > 0 && (
               <div className="mt-8">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-gold" />
                   <h2 className="text-lg font-semibold text-navy">{t.detail.features}</h2>
                 </div>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {p.features.map((f, i) => (
+                  {features.map((f, i) => (
                     <li
                       key={`${f}-${i}`}
                       className="group flex gap-3 rounded-2xl border border-border bg-background p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[var(--shadow-card)]"

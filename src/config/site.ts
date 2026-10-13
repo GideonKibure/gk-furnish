@@ -31,3 +31,13 @@ export function formatPrice(price: number | null | undefined) {
   if (!price || price <= 0) return null;
   return `${SITE.currency} ${new Intl.NumberFormat("en-US").format(Math.round(price))}`;
 }
+
+export function formatPriceSpan(prices: number[]) {
+  const amounts = prices.filter((price) => price > 0);
+  if (!amounts.length) return null;
+  const low = Math.min(...amounts);
+  const high = Math.max(...amounts);
+  const lowLabel = formatPrice(low);
+  if (!lowLabel || low === high) return lowLabel;
+  return `${lowLabel} – ${formatPrice(high)}`;
+}

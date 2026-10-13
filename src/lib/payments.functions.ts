@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { composeOrderNotes } from "@/lib/order-options";
+import { composeOrderNotes, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -27,12 +27,23 @@ export const submitOrderWithPayment = createServerFn({ method: "POST" })
 
     const { data: product, error: pErr } = await supabaseAdmin
       .from("products")
-      .select("id,name,price,stock_quantity")
+      .select("id,name,price,material,dimensions,features,stock_quantity")
       .eq("id", data.product_id)
       .single();
     if (pErr || !product) throw new Error("Product not found");
 
-    const lineTotal = Number(product.price) * data.quantity;
+    const materials = parseOptionList(product.material);
+    const dimensions = parseOptionList(product.dimensions);
+    if (materials.length && !materials.includes(data.preferred_material ?? "")) {
+      throw new Error("Choose a material");
+    }
+    if (dimensions.length && !dimensions.includes(data.preferred_size ?? "")) {
+      throw new Error("Choose a size");
+    }
+    const unitPrice = selectedOptionPrice(product, data.preferred_material ?? "", data.preferred_size ?? "");
+    if (unitPrice == null) throw new Error("Choose a material and size");
+
+    const lineTotal = unitPrice * data.quantity;
     const notes = composeOrderNotes({
       material: data.preferred_material,
       neededBy: data.needed_by,
@@ -64,7 +75,7 @@ export const submitOrderWithPayment = createServerFn({ method: "POST" })
       product_id: product.id,
       product_name: product.name,
       quantity: data.quantity,
-      unit_price: product.price,
+      unit_price: unitPrice,
     });
     if (iErr) throw new Error("Could not save order item");
 

@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { HexSwatch } from "@/components/site/SelectChoices";
-import { formatPrice } from "@/config/site";
+import { formatPrice, formatPriceSpan } from "@/config/site";
 import {
   deleteAdminProduct,
   listAdminCategories,
@@ -15,17 +15,23 @@ import {
 } from "@/lib/admin.functions";
 import { imageFor } from "@/data/images";
 import {
+  encodeOptionPrices,
   joinOptionList,
   normalizeHex,
+  optionPriceKey,
+  optionPriceRows,
   parseCatalogColor,
   parseOptionList,
+  parseOptionPrices,
+  publicFeatures,
   serializeCatalogColor,
   type CatalogColor,
+  type OptionPrice,
 } from "@/lib/order-options";
 import { PRODUCT_ANGLE_SLOTS, productImageSrc, sortedProductImages } from "@/lib/product-image";
 
 function padFeatures(list: string[] | null | undefined) {
-  const cleaned = (list ?? []).map((s) => s.trim()).filter(Boolean);
+  const cleaned = publicFeatures(list).map((s) => s.trim()).filter(Boolean);
   if (cleaned.length >= 3) return cleaned;
   return [...cleaned, ...Array(3 - cleaned.length).fill("")];
 }
@@ -85,6 +91,106 @@ function anglesFromProduct(p: ProductRow | null): AngleSlotState[] {
   return slots;
 }
 
+function OptionNameList({
+  label,
+  hint,
+  placeholder,
+  rows,
+  draft,
+  onDraft,
+  onAdd,
+  onRename,
+  onRemove,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  rows: string[];
+  draft: string;
+  onDraft: (value: string) => void;
+  onAdd: () => void;
+  onRename: (index: number, next: string) => boolean;
+  onRemove: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState<number | null>(null);
+  const [text, setText] = useState("");
+
+  function startEdit(index: number) {
+    setEditing(index);
+    setText(rows[index] ?? "");
+  }
+
+  function commit() {
+    if (editing == null) return;
+    if (onRename(editing, text)) setEditing(null);
+  }
+
+  return (
+    <div className="md:col-span-2">
+      <label className="field-label">{label}</label>
+      <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
+      <div className="flex gap-2">
+        <input
+          className="field-input"
+          value={draft}
+          placeholder={placeholder}
+          onChange={(e) => onDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            onAdd();
+          }}
+        />
+        <button type="button" className="btn-base btn-outline-navy shrink-0" onClick={onAdd}>
+          Add
+        </button>
+      </div>
+      {rows.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {rows.map((row, index) => (
+            <li key={`${row}-${index}`} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
+              {editing === index ? (
+                <input
+                  className="field-input !h-7 w-36 !px-2 !text-sm"
+                  value={text}
+                  autoFocus
+                  onChange={(e) => setText(e.target.value)}
+                  onBlur={commit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commit();
+                    }
+                    if (e.key === "Escape") setEditing(null);
+                  }}
+                />
+              ) : (
+                <span>{row}</span>
+              )}
+              <button
+                type="button"
+                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-navy"
+                onClick={() => (editing === index ? commit() : startEdit(index))}
+                aria-label={`Edit ${row}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
+                onClick={() => onRemove(row)}
+                aria-label={`Remove ${row}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/admin/products")({
   head: () => ({ meta: [{ title: "Products — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminProductsPage,
@@ -111,6 +217,7 @@ function AdminProductsPage() {
   const [materialDraft, setMaterialDraft] = useState("");
   const [dimensionRows, setDimensionRows] = useState<string[]>([]);
   const [dimensionDraft, setDimensionDraft] = useState("");
+  const [priceMap, setPriceMap] = useState<Record<string, string>>({});
 
   async function refresh() {
     const [p, c] = await Promise.all([listProducts(), listCats()]);
@@ -153,6 +260,48 @@ function AdminProductsPage() {
     setMaterialDraft("");
     setDimensionRows(parseOptionList(p?.dimensions));
     setDimensionDraft("");
+    const nextPrices: Record<string, string> = {};
+    for (const row of parseOptionPrices(p?.features)) {
+      nextPrices[optionPriceKey(row.material, row.dimension)] = String(row.price);
+    }
+    setPriceMap(nextPrices);
+  }
+
+  function renameOption(kind: "material" | "dimension", index: number, next: string) {
+    const rows = kind === "material" ? materialRows : dimensionRows;
+    const current = rows[index];
+    const cleaned = next.trim();
+    if (!current || !cleaned) return false;
+    if (rows.some((row, i) => i !== index && row.toLowerCase() === cleaned.toLowerCase())) return false;
+    if (cleaned === current) return true;
+    const setRows = kind === "material" ? setMaterialRows : setDimensionRows;
+    setRows(rows.map((row, i) => (i === index ? cleaned : row)));
+    setPriceMap((map) => {
+      const renamed: Record<string, string> = { ...map };
+      for (const key of Object.keys(map)) {
+        const [material = "", dimension = ""] = key.split("\u001f");
+        const hit = kind === "material" ? material === current : dimension === current;
+        if (!hit) continue;
+        const value = map[key] ?? "";
+        delete renamed[key];
+        renamed[optionPriceKey(kind === "material" ? cleaned : material, kind === "dimension" ? cleaned : dimension)] = value;
+      }
+      return renamed;
+    });
+    return true;
+  }
+
+  function removeOption(kind: "material" | "dimension", value: string) {
+    if (kind === "material") setMaterialRows((rows) => rows.filter((row) => row !== value));
+    else setDimensionRows((rows) => rows.filter((row) => row !== value));
+    setPriceMap((map) => {
+      const next = { ...map };
+      for (const key of Object.keys(next)) {
+        const [material = "", dimension = ""] = key.split("\u001f");
+        if ((kind === "material" && material === value) || (kind === "dimension" && dimension === value)) delete next[key];
+      }
+      return next;
+    });
   }
 
   function openCreate() {
@@ -219,7 +368,24 @@ function AdminProductsPage() {
   async function onSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const features = featureRows.map((s) => s.trim()).filter(Boolean);
+    const basePrice = Number(fd.get("price") || 0);
+    const optionPrices: OptionPrice[] = [];
+    const cell = (material: string, dimension: string) => {
+      const raw = priceMap[optionPriceKey(material, dimension)];
+      if (raw == null || raw.trim() === "") return basePrice;
+      const amount = Number(raw);
+      return Number.isFinite(amount) && amount >= 0 ? amount : basePrice;
+    };
+    if (materialRows.length && dimensionRows.length) {
+      for (const material of materialRows) {
+        for (const dimension of dimensionRows) optionPrices.push({ material, dimension, price: cell(material, dimension) });
+      }
+    } else if (materialRows.length) {
+      for (const material of materialRows) optionPrices.push({ material, dimension: "", price: cell(material, "") });
+    } else if (dimensionRows.length) {
+      for (const dimension of dimensionRows) optionPrices.push({ material: "", dimension, price: cell("", dimension) });
+    }
+    const features = [...featureRows.map((s) => s.trim()).filter(Boolean), ...encodeOptionPrices(optionPrices)];
     const colors = colorRows.map((color) => color.stored);
 
     try {
@@ -337,104 +503,84 @@ function AdminProductsPage() {
                 defaultValue={editing?.stock_quantity ?? 0}
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="field-label">Materials customers can choose</label>
-              <p className="mb-2 text-xs text-muted-foreground">Add each material, then save the product.</p>
-              <div className="flex gap-2">
-                <input
-                  className="field-input"
-                  value={materialDraft}
-                  placeholder="e.g. Hardwood"
-                  onChange={(e) => setMaterialDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    const next = materialDraft.trim();
-                    if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                    setMaterialRows((rows) => [...rows, next]);
-                    setMaterialDraft("");
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn-base btn-outline-navy shrink-0"
-                  onClick={() => {
-                    const next = materialDraft.trim();
-                    if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                    setMaterialRows((rows) => [...rows, next]);
-                    setMaterialDraft("");
-                  }}
-                >
-                  Add
-                </button>
+            <OptionNameList
+              label="Materials customers can choose"
+              hint="Add, rename or remove each material. Prices for every size are set below."
+              placeholder="e.g. Hardwood"
+              rows={materialRows}
+              draft={materialDraft}
+              onDraft={setMaterialDraft}
+              onAdd={() => {
+                const next = materialDraft.trim();
+                if (!next || materialRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                setMaterialRows((list) => [...list, next]);
+                setMaterialDraft("");
+              }}
+              onRename={(index, next) => renameOption("material", index, next)}
+              onRemove={(value) => removeOption("material", value)}
+            />
+            <OptionNameList
+              label="Dimensions customers can choose"
+              hint="Add, rename or remove each size, for example 4ft x 6ft."
+              placeholder="e.g. 5ft x 6ft"
+              rows={dimensionRows}
+              draft={dimensionDraft}
+              onDraft={setDimensionDraft}
+              onAdd={() => {
+                const next = dimensionDraft.trim();
+                if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
+                setDimensionRows((list) => [...list, next]);
+                setDimensionDraft("");
+              }}
+              onRename={(index, next) => renameOption("dimension", index, next)}
+              onRemove={(value) => removeOption("dimension", value)}
+            />
+            {(materialRows.length > 0 || dimensionRows.length > 0) && (
+              <div className="md:col-span-2">
+                <label className="field-label">Price for each material and size</label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Each material paired with each size has its own price. Empty cells use the product price above.
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full min-w-[20rem] text-sm">
+                    <thead>
+                      <tr className="bg-secondary/50 text-left">
+                        {materialRows.length > 0 && <th className="p-2 font-medium text-navy">Material</th>}
+                        {(dimensionRows.length ? dimensionRows : [""]).map((dimension) => (
+                          <th key={dimension || "price"} className="p-2 font-medium text-navy">
+                            {dimension || "Price (TZS)"}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(materialRows.length ? materialRows : [""]).map((material) => (
+                        <tr key={material || "price-row"} className="border-t border-border">
+                          {materialRows.length > 0 && <td className="p-2 font-medium text-navy">{material}</td>}
+                          {(dimensionRows.length ? dimensionRows : [""]).map((dimension) => {
+                            const key = optionPriceKey(material, dimension);
+                            return (
+                              <td key={key} className="p-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={100}
+                                  className="field-input !h-9 min-w-28"
+                                  placeholder={String(editing?.price ?? 0)}
+                                  value={priceMap[key] ?? ""}
+                                  onChange={(e) => setPriceMap((map) => ({ ...map, [key]: e.target.value }))}
+                                  aria-label={`Price for ${[material, dimension].filter(Boolean).join(" and ") || "this option"}`}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              {materialRows.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {materialRows.map((row) => (
-                    <li key={row} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
-                      {row}
-                      <button
-                        type="button"
-                        className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                        onClick={() => setMaterialRows((rows) => rows.filter((item) => item !== row))}
-                        aria-label={`Remove ${row}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="md:col-span-2">
-              <label className="field-label">Dimensions customers can choose</label>
-              <p className="mb-2 text-xs text-muted-foreground">Add each size, for example 4ft x 6ft.</p>
-              <div className="flex gap-2">
-                <input
-                  className="field-input"
-                  value={dimensionDraft}
-                  placeholder="e.g. 5ft x 6ft"
-                  onChange={(e) => setDimensionDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    const next = dimensionDraft.trim();
-                    if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                    setDimensionRows((rows) => [...rows, next]);
-                    setDimensionDraft("");
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn-base btn-outline-navy shrink-0"
-                  onClick={() => {
-                    const next = dimensionDraft.trim();
-                    if (!next || dimensionRows.some((row) => row.toLowerCase() === next.toLowerCase())) return;
-                    setDimensionRows((rows) => [...rows, next]);
-                    setDimensionDraft("");
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-              {dimensionRows.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {dimensionRows.map((row) => (
-                    <li key={row} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 text-sm text-navy">
-                      {row}
-                      <button
-                        type="button"
-                        className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:text-destructive"
-                        onClick={() => setDimensionRows((rows) => rows.filter((item) => item !== row))}
-                        aria-label={`Remove ${row}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            )}
             <div className="md:col-span-2">
               <label className="field-label">Short description</label>
               <input
@@ -711,7 +857,9 @@ function AdminProductsPage() {
                         {angleCount}/2 photos
                       </AdminBadge>
                     </td>
-                    <td className="p-4 font-medium text-navy">{formatPrice(p.price) ?? "—"}</td>
+                    <td className="p-4 font-medium text-navy">
+                      {formatPriceSpan(optionPriceRows(p).map((row) => row.price)) ?? formatPrice(p.price) ?? "—"}
+                    </td>
                     <td className="p-4">
                       <input
                         type="number"

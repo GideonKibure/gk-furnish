@@ -60,11 +60,13 @@ export function TextChoices({
   value,
   onChange,
   options,
+  compact = false,
 }: {
   name: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
+  compact?: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -78,8 +80,9 @@ export function TextChoices({
             onClick={() => onChange(option.value)}
             aria-pressed={selected}
             className={cn(
-              "rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all",
-              selected ? "border-gold bg-gold-soft text-navy shadow-sm" : "border-border text-navy hover:border-navy/25",
+              "border font-semibold transition-all",
+              compact ? "rounded-full px-2.5 py-1 text-xs" : "rounded-xl px-3.5 py-2.5 text-sm",
+              selected ? "border-gold bg-gold-soft text-navy shadow-sm" : "border-border bg-background text-navy hover:border-navy/25",
             )}
           >
             {option.label}
