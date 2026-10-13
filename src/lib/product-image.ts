@@ -24,6 +24,8 @@ export const PRODUCT_ANGLE_SLOTS = [
   { order: 1, label: "Extra photo", hint: "Second photo of this product" },
 ] as const;
 
+export const PRODUCT_VIDEO_SLOT = 2;
+
 export function angleLabel(slot: number, fallback?: string | null) {
   const stored = fallback?.trim() ?? "";
   if (/detail/i.test(stored)) return PRODUCT_ANGLE_SLOTS[slot as 0 | 1]?.label ?? "Photo";
@@ -76,6 +78,12 @@ export function productGalleryItems(product: {
   }
 
   return [0, 1].map((slot) => bySlot.get(slot)).filter((item): item is ProductGalleryItem => Boolean(item));
+}
+
+export function productVideoSrc(product: { product_images?: ProductImageLike[] | null }) {
+  const row = sortedProductImages(product.product_images).find((item) => (item.sort_order ?? 0) === PRODUCT_VIDEO_SLOT);
+  const src = row?.image_url?.trim();
+  return src || null;
 }
 
 /** Convenience: src strings only (max 2). */

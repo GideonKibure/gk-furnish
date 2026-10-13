@@ -10,9 +10,11 @@ import {
   deleteAdminProduct,
   listAdminCategories,
   listAdminProducts,
+  signProductVideoUpload,
   updateProductStock,
   upsertAdminProduct,
 } from "@/lib/admin.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
 import {
   encodeOptionPrices,
@@ -62,6 +64,17 @@ type AngleSlotState = {
   file: File | null;
   clear: boolean;
 };
+
+function emptyVideo(): AngleSlotState {
+  return { existingUrl: null, previewUrl: null, file: null, clear: false };
+}
+
+function videoFromProduct(p: ProductRow | null): AngleSlotState {
+  if (!p) return emptyVideo();
+  const row = sortedProductImages(p.product_images).find((item) => (item.sort_order ?? 0) === 2);
+  const url = row?.image_url?.trim() || null;
+  return { existingUrl: url, previewUrl: url, file: null, clear: false };
+}
 
 function emptyAngleSlots(): AngleSlotState[] {
   return PRODUCT_ANGLE_SLOTS.map(() => ({
@@ -200,6 +213,7 @@ function AdminProductsPage() {
   const listProducts = useServerFn(listAdminProducts);
   const listCats = useServerFn(listAdminCategories);
   const save = useServerFn(upsertAdminProduct);
+  const signVideo = useServerFn(signProductVideoUpload);
   const remove = useServerFn(deleteAdminProduct);
   const setStock = useServerFn(updateProductStock);
 
@@ -210,6 +224,7 @@ function AdminProductsPage() {
   const [busy, setBusy] = useState(false);
   const [featureRows, setFeatureRows] = useState<string[]>(["", "", ""]);
   const [angles, setAngles] = useState<AngleSlotState[]>(emptyAngleSlots);
+  const [video, setVideo] = useState<AngleSlotState>(emptyVideo);
   const [colorRows, setColorRows] = useState<CatalogColor[]>([]);
   const [draftHex, setDraftHex] = useState("#8B5A2B");
   const [draftColorName, setDraftColorName] = useState("");
@@ -253,6 +268,7 @@ function AdminProductsPage() {
   function resetFormExtras(p: ProductRow | null) {
     setFeatureRows(padFeatures(p?.features));
     setAngles(anglesFromProduct(p));
+    setVideo(videoFromProduct(p));
     setColorRows((p?.available_colors ?? []).map(parseCatalogColor));
     setDraftHex("#8B5A2B");
     setDraftColorName("");
@@ -323,8 +339,29 @@ function AdminProductsPage() {
       });
       return emptyAngleSlots();
     });
+    setVideo((prev) => {
+      if (prev.file && prev.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(prev.previewUrl);
+      return emptyVideo();
+    });
     setCreating(false);
     setEditing(null);
+  }
+
+  function setVideoFile(file: File | null) {
+    setVideo((prev) => {
+      if (prev.file && prev.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(prev.previewUrl);
+      if (!file) {
+        return { existingUrl: prev.existingUrl, previewUrl: prev.clear ? null : prev.existingUrl, file: null, clear: prev.clear };
+      }
+      return { existingUrl: prev.existingUrl, previewUrl: URL.createObjectURL(file), file, clear: false };
+    });
+  }
+
+  function clearVideo() {
+    setVideo((prev) => {
+      if (prev.file && prev.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(prev.previewUrl);
+      return { existingUrl: prev.existingUrl, previewUrl: null, file: null, clear: Boolean(prev.existingUrl) };
+    });
   }
 
   function setAngleFile(slot: number, file: File | null) {
@@ -399,6 +436,20 @@ function AdminProductsPage() {
         .map((a, slot) => (a?.clear && !a.file ? slot : -1))
         .filter((slot) => slot >= 0);
 
+      let video_url = "";
+      if (video.file) {
+        if (!["video/mp4", "video/webm"].includes(video.file.type) || video.file.size > 20_000_000) {
+          throw new Error("Use an MP4 or WebM video under 20MB");
+        }
+        const ext = video.file.type === "video/webm" ? "webm" : "mp4";
+        const signed = await signVideo({ data: { ext } });
+        const { error: upErr } = await supabase.storage
+          .from("product-images")
+          .uploadToSignedUrl(signed.path, signed.token, video.file, { contentType: video.file.type });
+        if (upErr) throw new Error(upErr.message);
+        video_url = signed.publicUrl;
+      }
+
       setBusy(true);
       await save({
         data: {
@@ -421,6 +472,8 @@ function AdminProductsPage() {
           image_key: String(fd.get("image_key") ?? ""),
           angle_uploads: angle_uploads.length ? angle_uploads : undefined,
           clear_angle_slots: clear_angle_slots.length ? clear_angle_slots : undefined,
+          video_url,
+          clear_video: Boolean(video.clear && !video.file),
         },
       });
       toast.success(editing ? "Product updated" : "Product created");
@@ -743,9 +796,9 @@ function AdminProductsPage() {
             <div className="md:col-span-2">
               <label className="field-label">Product photos</label>
               <p className="mb-3 text-xs text-muted-foreground">
-                Add the product photo and one extra photo. JPG, PNG or WebP · max 5MB each.
+                Add two photos and one video. Photos: JPG, PNG or WebP · max 5MB each.
               </p>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 {PRODUCT_ANGLE_SLOTS.map((meta, slot) => {
                   const a = angles[slot] ?? emptyAngleSlots()[slot]!;
                   const shown = a.previewUrl;
@@ -794,6 +847,45 @@ function AdminProductsPage() {
                     </div>
                   );
                 })}
+                <div className="overflow-hidden rounded-2xl border border-border/80 bg-secondary/30 transition-colors hover:border-gold/35">
+                  <div className="relative aspect-[4/5] bg-background">
+                    {video.previewUrl ? (
+                      <video src={video.previewUrl} muted playsInline controls className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-muted-foreground">
+                        <span className="inline-flex flex-col items-center gap-2 text-xs">
+                          <ImagePlus className="h-6 w-6 opacity-50" />
+                          No video
+                        </span>
+                      </div>
+                    )}
+                    {video.previewUrl && (
+                      <button
+                        type="button"
+                        onClick={clearVideo}
+                        className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-navy/80 text-white transition-colors hover:bg-destructive"
+                        aria-label="Remove video"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2 p-3">
+                    <div>
+                      <p className="text-sm font-semibold text-navy">Product video</p>
+                      <p className="text-[0.7rem] text-muted-foreground">Loops when the product card is on screen. MP4 or WebM · max 20MB.</p>
+                    </div>
+                    <label className="btn-base btn-outline-navy !h-9 w-full cursor-pointer text-xs">
+                      {video.previewUrl ? "Replace" : "Upload"}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        className="sr-only"
+                        onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -837,6 +929,9 @@ function AdminProductsPage() {
                 const angleCount = sortedProductImages(p.product_images).filter(
                   (r) => r.image_url && (r.sort_order ?? 0) <= 1,
                 ).length;
+                const hasVideo = sortedProductImages(p.product_images).some(
+                  (r) => r.image_url && (r.sort_order ?? 0) === 2,
+                );
                 return (
                   <tr key={p.id} className="border-b border-border/60 transition-colors hover:bg-secondary/35">
                     <td className="p-4">
@@ -854,7 +949,7 @@ function AdminProductsPage() {
                     </td>
                     <td className="p-4">
                       <AdminBadge tone={angleCount >= 2 ? "success" : angleCount > 0 ? "gold" : "neutral"}>
-                        {angleCount}/2 photos
+                        {angleCount}/2 photos{hasVideo ? " · video" : ""}
                       </AdminBadge>
                     </td>
                     <td className="p-4 font-medium text-navy">

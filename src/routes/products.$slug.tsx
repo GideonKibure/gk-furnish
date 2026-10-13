@@ -12,7 +12,8 @@ import { formatPrice, formatPriceSpan, waLink } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { productsQuery } from "@/lib/catalog";
 import { optionPriceRows, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
-import { productGalleryItems } from "@/lib/product-image";
+import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
+import { ProductVideo } from "@/components/site/ProductVideo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/products/$slug")({
@@ -69,6 +70,7 @@ function Detail() {
         ? t.products.priceHintSize
         : "";
   const gallery = productGalleryItems(p).map((item) => ({ src: item.src }));
+  const videoSrc = productVideoSrc(p);
   const colors = p.available_colors.map(parseCatalogColor);
   const selectedMaterial = materials.includes(material) ? material : "";
   const selectedSize = dimensions.includes(size) ? size : "";
@@ -109,6 +111,11 @@ function Detail() {
 
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <Reveal variant="left">
+            {videoSrc && (
+              <div className="mb-4 aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-muted shadow-[var(--shadow-card)]">
+                <ProductVideo src={videoSrc} />
+              </div>
+            )}
             <ZoomGallery
               images={gallery}
               alt={name}

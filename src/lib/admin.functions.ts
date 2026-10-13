@@ -143,6 +143,9 @@ const ProductInput = z.object({
     .optional(),
   /** Slots to remove from product_images. */
   clear_angle_slots: z.array(z.number().int().min(0).max(1)).max(2).optional(),
+  /** Public URL of a video already uploaded for this product. */
+  video_url: z.string().trim().max(800).optional().or(z.literal("")),
+  clear_video: z.boolean().optional(),
 });
 
 async function uploadProductStorage(
@@ -182,7 +185,7 @@ async function syncProductAngles(
 
   const bySlot = new Map((existing ?? []).map((row) => [row.sort_order, row]));
   for (const row of existing ?? []) {
-    if ((row.sort_order ?? 0) < 2) continue;
+    if ((row.sort_order ?? 0) < 3) continue;
     const path = storagePathFromPublicUrl(row.image_url);
     if (path) await supabaseAdmin.storage.from("product-images").remove([path]);
     const { error } = await supabaseAdmin.from("product_images").delete().eq("id", row.id);
@@ -251,6 +254,67 @@ async function syncProductAngles(
   if (syncErr) throw new Error(syncErr.message);
 }
 
+async function syncProductVideo(
+  supabaseAdmin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  productId: string,
+  videoUrl: string | undefined,
+  clear: boolean | undefined,
+) {
+  const { data: existing, error: listErr } = await supabaseAdmin
+    .from("product_images")
+    .select("id,image_url")
+    .eq("product_id", productId)
+    .eq("sort_order", 2)
+    .maybeSingle();
+  if (listErr) throw new Error(listErr.message);
+
+  const nextUrl = videoUrl?.trim() || "";
+  if (!nextUrl && !clear) return;
+
+  if (existing && (!nextUrl || nextUrl !== existing.image_url)) {
+    const path = storagePathFromPublicUrl(existing.image_url);
+    if (path) await supabaseAdmin.storage.from("product-images").remove([path]);
+  }
+
+  if (!nextUrl) {
+    if (!existing) return;
+    const { error } = await supabaseAdmin.from("product_images").delete().eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (!nextUrl.includes("/product-images/")) throw new Error("Video upload did not finish");
+
+  if (existing) {
+    const { error } = await supabaseAdmin
+      .from("product_images")
+      .update({ image_url: nextUrl, image_key: null, alt_text: "Video", sort_order: 2 })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await supabaseAdmin.from("product_images").insert({
+    product_id: productId,
+    image_url: nextUrl,
+    alt_text: "Video",
+    sort_order: 2,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export const signProductVideoUpload = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ ext: z.enum(["mp4", "webm"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const path = `${crypto.randomUUID()}.${data.ext}`;
+    const { data: signed, error } = await supabaseAdmin.storage.from("product-images").createSignedUploadUrl(path);
+    if (error || !signed) throw new Error(error?.message ?? "Could not prepare video upload");
+    const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(path);
+    return { path, token: signed.token, publicUrl: pub.publicUrl };
+  });
+
 export const upsertAdminProduct = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => ProductInput.parse(d))
@@ -302,6 +366,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     }
 
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
+    await syncProductVideo(supabaseAdmin, productId, data.video_url, data.clear_video);
 
     return { id: productId, slug };
   });

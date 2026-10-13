@@ -4,9 +4,10 @@ import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Product } from "@/lib/catalog";
 import { optionPriceRows, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
-import { productGalleryItems } from "@/lib/product-image";
+import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 import { OrderDialog } from "./OrderDialog";
+import { ProductVideo } from "./ProductVideo";
 import { ProductEngagement } from "./ProductEngagement";
 import { Reveal } from "./Reveal";
 import { TextChoices } from "./SelectChoices";
@@ -33,8 +34,11 @@ export function ProductCard({ product }: { product: Product }) {
         : "";
   const cat = product.categories ? localized(lang, product.categories.name, product.categories.name_sw) : "";
   const angles = productGalleryItems(product);
+  const videoSrc = productVideoSrc(product);
+  const [showVideo, setShowVideo] = useState(Boolean(videoSrc));
   const active = angles[Math.min(view, Math.max(0, angles.length - 1))] ?? angles[0];
   const angleLabels = ["Photo 1", "Photo 2"];
+  const playingVideo = Boolean(videoSrc && showVideo);
 
   return (
     <Reveal variant="scale">
@@ -44,12 +48,16 @@ export function ProductCard({ product }: { product: Product }) {
           params={{ slug: product.slug }}
           className="relative block aspect-[4/3] overflow-hidden bg-muted"
         >
-          <img
-            src={active?.src}
-            alt={name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-          />
+          {playingVideo && videoSrc ? (
+            <ProductVideo src={videoSrc} className="absolute inset-0" />
+          ) : (
+            <img
+              src={active?.src}
+              alt={name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+            />
+          )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/35 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           <span
             className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${product.is_available ? "glass text-navy" : "glass-dark text-primary-foreground"}`}
@@ -63,18 +71,35 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </Link>
 
-        {angles.length > 1 && (
+        {(angles.length > 1 || videoSrc) && (
           <div className="flex gap-1.5 border-b border-border/60 bg-secondary/30 px-3 py-2">
+            {videoSrc && (
+              <button
+                type="button"
+                onClick={() => setShowVideo(true)}
+                aria-label="Video"
+                aria-pressed={playingVideo}
+                className={cn(
+                  "grid h-12 w-16 shrink-0 place-items-center rounded-lg border-2 text-[0.65rem] font-semibold uppercase tracking-wide text-navy",
+                  playingVideo ? "border-gold bg-gold-soft" : "border-transparent bg-background opacity-75 hover:opacity-100",
+                )}
+              >
+                Video
+              </button>
+            )}
             {angles.map((angle, idx) => (
               <button
                 key={`${angle.src}-${idx}`}
                 type="button"
-                onClick={() => setView(idx)}
+                onClick={() => {
+                  setShowVideo(false);
+                  setView(idx);
+                }}
                 aria-label={angleLabels[angle.slot] ?? angle.label}
-                aria-pressed={view === idx}
+                aria-pressed={!playingVideo && view === idx}
                 className={cn(
                   "relative h-12 flex-1 overflow-hidden rounded-lg border-2 transition-all",
-                  view === idx ? "border-gold shadow-sm" : "border-transparent opacity-75 hover:opacity-100",
+                  !playingVideo && view === idx ? "border-gold shadow-sm" : "border-transparent opacity-75 hover:opacity-100",
                 )}
               >
                 <img src={angle.src} alt="" className="h-full w-full object-cover" />
