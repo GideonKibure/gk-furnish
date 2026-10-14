@@ -201,6 +201,58 @@ export function highestOptionPrice(product: PricedProduct) {
   return Math.max(...rows.map((row) => row.price));
 }
 
+const PREFERENCE_NOTE = "\n— ";
+const FINISH_IMAGE_PREFIX = "finish:";
+
+/** Selected names stay pipe-separated. A written preference follows on its own line. */
+export function packPreference(selected: string[], note: string) {
+  const picks = [...new Set(selected.map((item) => item.trim()).filter(Boolean))].join(OPTION_SEP);
+  const written = note.trim().replace(/\s+/g, " ");
+  if (picks && written) return `${picks}${PREFERENCE_NOTE}${written}`;
+  if (written) return `— ${written}`;
+  return picks;
+}
+
+export function unpackPreference(stored?: string | null) {
+  const text = (stored ?? "").replace(/\s+$/, "");
+  if (!text.trim()) return { selected: [] as string[], note: "" };
+  const cut = text.indexOf(PREFERENCE_NOTE);
+  if (cut >= 0) {
+    const head = text.slice(0, cut).trim();
+    return {
+      selected: head ? head.split("|").map((item) => item.trim()).filter(Boolean) : [],
+      note: text.slice(cut + PREFERENCE_NOTE.length).trim(),
+    };
+  }
+  if (text.startsWith("— ")) return { selected: [] as string[], note: text.slice(2).trim() };
+  return { selected: text.split("|").map((item) => item.trim()).filter(Boolean), note: "" };
+}
+
+export function formatPreference(stored?: string | null) {
+  const { selected, note } = unpackPreference(stored);
+  return [selected.join(", "), note].filter(Boolean).join(" — ");
+}
+
+/** The first path is the design photo. A finish sample is marked so older single photos still open. */
+export function packReferenceImages(design?: string | null, finish?: string | null) {
+  const lines: string[] = [];
+  if (design) lines.push(design);
+  if (finish) lines.push(`${FINISH_IMAGE_PREFIX}${finish}`);
+  return lines.length ? lines.join("\n") : null;
+}
+
+export function unpackReferenceImages(stored?: string | null) {
+  let design: string | null = null;
+  let finish: string | null = null;
+  for (const line of (stored ?? "").split("\n")) {
+    const value = line.trim();
+    if (!value) continue;
+    if (value.startsWith(FINISH_IMAGE_PREFIX)) finish = value.slice(FINISH_IMAGE_PREFIX.length);
+    else design = value;
+  }
+  return { design, finish };
+}
+
 export function composeOrderNotes(parts: {
   material?: string | undefined;
   neededBy?: string | undefined;

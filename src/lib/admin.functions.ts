@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
+import { paymentAmountFor } from "@/config/payments";
+import { unpackReferenceImages } from "@/lib/order-options";
 
 const slugify = (s: string) =>
   s
@@ -457,6 +459,63 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const PAYMENT_MARKS = ["unpaid", "advance", "full"] as const;
+
+/** Mark an existing order unpaid, paid as an advance, or paid in full. */
+export const updateOrderPayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid(), payment: z.enum(PAYMENT_MARKS) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order, error: loadErr } = await supabaseAdmin
+      .from("orders")
+      .select("id,status,order_items(quantity,unit_price)")
+      .eq("id", data.id)
+      .single();
+    if (loadErr || !order) throw new Error(loadErr?.message ?? "Order not found");
+
+    const items = order.order_items ?? [];
+    const total = items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0);
+    const amountPaid =
+      data.payment === "unpaid" ? 0 : data.payment === "full" ? total : Math.min(paymentAmountFor("advance", total), total || paymentAmountFor("advance", total));
+    const amountDue = Math.max(0, total - amountPaid);
+    const payment_status = data.payment === "unpaid" ? "unpaid" : "paid";
+    const payment_kind = data.payment === "unpaid" ? "none" : data.payment;
+
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({ payment_status, payment_kind, amount_paid: amountPaid, amount_due: amountDue })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+
+    const { error: clearErr } = await supabaseAdmin
+      .from("payments")
+      .delete()
+      .eq("order_id", data.id)
+      .contains("metadata", { source: "admin" });
+    if (clearErr) throw new Error(clearErr.message);
+
+    if (data.payment !== "unpaid") {
+      const { error: payErr } = await supabaseAdmin.from("payments").insert({
+        order_id: data.id,
+        payment_kind: data.payment,
+        amount: amountPaid,
+        status: "completed",
+        metadata: { source: "admin" },
+      });
+      if (payErr) throw new Error(payErr.message);
+    }
+
+    const label = data.payment === "full" ? "paid in full" : data.payment === "advance" ? "advance paid" : "unpaid";
+    await supabaseAdmin.from("order_status_history").insert({
+      order_id: data.id,
+      status: order.status,
+      note: `Payment marked ${label}`,
+    });
+
+    return { ok: true, payment_status, payment_kind, amount_paid: amountPaid, amount_due: amountDue };
+  });
+
 export const deleteAdminOrder = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
@@ -562,14 +621,16 @@ export const listAdminCustomOrders = createServerFn({ method: "GET" })
     const rows = data ?? [];
     const withUrls = await Promise.all(
       rows.map(async (row) => {
-        let signed_url: string | null = null;
-        if (row.reference_image_url) {
+        const { design, finish } = unpackReferenceImages(row.reference_image_url);
+        async function sign(path: string | null) {
+          if (!path) return null;
           const { data: signed } = await supabaseAdmin.storage
             .from("custom-order-references")
-            .createSignedUrl(row.reference_image_url, 60 * 60);
-          signed_url = signed?.signedUrl ?? null;
+            .createSignedUrl(path, 60 * 60);
+          return signed?.signedUrl ?? null;
         }
-        return { ...row, signed_url };
+        const [signed_url, finish_signed_url] = await Promise.all([sign(design), sign(finish)]);
+        return { ...row, signed_url, finish_signed_url };
       }),
     );
     return withUrls;

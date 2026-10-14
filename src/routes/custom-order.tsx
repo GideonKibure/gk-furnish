@@ -9,7 +9,7 @@ import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices"
 import { telLink, waLink } from "@/config/site";
 import { useLang } from "@/i18n/LanguageProvider";
 import { STANDARD_COLORS } from "@/lib/color-swatches";
-import { BED_SIZES, MATERIAL_OPTIONS } from "@/lib/order-options";
+import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
 import { submitCustomOrder } from "@/lib/orders.functions";
 import { cn } from "@/lib/utils";
 
@@ -48,10 +48,13 @@ function Custom() {
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [finishPreview, setFinishPreview] = useState<string | null>(null);
   const [showExtras, setShowExtras] = useState(false);
   const [furnitureType, setFurnitureType] = useState("");
-  const [color, setColor] = useState("");
-  const [material, setMaterial] = useState("");
+  const [colors, setColors] = useState<string[]>([]);
+  const [materials, setMaterials] = useState<string[]>([]);
+  const [colorNote, setColorNote] = useState("");
+  const [materialNote, setMaterialNote] = useState("");
   const [bedSize, setBedSize] = useState("");
   const [neededBy, setNeededBy] = useState("");
   const bed = /\bbed\b|\bkitanda\b/i.test(furnitureType);
@@ -67,8 +70,8 @@ function Custom() {
       furniture_type: v("furniture_type"),
       design_description: v("design_description"),
       preferred_dimensions: bed ? bedSize : v("preferred_dimensions"),
-      preferred_material: material,
-      preferred_color: color,
+      preferred_material: packPreference(materials, materialNote),
+      preferred_color: packPreference(colors, colorNote),
       needed_by: neededBy,
       budget_range: "",
       delivery_location: v("delivery_location"),
@@ -77,6 +80,8 @@ function Custom() {
     };
     const file = fd.get("reference_image");
     const img = file instanceof File && file.size > 0 ? file : null;
+    const finishFile = fd.get("finish_image");
+    const finish = finishFile instanceof File && finishFile.size > 0 ? finishFile : null;
     const x: Record<string, string> = {};
     if (!f.full_name) x["full_name"] = t.validation.nameRequired;
     if (!f.phone) x["phone"] = t.validation.phoneRequired;
@@ -87,8 +92,13 @@ function Custom() {
     if (!f.needed_by) x["needed_by"] = t.validation.dateRequired;
     if (bed && !f.preferred_dimensions) x["preferred_dimensions"] = t.validation.sizeRequired;
     if (f.email && !/^\S+@\S+\.\S+$/.test(f.email)) x["email"] = t.validation.emailInvalid;
-    if (img && (!IMG_TYPES.includes(img.type as (typeof IMG_TYPES)[number]) || img.size > 5 * 1024 * 1024)) {
-      x["reference_image"] = t.validation.imageInvalid;
+    for (const [key, photo] of [
+      ["reference_image", img],
+      ["finish_image", finish],
+    ] as const) {
+      if (photo && (!IMG_TYPES.includes(photo.type as (typeof IMG_TYPES)[number]) || photo.size > 5 * 1024 * 1024)) {
+        x[key] = t.validation.imageInvalid;
+      }
     }
     setErrs(x);
     if (Object.keys(x).length) return;
@@ -97,7 +107,10 @@ function Custom() {
       const reference_image = img
         ? { name: img.name, type: img.type as (typeof IMG_TYPES)[number], base64: await toBase64(img) }
         : undefined;
-      const r = await send({ data: { ...f, reference_image } });
+      const finish_image = finish
+        ? { name: finish.name, type: finish.type as (typeof IMG_TYPES)[number], base64: await toBase64(finish) }
+        : undefined;
+      const r = await send({ data: { ...f, reference_image, finish_image } });
       nav({
         to: "/order-success",
         search: {
@@ -108,9 +121,9 @@ function Custom() {
           name: f.full_name,
           phone: f.phone,
           email: f.email || undefined,
-          color: f.preferred_color || undefined,
+          color: formatPreference(f.preferred_color) || undefined,
           size: f.preferred_dimensions || undefined,
-          material: f.preferred_material || undefined,
+          material: formatPreference(f.preferred_material) || undefined,
           needed: f.needed_by,
           location: f.delivery_location,
         },
@@ -295,16 +308,73 @@ function Custom() {
                 )}
                 <div className="sm:col-span-2">
                   <p className="field-label">{t.custom.material}</p>
+                  <p className="mb-2 text-xs text-muted-foreground">{t.custom.selectMany}</p>
                   <TextChoices
+                    multiple
                     name="preferred_material"
-                    value={material}
-                    onChange={setMaterial}
+                    value={materials}
+                    onChange={setMaterials}
                     options={MATERIAL_OPTIONS.map((value) => ({ value, label: value }))}
+                  />
+                  <label className="field-label mt-3" htmlFor="material_note">
+                    {t.custom.materialNote}
+                  </label>
+                  <input
+                    id="material_note"
+                    value={materialNote}
+                    onChange={(e) => setMaterialNote(e.target.value)}
+                    className="field-input"
+                    placeholder={t.custom.materialNotePlaceholder}
+                    maxLength={240}
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <p className="field-label">{t.custom.color}</p>
-                  <ColorImageChoices name="preferred_color" value={color} onChange={setColor} options={[...STANDARD_COLORS]} />
+                  <p className="mb-2 text-xs text-muted-foreground">{t.custom.selectMany}</p>
+                  <ColorImageChoices
+                    multiple
+                    name="preferred_color"
+                    value={colors}
+                    onChange={setColors}
+                    options={[...STANDARD_COLORS]}
+                  />
+                  <label className="field-label mt-3" htmlFor="color_note">
+                    {t.custom.colorNote}
+                  </label>
+                  <input
+                    id="color_note"
+                    value={colorNote}
+                    onChange={(e) => setColorNote(e.target.value)}
+                    className="field-input"
+                    placeholder={t.custom.colorNotePlaceholder}
+                    maxLength={240}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="field-label" htmlFor="finish_image">
+                    {t.custom.finishPhoto}
+                  </label>
+                  <label
+                    htmlFor="finish_image"
+                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border bg-sand/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold hover:bg-gold-soft/40"
+                  >
+                    <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
+                    <span className="truncate">{finishPreview ? t.custom.photoChosen : t.custom.finishPhotoHint}</span>
+                  </label>
+                  <input
+                    id="finish_image"
+                    name="finish_image"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const fl = e.target.files?.[0];
+                      setFinishPreview(fl ? URL.createObjectURL(fl) : null);
+                    }}
+                  />
+                  {finishPreview && <img src={finishPreview} alt="" className="mt-3 h-28 w-28 rounded-xl object-cover" />}
+                  <p className="mt-1.5 text-xs text-muted-foreground">{t.custom.attachHint}</p>
+                  {fieldErr("finish_image")}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="needed_by">

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { composeOrderNotes } from "@/lib/order-options";
+import { composeOrderNotes, packReferenceImages } from "@/lib/order-options";
 
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -68,8 +68,8 @@ const CustomInput = z.object({
   furniture_type: z.string().trim().min(1).max(100),
   design_description: z.string().trim().min(1).max(2000),
   preferred_dimensions: opt(200),
-  preferred_material: opt(120),
-  preferred_color: opt(80),
+  preferred_material: opt(500),
+  preferred_color: opt(500),
   needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.number().int().min(1).max(100),
   budget_range: opt(80),
@@ -82,24 +82,34 @@ const CustomInput = z.object({
       base64: z.string().max(7_000_000), // ~5MB file
     })
     .optional(),
+  finish_image: z
+    .object({
+      name: z.string().max(200),
+      type: z.enum(["image/jpeg", "image/png", "image/webp"]),
+      base64: z.string().max(7_000_000),
+    })
+    .optional(),
 });
 
 export const submitCustomOrder = createServerFn({ method: "POST" })
   .inputValidator((d) => CustomInput.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { reference_image, ...fields } = data;
-    let reference_image_url: string | null = null;
-    if (reference_image) {
-      const ext = reference_image.type.split("/")[1];
+    const { reference_image, finish_image, ...fields } = data;
+    async function uploadImage(image: { type: string; base64: string }) {
+      const ext = image.type.split("/")[1];
       const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-      const bytes = Uint8Array.from(atob(reference_image.base64), (c) => c.charCodeAt(0));
+      const bytes = Uint8Array.from(atob(image.base64), (c) => c.charCodeAt(0));
       const { error: upErr } = await supabaseAdmin.storage
         .from("custom-order-references")
-        .upload(path, bytes, { contentType: reference_image.type });
+        .upload(path, bytes, { contentType: image.type });
       if (upErr) throw new Error("Could not upload image");
-      reference_image_url = path; // private bucket path
+      return path;
     }
+    const reference_image_url = packReferenceImages(
+      reference_image ? await uploadImage(reference_image) : null,
+      finish_image ? await uploadImage(finish_image) : null,
+    );
     const n = (v?: string) => (v ? v : null);
     const { data: row, error } = await supabaseAdmin
       .from("custom_orders")

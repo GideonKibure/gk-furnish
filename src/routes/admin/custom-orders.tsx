@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { deleteAdminCustomOrder, listAdminCustomOrders, updateCustomOrderStatus } from "@/lib/admin.functions";
+import { colorSwatch } from "@/lib/color-swatches";
 import { downloadToDevice, photoFileName } from "@/lib/download-file";
+import { parseCatalogColor, unpackPreference } from "@/lib/order-options";
 
 export const Route = createFileRoute("/admin/custom-orders")({
   head: () => ({ meta: [{ title: "Custom orders — Admin" }, { name: "robots", content: "noindex" }] }),
@@ -15,6 +17,43 @@ export const Route = createFileRoute("/admin/custom-orders")({
 type Row = Awaited<ReturnType<typeof listAdminCustomOrders>>[number];
 
 const STATUSES = ["pending", "quoted", "in_progress", "completed", "cancelled"] as const;
+
+function PreferenceBlock({ label, stored, swatches = false }: { label: string; stored: string | null; swatches?: boolean }) {
+  const { selected, note } = unpackPreference(stored);
+  if (!selected.length && !note) return null;
+  return (
+    <div>
+      <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      {selected.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {selected.map((item) => {
+            if (!swatches) {
+              return (
+                <span key={item} className="rounded-full border border-border bg-sand/70 px-2.5 py-1 text-xs font-semibold text-navy">
+                  {item}
+                </span>
+              );
+            }
+            const color = parseCatalogColor(item);
+            return (
+              <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background py-1 pl-1 pr-2.5 text-xs font-semibold text-navy">
+                <span
+                  className="h-4 w-4 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_oklab,black_12%,transparent)]"
+                  style={{
+                    background: color.hex ?? undefined,
+                    backgroundImage: color.hex ? undefined : `url("${colorSwatch(color.label)}")`,
+                  }}
+                />
+                {color.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {note && <p className="mt-1.5 text-sm text-navy">“{note}”</p>}
+    </div>
+  );
+}
 
 function statusTone(status: string): "neutral" | "gold" | "success" | "danger" {
   if (status === "completed") return "success";
@@ -126,53 +165,62 @@ function AdminCustomOrdersPage() {
                 <div>
                   <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
                   <p className="mt-1">{r.delivery_location}</p>
-                  {(r.preferred_dimensions || r.preferred_material || r.preferred_color) && (
-                    <p className="mt-1 text-muted-foreground">
-                      {[r.preferred_dimensions, r.preferred_material, r.preferred_color].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
+                  {r.preferred_dimensions && <p className="mt-1 text-muted-foreground">{r.preferred_dimensions}</p>}
+                  <div className="mt-3 space-y-3">
+                    <PreferenceBlock label="Materials" stored={r.preferred_material} />
+                    <PreferenceBlock label="Colours" stored={r.preferred_color} swatches />
+                  </div>
                   {r.additional_requirements && (
                     <p className="mt-2 whitespace-pre-line text-sm text-navy">{r.additional_requirements}</p>
                   )}
                 </div>
               </div>
-              {r.signed_url ? (
-                <div className="space-y-2">
-                  <a
-                    href={r.signed_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group block overflow-hidden rounded-xl border border-border/80 transition-all hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
-                  >
-                    <img
-                      src={r.signed_url}
-                      alt="Reference"
-                      className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  </a>
-                  <button
-                    type="button"
-                    className="btn-base btn-outline-navy !h-9 w-full text-xs"
-                    onClick={() => {
-                      const url = r.signed_url;
-                      if (!url) return;
-                      downloadToDevice(url, photoFileName(`${r.request_number}-reference`, url)).catch(() => {
-                        toast.error("Could not download this photo");
-                      });
-                    }}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download photo
-                  </button>
-                </div>
-              ) : (
-                <div className="grid h-48 place-items-center rounded-xl border border-dashed border-border bg-secondary/40 text-xs text-muted-foreground">
-                  <span className="inline-flex flex-col items-center gap-2">
-                    <ImageIcon className="h-5 w-5 opacity-50" />
-                    No photo attached
-                  </span>
-                </div>
-              )}
+              <div className="space-y-3">
+                {(
+                  [
+                    ["Reference photo", r.signed_url, "reference"],
+                    ["Material / colour", r.finish_signed_url, "finish"],
+                  ] as const
+                ).map(([label, url, kind]) =>
+                  url ? (
+                    <div key={kind} className="space-y-2">
+                      <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group block overflow-hidden rounded-xl border border-border/80 transition-all hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
+                      >
+                        <img
+                          src={url}
+                          alt={label}
+                          className="h-36 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </a>
+                      <button
+                        type="button"
+                        className="btn-base btn-outline-navy !h-9 w-full text-xs"
+                        onClick={() => {
+                          downloadToDevice(url, photoFileName(`${r.request_number}-${kind}`, url)).catch(() => {
+                            toast.error("Could not download this photo");
+                          });
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download photo
+                      </button>
+                    </div>
+                  ) : null,
+                )}
+                {!r.signed_url && !r.finish_signed_url && (
+                  <div className="grid h-48 place-items-center rounded-xl border border-dashed border-border bg-secondary/40 text-xs text-muted-foreground">
+                    <span className="inline-flex flex-col items-center gap-2">
+                      <ImageIcon className="h-5 w-5 opacity-50" />
+                      No photo attached
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </AdminCard>
         ))}

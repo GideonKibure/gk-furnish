@@ -12,6 +12,7 @@ import {
   deleteAdminOrder,
   listAdminOrders,
   listAdminProducts,
+  updateOrderPayment,
   updateOrderStatus,
 } from "@/lib/admin.functions";
 
@@ -34,6 +35,21 @@ const STATUSES = [
 ] as const;
 
 type Filter = "all" | "not_done" | "in_progress" | "done" | "paid_advance" | "paid_full";
+type PaymentMark = "unpaid" | "advance" | "full";
+
+function paymentMark(order: { payment_status: string; payment_kind: string }): PaymentMark {
+  if (order.payment_status === "paid" && order.payment_kind === "full") return "full";
+  if (order.payment_status === "paid" && order.payment_kind === "advance") return "advance";
+  return "unpaid";
+}
+
+function paymentLabel(order: { payment_status: string; payment_kind: string }) {
+  if (order.payment_status === "paid" && order.payment_kind === "full") return "Paid in full";
+  if (order.payment_status === "paid" && order.payment_kind === "advance") return "Advance paid";
+  if (order.payment_status === "pending") return "Payment pending";
+  if (order.payment_status === "failed") return "Payment failed";
+  return "Unpaid";
+}
 
 function dialHref(phone: string) {
   const digits = phone.replace(/[^\d+]/g, "");
@@ -79,6 +95,7 @@ function AdminOrdersPage() {
   const listProducts = useServerFn(listAdminProducts);
   const create = useServerFn(createAdminOrder);
   const update = useServerFn(updateOrderStatus);
+  const updatePayment = useServerFn(updateOrderPayment);
   const remove = useServerFn(deleteAdminOrder);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<ProductOpt[]>([]);
@@ -113,6 +130,16 @@ function AdminOrdersPage() {
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Update failed");
+    }
+  }
+
+  async function onPayment(id: string, payment: PaymentMark) {
+    try {
+      await updatePayment({ data: { id, payment } });
+      toast.success(payment === "full" ? "Marked paid in full" : payment === "advance" ? "Marked advance paid" : "Marked unpaid");
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Payment update failed");
     }
   }
 
@@ -317,8 +344,8 @@ function AdminOrdersPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <AdminBadge>{o.status.replace(/_/g, " ")}</AdminBadge>
-                  <AdminBadge tone="gold">
-                    {o.payment_kind} · {o.payment_status}
+                  <AdminBadge tone={paymentMark(o) === "full" ? "success" : paymentMark(o) === "advance" ? "gold" : "neutral"}>
+                    {paymentLabel(o)}
                   </AdminBadge>
                 </div>
               </div>
@@ -387,6 +414,21 @@ function AdminOrdersPage() {
                       {s.replace(/_/g, " ")}
                     </option>
                   ))}
+                </select>
+                <label className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  Payment
+                </label>
+                <select
+                  className="field-input !h-10 max-w-xs"
+                  value={o.payment_status === "paid" ? paymentMark(o) : o.payment_status}
+                  onChange={(e) => onPayment(o.id, e.target.value as PaymentMark)}
+                >
+                  {o.payment_status !== "unpaid" && o.payment_status !== "paid" && (
+                    <option value={o.payment_status}>{paymentLabel(o)}</option>
+                  )}
+                  <option value="unpaid">Unpaid</option>
+                  <option value="advance">Advance paid</option>
+                  <option value="full">Paid in full</option>
                 </select>
                 <button
                   type="button"

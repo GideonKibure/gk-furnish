@@ -173,6 +173,13 @@ export const en = {
     dimensions: "Preferred dimensions",
     material: "Preferred material",
     color: "Preferred colour",
+    selectMany: "Select one or more",
+    materialNote: "Or write your preferred material",
+    materialNotePlaceholder: "For example, teak with a matte finish",
+    colorNote: "Or write your preferred colour",
+    colorNotePlaceholder: "For example, warm beige",
+    finishPhoto: "Photo of the material or colour",
+    finishPhotoHint: "Upload a sample so we can match it",
     quantity: "Quantity",
     budget: "Budget range",
     location: "Delivery location",
@@ -294,10 +301,6 @@ export const en = {
       {
         q: "Can I order several chairs or tables?",
         a: "Yes. Set the quantity in the order form, or message us for a larger batch and we'll quote for it.",
-      },
-      {
-        q: "Can students order furniture for hostels?",
-        a: "Yes — that's who we built this workshop around. Most of our pieces are sized for hostel rooms.",
       },
       {
         q: "How can I contact GK furnish?",

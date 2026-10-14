@@ -175,6 +175,13 @@ export const sw: Dictionary = {
     dimensions: "Vipimo unavyopendelea",
     material: "Mbao unayopendelea",
     color: "Rangi unayopendelea",
+    selectMany: "Chagua moja au zaidi",
+    materialNote: "Au andika mbao unayopendelea",
+    materialNotePlaceholder: "Kwa mfano, teak yenye umalizio laini",
+    colorNote: "Au andika rangi unayopendelea",
+    colorNotePlaceholder: "Kwa mfano, beige ya joto",
+    finishPhoto: "Picha ya mbao au rangi",
+    finishPhotoHint: "Pakia sampuli ili tuilinganishe",
     quantity: "Idadi",
     budget: "Kiwango cha bajeti",
     location: "Mahali pa kupeleka",
@@ -296,10 +303,6 @@ export const sw: Dictionary = {
       {
         q: "Naweza kuagiza viti au meza nyingi?",
         a: "Ndiyo. Weka idadi kwenye fomu, au tutumie ujumbe kwa agizo kubwa na tutatoa bei.",
-      },
-      {
-        q: "Wanafunzi wanaweza kuagiza samani za hosteli?",
-        a: "Ndiyo — hao ndio tuliowalenga. Samani zetu nyingi zinafaa vyumba vya hosteli.",
       },
       {
         q: "Nawasilianaje na GK furnish?",

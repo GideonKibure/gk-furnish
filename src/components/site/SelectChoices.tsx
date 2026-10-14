@@ -18,28 +18,35 @@ export function HexSwatch({ hex, label, className }: { hex?: string | null; labe
   );
 }
 
-export function ColorImageChoices({
-  name,
-  value,
-  onChange,
-  options,
-}: {
+type ColorChoicesProps = {
   name: string;
-  value: string;
-  onChange: (value: string) => void;
   options: Array<string | CatalogColor>;
-}) {
+} & (
+  | { multiple?: false; value: string; onChange: (value: string) => void }
+  | { multiple: true; value: string[]; onChange: (value: string[]) => void }
+);
+
+export function ColorImageChoices(props: ColorChoicesProps) {
+  const { name, options } = props;
   const colors = options.map((option) => (typeof option === "string" ? parseCatalogColor(option) : option));
+  const chosen = props.multiple ? props.value : [props.value];
+  function pick(stored: string) {
+    if (props.multiple) {
+      props.onChange(props.value.includes(stored) ? props.value.filter((item) => item !== stored) : [...props.value, stored]);
+      return;
+    }
+    props.onChange(stored);
+  }
   return (
     <div className="flex flex-wrap gap-2">
-      <input type="hidden" name={name} value={value} />
+      <input type="hidden" name={name} value={chosen.join(" | ")} />
       {colors.map((option) => {
-        const selected = value === option.stored;
+        const selected = chosen.includes(option.stored);
         return (
           <button
             key={option.stored}
             type="button"
-            onClick={() => onChange(option.stored)}
+            onClick={() => pick(option.stored)}
             aria-pressed={selected}
             className={cn(
               "flex w-[4.75rem] flex-col items-center gap-1.5 rounded-xl border p-1.5 text-center transition-all",
@@ -55,31 +62,36 @@ export function ColorImageChoices({
   );
 }
 
-export function TextChoices({
-  name,
-  value,
-  onChange,
-  options,
-  compact = false,
-  scroll = false,
-}: {
+type TextChoicesProps = {
   name: string;
-  value: string;
-  onChange: (value: string) => void;
   options: { value: string; label: string }[];
   compact?: boolean;
   scroll?: boolean;
-}) {
+} & (
+  | { multiple?: false; value: string; onChange: (value: string) => void }
+  | { multiple: true; value: string[]; onChange: (value: string[]) => void }
+);
+
+export function TextChoices(props: TextChoicesProps) {
+  const { name, options, compact = false, scroll = false } = props;
+  const chosen = props.multiple ? props.value : [props.value];
+  function pick(next: string) {
+    if (props.multiple) {
+      props.onChange(props.value.includes(next) ? props.value.filter((item) => item !== next) : [...props.value, next]);
+      return;
+    }
+    props.onChange(next);
+  }
   return (
     <div className={cn(scroll ? "flex h-8 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-wrap gap-2")}>
-      <input type="hidden" name={name} value={value} />
+      <input type="hidden" name={name} value={chosen.join(" | ")} />
       {options.map((option) => {
-        const selected = value === option.value;
+        const selected = chosen.includes(option.value);
         return (
           <button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
+            onClick={() => pick(option.value)}
             aria-pressed={selected}
             className={cn(
               "border font-semibold transition-all",
