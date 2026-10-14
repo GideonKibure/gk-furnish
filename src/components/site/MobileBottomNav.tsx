@@ -57,9 +57,9 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
       const trackBox = track.getBoundingClientRect();
       const cellBox = cell.getBoundingClientRect();
       // Compact gold circle sized to the icon bubble, not the full cell
-      const size = Math.min(cellBox.width - 10, 36);
+      const size = Math.min(cellBox.width - 8, window.innerWidth < 640 ? 26 : 32);
       const x = cellBox.left - trackBox.left + (cellBox.width - size) / 2;
-      const y = cellBox.top - trackBox.top + 6;
+      const y = cellBox.top - trackBox.top + (window.innerWidth < 640 ? 4 : 5);
       setIndicator({
         x,
         y,
@@ -86,16 +86,16 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
     <nav
       aria-label={t.nav.menu}
       className={cn(
-        "mobile-dock nav-reveal nav-reveal-down pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden",
+        "mobile-dock nav-reveal nav-reveal-down pointer-events-none fixed inset-x-0 bottom-0 z-50 px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] sm:px-5 lg:hidden",
         hidden ? "is-hidden" : hasSlid && "is-shown",
       )}
     >
-      <div className="mobile-dock-glow pointer-events-auto relative mx-auto w-full max-w-md sm:max-w-lg">
+      <div className="mobile-dock-glow pointer-events-auto relative mx-auto w-full max-w-md">
         <span className="mobile-dock-glow-spin" aria-hidden />
         <span className="mobile-dock-glow-pulse" aria-hidden />
 
         <div className="mobile-dock-shell relative">
-          <div ref={trackRef} className="relative grid grid-cols-5 gap-1 p-1.5 sm:gap-1.5 sm:p-2">
+          <div ref={trackRef} className="relative grid grid-cols-5 gap-0.5 p-1 sm:gap-1 sm:p-1.5">
             <div
               aria-hidden
               className={cn(
@@ -131,7 +131,7 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
                       window.setTimeout(() => setPressed(null), 280);
                     }}
                     className={cn(
-                      "mobile-dock-link relative z-10 flex h-full w-full flex-col items-center justify-center gap-1 rounded-full px-0.5 py-2 font-sans outline-none transition-all duration-300 sm:py-2.5",
+                      "mobile-dock-link relative z-10 flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-0.5 py-1 font-sans outline-none transition-all duration-300 sm:gap-1 sm:py-1.5",
                       active ? "text-navy" : "text-white/72 hover:text-white",
                       pressed === l.to && "scale-[0.9]",
                       active && "mobile-dock-link-active",
@@ -139,13 +139,13 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
                   >
                     <span
                       className={cn(
-                        "grid h-8 w-8 place-items-center rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-9 sm:w-9",
+                        "grid h-6 w-6 place-items-center rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-7 sm:w-7",
                         active && "mobile-dock-icon-pop",
                       )}
                     >
                       <Icon
                         className={cn(
-                          "h-[1.2rem] w-[1.2rem] transition-transform duration-300 sm:h-5 sm:w-5",
+                          "h-3.5 w-3.5 transition-transform duration-300 sm:h-4 sm:w-4",
                           active && "scale-110",
                         )}
                         strokeWidth={active ? 2.55 : 2.1}
@@ -153,7 +153,7 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
                     </span>
                     <span
                       className={cn(
-                        "max-w-full truncate px-0.5 text-center text-[0.64rem] font-bold leading-none tracking-[0.02em] sm:text-[0.72rem]",
+                        "max-w-full truncate px-0.5 text-center text-[0.56rem] font-semibold leading-none tracking-[0.01em] sm:text-[0.65rem]",
                         active ? "text-gold" : "text-white/85",
                       )}
                     >
@@ -161,7 +161,7 @@ export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
                     </span>
                     <span
                       className={cn(
-                        "h-1 w-1 rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        "h-0.5 w-0.5 rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-1 sm:w-1",
                         active ? "scale-100 bg-gold opacity-100" : "scale-0 bg-gold opacity-0",
                       )}
                     />

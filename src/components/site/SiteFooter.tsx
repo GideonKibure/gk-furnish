@@ -130,7 +130,7 @@ export function WhatsAppFab() {
       target="_blank"
       rel="noreferrer"
       aria-label={`WhatsApp ${SITE.name}`}
-      className="fixed bottom-[5.75rem] right-4 z-40 grid h-14 w-14 place-items-center rounded-full border border-background/50 bg-gold/90 text-navy backdrop-blur-md shadow-[var(--shadow-gold)] transition-transform hover:scale-110 active:scale-95 lg:bottom-6 lg:right-5"
+      className="fixed bottom-[4.7rem] right-3 z-40 grid h-12 w-12 place-items-center rounded-full border border-background/50 bg-gold/90 text-navy backdrop-blur-md shadow-[var(--shadow-gold)] transition-transform hover:scale-110 active:scale-95 sm:bottom-[5.2rem] sm:right-4 sm:h-14 sm:w-14 lg:bottom-6 lg:right-5"
     >
       <MessageCircle className="h-6 w-6" />
     </a>

@@ -40,133 +40,143 @@ export function ProductCard({ product }: { product: Product }) {
   const angleLabels = ["Photo 1", "Photo 2"];
   const playingVideo = Boolean(videoSrc && showVideo);
 
+  const summary = product.short_description ?? product.description ?? "";
+
   return (
-    <Reveal variant="scale">
-      <article className="card-surface card-hover group flex flex-col overflow-hidden">
-        <Link
-          to="/products/$slug"
-          params={{ slug: product.slug }}
-          className="relative block aspect-[4/3] overflow-hidden bg-muted"
-        >
-          {playingVideo && videoSrc ? (
-            <ProductVideo src={videoSrc} className="absolute inset-0" />
-          ) : (
-            <img
-              src={active?.src}
-              alt={name}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-            />
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/35 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+    <Reveal variant="scale" className="h-full">
+      <article className="card-surface card-hover group flex h-full flex-col overflow-hidden">
+        <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-muted">
+          <Link
+            to="/products/$slug"
+            params={{ slug: product.slug }}
+            className="absolute inset-0 block"
+          >
+            {playingVideo && videoSrc ? (
+              <ProductVideo src={videoSrc} className="absolute inset-0" />
+            ) : (
+              <img
+                src={active?.src}
+                alt={name}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+              />
+            )}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/35 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          </Link>
           <span
-            className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${product.is_available ? "glass text-navy" : "glass-dark text-primary-foreground"}`}
+            className={`pointer-events-none absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${product.is_available ? "glass text-navy" : "glass-dark text-primary-foreground"}`}
           >
             {product.is_available ? t.common.available : t.common.madeToOrder}
           </span>
           {angles.length > 1 && (
-            <span className="absolute right-3 top-3 rounded-full bg-navy/80 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-white backdrop-blur">
+            <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-navy/80 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-white backdrop-blur">
               {angles.length} {t.detail.viewsCount}
             </span>
           )}
-        </Link>
+          {(angles.length > 1 || videoSrc) && (
+            <div className="absolute inset-x-0 bottom-0 flex gap-1.5 bg-gradient-to-t from-navy/80 via-navy/35 to-transparent px-2.5 pb-2.5 pt-8">
+              {videoSrc && (
+                <button
+                  type="button"
+                  onClick={() => setShowVideo(true)}
+                  aria-label="Video"
+                  aria-pressed={playingVideo}
+                  className={cn(
+                    "grid h-10 w-14 shrink-0 place-items-center rounded-lg border-2 text-[0.6rem] font-semibold uppercase tracking-wide text-navy",
+                    playingVideo ? "border-gold bg-gold-soft" : "border-transparent bg-background/90 opacity-90 hover:opacity-100",
+                  )}
+                >
+                  Video
+                </button>
+              )}
+              {angles.map((angle, idx) => (
+                <button
+                  key={`${angle.src}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    setShowVideo(false);
+                    setView(idx);
+                  }}
+                  aria-label={angleLabels[angle.slot] ?? angle.label}
+                  aria-pressed={!playingVideo && view === idx}
+                  className={cn(
+                    "relative h-10 flex-1 overflow-hidden rounded-lg border-2 transition-all",
+                    !playingVideo && view === idx ? "border-gold shadow-sm" : "border-transparent opacity-90 hover:opacity-100",
+                  )}
+                >
+                  <img src={angle.src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {(angles.length > 1 || videoSrc) && (
-          <div className="flex gap-1.5 border-b border-border/60 bg-secondary/30 px-3 py-2">
-            {videoSrc && (
-              <button
-                type="button"
-                onClick={() => setShowVideo(true)}
-                aria-label="Video"
-                aria-pressed={playingVideo}
-                className={cn(
-                  "grid h-12 w-16 shrink-0 place-items-center rounded-lg border-2 text-[0.65rem] font-semibold uppercase tracking-wide text-navy",
-                  playingVideo ? "border-gold bg-gold-soft" : "border-transparent bg-background opacity-75 hover:opacity-100",
-                )}
-              >
-                Video
-              </button>
-            )}
-            {angles.map((angle, idx) => (
-              <button
-                key={`${angle.src}-${idx}`}
-                type="button"
-                onClick={() => {
-                  setShowVideo(false);
-                  setView(idx);
-                }}
-                aria-label={angleLabels[angle.slot] ?? angle.label}
-                aria-pressed={!playingVideo && view === idx}
-                className={cn(
-                  "relative h-12 flex-1 overflow-hidden rounded-lg border-2 transition-all",
-                  !playingVideo && view === idx ? "border-gold shadow-sm" : "border-transparent opacity-75 hover:opacity-100",
-                )}
-              >
-                <img src={angle.src} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-1 flex-col p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{cat}</p>
-          <h3 className="mt-1 text-xl text-navy transition-colors duration-300 group-hover:text-[color-mix(in_oklab,var(--navy)_80%,var(--gold))]">
+        <div className="flex flex-1 flex-col p-4 sm:p-5">
+          <p className="h-4 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">{cat || "\u00a0"}</p>
+          <h3 className="mt-1 line-clamp-2 h-[2.75em] text-lg leading-snug text-navy transition-colors duration-300 group-hover:text-[color-mix(in_oklab,var(--navy)_80%,var(--gold))]">
             {name}
           </h3>
-          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-            {product.short_description ?? product.description}
+          <p className="mt-2 line-clamp-2 h-10 text-sm leading-5 text-muted-foreground">
+            {summary || "\u00a0"}
           </p>
-          {(materials.length > 0 || dimensions.length > 0) && (
-            <div className="mt-3 space-y-2">
-              {materials.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">{t.detail.material}</p>
+          <div className="mt-3 space-y-1.5">
+            <div>
+              <p className="mb-1 h-4 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">{t.detail.material}</p>
+              {materials.length > 0 ? (
+                <div className="h-8">
                   <TextChoices
                     compact
+                    scroll
                     name={`card-material-${product.id}`}
                     value={materials.includes(material) ? material : ""}
                     onChange={setMaterial}
                     options={materials.map((value) => ({ value, label: optionLabel(value, product.material, lang) }))}
                   />
                 </div>
+              ) : (
+                <p className="flex h-8 items-center text-xs text-muted-foreground">—</p>
               )}
-              {dimensions.length > 0 && (
-                <div>
-                  <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">{t.detail.dimensions}</p>
+            </div>
+            <div>
+              <p className="mb-1 h-4 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">{t.detail.dimensions}</p>
+              {dimensions.length > 0 ? (
+                <div className="h-8">
                   <TextChoices
                     compact
+                    scroll
                     name={`card-size-${product.id}`}
                     value={dimensions.includes(dimension) ? dimension : ""}
                     onChange={setDimension}
                     options={dimensions.map((value) => ({ value, label: optionLabel(value, product.dimensions, lang) }))}
                   />
                 </div>
+              ) : (
+                <p className="flex h-8 items-center text-xs text-muted-foreground">—</p>
               )}
             </div>
-          )}
-          <div className="mt-3 rounded-xl border border-gold/30 bg-gold-soft/70 px-3 py-2">
-            <p className="font-sans text-lg font-bold tabular-nums text-navy">
+          </div>
+          <div className="mt-3 flex h-16 flex-col justify-center rounded-xl border border-gold/30 bg-gold-soft/70 px-3">
+            <p className="truncate font-sans text-lg font-bold tabular-nums leading-tight text-navy">
               {price ?? t.common.priceOnRequest}
             </p>
-            {chosen == null && pricesVary && priceHint && (
-              <p className="text-[0.7rem] leading-snug text-muted-foreground">{priceHint}</p>
-            )}
+            <p className="mt-0.5 h-4 truncate text-[0.7rem] leading-4 text-muted-foreground">
+              {chosen == null && pricesVary && priceHint ? priceHint : "\u00a0"}
+            </p>
           </div>
-          <div className="flex-1" />
-          <div className="mt-3">
-            <ProductEngagement product={product} />
+          <div className="mt-auto pt-3">
+            <ProductEngagement product={product} compact />
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <Link
               to="/products/$slug"
               params={{ slug: product.slug }}
-              className="btn-base btn-outline-navy !px-3 !text-sm"
+              className="btn-base btn-outline-navy !h-11 !min-h-0 !px-2 !text-xs whitespace-nowrap sm:!text-sm"
             >
               {t.common.viewProduct}
             </Link>
             <button
               onClick={() => setOpen(true)}
-              className="btn-base btn-gold !px-3 !text-sm transition-transform hover:scale-[1.03] active:scale-[0.97]"
+              className="btn-base btn-gold !h-11 !min-h-0 !px-2 !text-xs whitespace-nowrap transition-transform hover:scale-[1.03] active:scale-[0.97] sm:!text-sm"
             >
               {t.common.orderNow}
             </button>
@@ -189,7 +199,7 @@ export function ProductGrid({ products }: { products: Product[] }) {
   if (!products.length)
     return <p className="rounded-2xl bg-sand p-8 text-center text-muted-foreground">{t.common.emptyProducts}</p>;
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {products.map((p) => (
         <ProductCard key={p.id} product={p} />
       ))}

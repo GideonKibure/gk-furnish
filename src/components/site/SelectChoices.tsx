@@ -61,15 +61,17 @@ export function TextChoices({
   onChange,
   options,
   compact = false,
+  scroll = false,
 }: {
   name: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   compact?: boolean;
+  scroll?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={cn(scroll ? "flex h-8 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-wrap gap-2")}>
       <input type="hidden" name={name} value={value} />
       {options.map((option) => {
         const selected = value === option.value;
@@ -81,7 +83,8 @@ export function TextChoices({
             aria-pressed={selected}
             className={cn(
               "border font-semibold transition-all",
-              compact ? "rounded-full px-2.5 py-1 text-xs" : "rounded-xl px-3.5 py-2.5 text-sm",
+              scroll && "shrink-0 whitespace-nowrap",
+              compact ? "h-7 rounded-full px-2.5 text-xs leading-none" : "rounded-xl px-3.5 py-2.5 text-sm",
               selected ? "border-gold bg-gold-soft text-navy shadow-sm" : "border-border bg-background text-navy hover:border-navy/25",
             )}
           >

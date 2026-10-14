@@ -21,7 +21,7 @@ function visitorId() {
   }
 }
 
-export function ProductEngagement({ product, trackView = false }: { product: Product; trackView?: boolean }) {
+export function ProductEngagement({ product, trackView = false, compact = false }: { product: Product; trackView?: boolean; compact?: boolean }) {
   const { lang } = useLang();
   const queryClient = useQueryClient();
   const [liked, setLiked] = useState(false);
@@ -74,9 +74,10 @@ export function ProductEngagement({ product, trackView = false }: { product: Pro
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5" aria-label={`${counts.views} ${lang === "sw" ? "waliotazama" : "views"}`}>
-        <Eye className="h-4 w-4" aria-hidden="true" /> {counts.views.toLocaleString()} {lang === "sw" ? "waliotazama" : "views"}
+    <div className={`flex items-center gap-x-3 text-sm text-muted-foreground ${compact ? "h-9 overflow-hidden" : "flex-wrap gap-y-1"}`}>
+      <span className="inline-flex min-w-0 items-center gap-1.5" aria-label={`${counts.views} ${lang === "sw" ? "waliotazama" : "views"}`}>
+        <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{counts.views.toLocaleString()} {lang === "sw" ? "waliotazama" : "views"}</span>
       </span>
       <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={toggleLike}
         aria-label={lang === "sw" ? (liked ? "Ondoa kupenda" : "Penda bidhaa") : (liked ? "Unlike product" : "Like product")}

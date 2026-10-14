@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { formatPrice } from "@/config/site";
+import { colorSwatch } from "@/lib/color-swatches";
+import { parseCatalogColor } from "@/lib/order-options";
 import {
   createAdminOrder,
   deleteAdminOrder,
@@ -36,6 +38,33 @@ type Filter = "all" | "not_done" | "in_progress" | "done" | "paid_advance" | "pa
 function dialHref(phone: string) {
   const digits = phone.replace(/[^\d+]/g, "");
   return `tel:${digits}`;
+}
+
+function OrderColor({ value }: { value: string | null }) {
+  const raw = value?.trim() ?? "";
+  if (!raw) {
+    return <p className="text-sm text-muted-foreground">No colour chosen</p>;
+  }
+  const color = parseCatalogColor(raw);
+  const named = color.label !== color.hex;
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span
+        className="h-11 w-11 shrink-0 rounded-xl shadow-[inset_0_0_0_1px_color-mix(in_oklab,black_12%,transparent)]"
+        style={{
+          background: color.hex ?? undefined,
+          backgroundImage: color.hex ? undefined : `url("${colorSwatch(color.label)}")`,
+          backgroundSize: "cover",
+        }}
+        role="img"
+        aria-label={named ? color.label : "Selected colour"}
+      />
+      <span className="min-w-0">
+        <span className="block text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Colour</span>
+        <span className="block truncate text-sm font-semibold text-navy">{named ? color.label : "Selected colour"}</span>
+      </span>
+    </div>
+  );
 }
 
 function group(status: string): Filter {
@@ -294,10 +323,10 @@ function AdminOrdersPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Customer</p>
-                  <p className="mt-1 font-medium text-navy">{o.customer_name}</p>
+              <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_16rem]">
+                <div className="rounded-2xl bg-secondary/40 px-4 py-3">
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Customer</p>
+                  <p className="mt-1 font-semibold text-navy">{o.customer_name}</p>
                   <a
                     href={dialHref(o.phone)}
                     className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-gold transition-colors hover:text-navy hover:underline"
@@ -307,20 +336,25 @@ function AdminOrdersPage() {
                   </a>
                   {o.email && <p className="text-sm text-muted-foreground">{o.email}</p>}
                 </div>
-                <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
-                  <p className="mt-1 text-sm">{o.delivery_location}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {o.preferred_color} · {o.preferred_size}
-                  </p>
-                  {o.notes && <p className="mt-2 whitespace-pre-line text-sm text-navy">{o.notes}</p>}
+                <div className="rounded-2xl bg-secondary/40 px-4 py-3">
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
+                  <p className="mt-1 text-sm text-navy">{o.delivery_location}</p>
+                  {o.notes && <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{o.notes}</p>}
                 </div>
+                <div className="rounded-2xl border border-gold/25 bg-gold-soft/50 px-4 py-3">
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Payment</p>
+                  <p className="mt-1 text-sm font-semibold text-navy">Due {formatPrice(o.amount_due) ?? "—"}</p>
+                  <p className="text-sm text-navy">Paid {formatPrice(o.amount_paid) ?? "—"}</p>
+                  {o.payment_phone && <p className="mt-1 text-xs text-muted-foreground">MM: {o.payment_phone}</p>}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-4 rounded-2xl border border-border/80 bg-background px-3 py-3">
+                <OrderColor value={o.preferred_color} />
+                <div className="h-8 w-px bg-border/80" aria-hidden />
                 <div>
-                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Payment</p>
-                  <p className="mt-1 text-sm">
-                    Due {formatPrice(o.amount_due) ?? "—"} · Paid {formatPrice(o.amount_paid) ?? "—"}
-                  </p>
-                  {o.payment_phone && <p className="text-xs text-muted-foreground">MM: {o.payment_phone}</p>}
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Size</p>
+                  <p className="text-sm font-semibold text-navy">{o.preferred_size || "—"}</p>
                 </div>
               </div>
 

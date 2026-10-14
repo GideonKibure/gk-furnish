@@ -35,12 +35,13 @@ export function downloadInvoice(data: InvoiceData) {
 <head>
   <meta charset="utf-8" />
   <title>Invoice ${escapeHtml(data.ref)} — ${escapeHtml(SITE.name)}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" />
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      font-family: "Outfit", "Segoe UI", system-ui, sans-serif;
       color: #1a1f2e;
       background: #fff;
       padding: 32px;

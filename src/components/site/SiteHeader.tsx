@@ -125,12 +125,12 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
               : "bg-background/90 backdrop-blur-xl !shadow-none",
         )}
       >
-        <div className="container-page flex h-16 items-center justify-between gap-4">
+        <div className="container-page flex h-12 items-center justify-between gap-3 sm:h-14">
           <Link to="/" className="group shrink-0 transition-transform duration-300 hover:scale-[1.02]">
             <BrandLogo
               light={overlay}
-              markClassName="h-10 drop-shadow-sm"
-              wordmarkClassName={overlay ? "text-white" : "text-navy"}
+              markClassName="h-8 drop-shadow-sm sm:h-9"
+              wordmarkClassName={cn(overlay ? "text-white" : "text-navy", "!text-base sm:!text-lg")}
             />
           </Link>
           <LanguageSwitcher dark={overlay} />
@@ -230,7 +230,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
       </header>
 
       {/* Clearance for the fixed bars (non-home only) */}
-      {!isHome && <div className="h-16 lg:hidden" aria-hidden />}
+      {!isHome && <div className="h-12 sm:h-14 lg:hidden" aria-hidden />}
       {!isHome && <div className="hidden h-[5rem] lg:block" aria-hidden />}
 
       <MobileBottomNav hidden={navHidden} />

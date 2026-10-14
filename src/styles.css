@@ -19,7 +19,7 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-display: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
@@ -538,9 +538,15 @@
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   main {
-    padding-bottom: 6.75rem;
+    padding-bottom: 5.15rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  main {
+    padding-bottom: 5.85rem;
   }
 }
 
