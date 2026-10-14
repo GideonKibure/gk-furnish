@@ -1,4 +1,5 @@
 import { formatPrice, SITE } from "@/config/site";
+import type { SavedQuote } from "@/lib/custom-quotes";
 
 export type InvoiceData = {
   ref: string;
@@ -160,6 +161,134 @@ export function downloadInvoice(data: InvoiceData) {
     const a = document.createElement("a");
     a.href = url;
     a.download = `invoice-${data.ref || "order"}.html`;
+    a.click();
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function money(amount: number) {
+  return formatPrice(amount) ?? `${SITE.currency} 0`;
+}
+
+/** Open a printable quote. The browser print dialog can save it as a PDF. */
+export function downloadQuote(quote: SavedQuote) {
+  const issued = new Date(quote.createdAt).toLocaleString();
+  const rows = quote.lines
+    .map(
+      (line) => `<tr>
+        <td>${escapeHtml(line.description)}</td>
+        <td class="num">${line.quantity}</td>
+        <td class="num">${escapeHtml(money(line.unitPrice))}</td>
+        <td class="num">${escapeHtml(money(line.quantity * line.unitPrice))}</td>
+      </tr>`,
+    )
+    .join("");
+  const detail = (label: string, value: string) =>
+    value ? `<p><span class="muted">${escapeHtml(label)}:</span> ${escapeHtml(value)}</p>` : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Quote ${escapeHtml(quote.number)} — ${escapeHtml(SITE.name)}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Outfit", "Segoe UI", system-ui, sans-serif; color: #1a1f2e; background: #fff; padding: 32px; }
+    .sheet { max-width: 720px; margin: 0 auto; }
+    .head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #14213d; padding-bottom: 20px; }
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .brand img { height: 56px; width: auto; }
+    .brand h1 { margin: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
+    .brand p { margin: 4px 0 0; color: #5b6475; font-size: 0.85rem; }
+    .meta { text-align: right; font-size: 0.9rem; }
+    .meta strong { display: block; font-size: 1.1rem; color: #14213d; }
+    h2 { margin: 28px 0 12px; font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8a7350; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; background: #fafafa; }
+    .card p { margin: 0 0 6px; font-size: 0.92rem; }
+    .muted { color: #5b6475; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 0.95rem; }
+    th { background: #14213d; color: #fff; font-weight: 600; }
+    td.num, th.num { text-align: right; }
+    .totals { margin-top: 16px; margin-left: auto; width: min(280px, 100%); }
+    .totals div { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.95rem; }
+    .totals .grand { border-top: 2px solid #14213d; margin-top: 8px; padding-top: 10px; font-weight: 700; font-size: 1.05rem; }
+    .foot { margin-top: 36px; padding-top: 16px; border-top: 1px dashed #d1d5db; font-size: 0.8rem; color: #5b6475; }
+    @media print { body { padding: 0; } .noprint { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="noprint" style="margin-bottom:16px">
+      <button onclick="window.print()" style="background:#fca311;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer">
+        Print / Save as PDF
+      </button>
+    </div>
+    <div class="head">
+      <div class="brand">
+        <img src="/brand/gk-furnish-logo.svg" alt="${escapeHtml(SITE.name)}" />
+        <div>
+          <h1>${escapeHtml(SITE.name)}</h1>
+          <p>${escapeHtml(SITE.tagline)}</p>
+          <p>${escapeHtml(SITE.location)} · ${escapeHtml(SITE.phoneDisplay)}</p>
+          <p>${escapeHtml(SITE.email)}</p>
+        </div>
+      </div>
+      <div class="meta">
+        <span class="muted">Quotation</span>
+        <strong>${escapeHtml(quote.number)}</strong>
+        <p class="muted" style="margin-top:8px">Issued ${escapeHtml(issued)}</p>
+        ${quote.validUntil ? `<p class="muted">Valid until ${escapeHtml(quote.validUntil)}</p>` : ""}
+      </div>
+    </div>
+    <h2>Customer</h2>
+    <div class="grid">
+      <div class="card">
+        <p><strong>${escapeHtml(quote.customerName || "Customer")}</strong></p>
+        ${quote.phone ? `<p class="muted">${escapeHtml(quote.phone)}</p>` : ""}
+        ${quote.email ? `<p class="muted">${escapeHtml(quote.email)}</p>` : ""}
+        ${quote.location ? `<p class="muted">Delivery: ${escapeHtml(quote.location)}</p>` : ""}
+      </div>
+      <div class="card">
+        <p><span class="muted">Piece:</span> ${escapeHtml(quote.furnitureType)} × ${quote.quantity}</p>
+        ${detail("Size", quote.dimensions)}
+        ${detail("Material", quote.material)}
+        ${detail("Colour", quote.color)}
+      </div>
+    </div>
+    ${quote.description ? `<h2>Request</h2><p>${escapeHtml(quote.description).replaceAll("\n", "<br>")}</p>` : ""}
+    ${quote.requirements ? `<p class="muted">${escapeHtml(quote.requirements).replaceAll("\n", "<br>")}</p>` : ""}
+    <h2>Quoted work</h2>
+    <table>
+      <thead>
+        <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Amount</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="totals">
+      <div><span class="muted">Advance to begin (50%)</span><span>${escapeHtml(money(Math.round(quote.total / 2)))}</span></div>
+      <div class="grand"><span>Quote total</span><span>${escapeHtml(money(quote.total))}</span></div>
+    </div>
+    ${quote.notes ? `<h2>Notes</h2><p>${escapeHtml(quote.notes).replaceAll("\n", "<br>")}</p>` : ""}
+    <div class="foot">
+      This quotation is for ${escapeHtml(quote.customerName || "the customer")} and reference <strong>${escapeHtml(quote.number)}</strong>.
+      Nothing is charged until you agree. Quote this number when you contact ${escapeHtml(SITE.name)} on WhatsApp or phone.
+    </div>
+  </div>
+  <script>window.addEventListener("load", () => { setTimeout(() => window.print(), 250); });</script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `quote-${quote.number}.html`;
     a.click();
   }
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);

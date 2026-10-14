@@ -13,6 +13,33 @@ import { ProductEngagement } from "./ProductEngagement";
 import { Reveal } from "./Reveal";
 import { TextChoices } from "./SelectChoices";
 
+function PhotoThumb({
+  src,
+  label,
+  selected,
+  onClick,
+}: {
+  src: string;
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={selected}
+      className={cn(
+        "relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl border-2 transition-all",
+        selected ? "border-gold shadow-[0_0_0_2px_color-mix(in_oklab,var(--gold)_35%,transparent)]" : "border-white/25 hover:border-white/70",
+      )}
+    >
+      <img src={src} alt="" className="h-full w-full object-cover" />
+    </button>
+  );
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const { t, lang } = useLang();
   const [open, setOpen] = useState(false);
@@ -75,52 +102,67 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
           {(angles.length > 1 || videoSrc) && (
-            <div className="absolute inset-x-0 bottom-0 flex gap-1.5 bg-gradient-to-t from-navy/80 via-navy/35 to-transparent px-2.5 pb-2.5 pt-8">
-              {videoSrc && (
-                <button
-                  type="button"
-                  onClick={() => setShowVideo(true)}
-                  aria-label="Video"
-                  aria-pressed={playingVideo}
-                  className={cn(
-                    "relative h-10 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all",
-                    playingVideo
-                      ? "border-gold shadow-[0_0_12px_-4px_color-mix(in_oklab,var(--gold)_80%,transparent)]"
-                      : "border-white/25 hover:border-gold/80",
-                  )}
-                >
-                  <span className="absolute inset-0 bg-[linear-gradient(165deg,var(--navy-soft),var(--navy))]" />
-                  <span
+            <div className="absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-navy/75 via-navy/25 to-transparent px-3 pb-3 pt-10">
+              <div className="flex items-center gap-2 rounded-2xl bg-navy/45 p-1.5 shadow-[0_10px_28px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/20 backdrop-blur-md">
+                {angles.slice(0, Math.ceil(angles.length / 2)).map((angle, idx) => (
+                  <PhotoThumb
+                    key={`${angle.src}-${idx}`}
+                    src={angle.src}
+                    label={angleLabels[angle.slot] ?? angle.label}
+                    selected={!playingVideo && view === idx}
+                    onClick={() => {
+                      setShowVideo(false);
+                      setView(idx);
+                    }}
+                  />
+                ))}
+                {videoSrc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowVideo(true)}
+                    aria-label="Video"
+                    aria-pressed={playingVideo}
                     className={cn(
-                      "absolute left-1/2 top-[0.35rem] grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full text-navy shadow-sm",
-                      playingVideo ? "bg-gold" : "bg-white",
+                      "relative grid h-[4.5rem] w-[4.5rem] shrink-0 place-items-center overflow-hidden rounded-xl border backdrop-blur-[1px] transition-all",
+                      playingVideo
+                        ? "border-white/55 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+                        : "border-white/40 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:border-white/70",
                     )}
                   >
-                    <Play className="ml-px h-2.5 w-2.5 fill-current" />
-                  </span>
-                  <span className="absolute inset-x-0 bottom-0 bg-gold py-px text-center text-[0.48rem] font-bold uppercase leading-none tracking-[0.12em] text-navy">
-                    Video
-                  </span>
-                </button>
-              )}
-              {angles.map((angle, idx) => (
-                <button
-                  key={`${angle.src}-${idx}`}
-                  type="button"
-                  onClick={() => {
-                    setShowVideo(false);
-                    setView(idx);
-                  }}
-                  aria-label={angleLabels[angle.slot] ?? angle.label}
-                  aria-pressed={!playingVideo && view === idx}
-                  className={cn(
-                    "relative h-10 flex-1 overflow-hidden rounded-lg border-2 transition-all",
-                    !playingVideo && view === idx ? "border-gold shadow-sm" : "border-transparent opacity-90 hover:opacity-100",
-                  )}
-                >
-                  <img src={angle.src} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
+                    <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(165deg,rgba(255,255,255,0.14),transparent_58%)]" />
+                    <span
+                      className={cn(
+                        "relative mb-3 grid h-8 w-8 place-items-center rounded-full border border-white/45 text-navy shadow-sm backdrop-blur-[1px]",
+                        playingVideo ? "bg-white/35" : "bg-white/40",
+                      )}
+                    >
+                      <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                    </span>
+                    <span
+                      className={cn(
+                        "absolute inset-x-0 bottom-0 border-t border-white/25 bg-black/15 py-1 text-center text-[0.58rem] font-bold uppercase leading-none tracking-[0.14em] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]",
+                      )}
+                    >
+                      Video
+                    </span>
+                  </button>
+                )}
+                {angles.slice(Math.ceil(angles.length / 2)).map((angle, offset) => {
+                  const idx = Math.ceil(angles.length / 2) + offset;
+                  return (
+                    <PhotoThumb
+                      key={`${angle.src}-${idx}`}
+                      src={angle.src}
+                      label={angleLabels[angle.slot] ?? angle.label}
+                      selected={!playingVideo && view === idx}
+                      onClick={() => {
+                        setShowVideo(false);
+                        setView(idx);
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

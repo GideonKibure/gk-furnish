@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, ImageIcon, Phone, Trash2 } from "lucide-react";
+import { Download, ImageIcon, Phone, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
-import { deleteAdminCustomOrder, listAdminCustomOrders, updateCustomOrderStatus } from "@/lib/admin.functions";
+import { formatPrice } from "@/config/site";
+import { QUOTE_ADVANCE_NOTE, QUOTE_VALID_DAYS, quoteDateAfter } from "@/lib/custom-quotes";
+import { deleteAdminCustomOrder, listAdminCustomOrders, saveCustomOrderQuote, updateCustomOrderStatus } from "@/lib/admin.functions";
 import { colorSwatch } from "@/lib/color-swatches";
 import { downloadToDevice, photoFileName } from "@/lib/download-file";
+import { downloadQuote } from "@/lib/invoice";
 import { parseCatalogColor, unpackPreference } from "@/lib/order-options";
 
 export const Route = createFileRoute("/admin/custom-orders")({
@@ -51,6 +54,144 @@ function PreferenceBlock({ label, stored, swatches = false }: { label: string; s
         </div>
       )}
       {note && <p className="mt-1.5 text-sm text-navy">“{note}”</p>}
+    </div>
+  );
+}
+
+function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<void> }) {
+  const save = useServerFn(saveCustomOrderQuote);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState(QUOTE_ADVANCE_NOTE);
+  const [validUntil, setValidUntil] = useState(() => quoteDateAfter(QUOTE_VALID_DAYS));
+  const [lines, setLines] = useState([{ description: order.furniture_type, quantity: String(order.quantity), unitPrice: "" }]);
+  const quotes = [...order.quotes].reverse();
+
+  function updateLine(index: number, patch: Partial<(typeof lines)[number]>) {
+    setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  async function onSave() {
+    const parsed = lines.map((line) => ({
+      description: line.description.trim(),
+      quantity: Math.round(Number(line.quantity)),
+      unitPrice: Number(line.unitPrice),
+    }));
+    if (parsed.some((line) => !line.description || line.quantity < 1 || !Number.isFinite(line.unitPrice) || line.unitPrice < 0)) {
+      toast.error("Each line needs a description, quantity and price");
+      return;
+    }
+    setBusy(true);
+    try {
+      const quote = await save({ data: { id: order.id, notes, valid_until: validUntil, lines: parsed } });
+      downloadQuote(quote);
+      toast.success(`Quote ${quote.number} saved`);
+      setOpen(false);
+      setNotes(QUOTE_ADVANCE_NOTE);
+      setValidUntil(quoteDateAfter(QUOTE_VALID_DAYS));
+      await onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the quote");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-5 border-t border-border/60 pt-4">
+      {quotes.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Saved quotes</p>
+          {quotes.map((quote) => (
+            <div key={quote.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/40 px-3 py-2.5">
+              <div>
+                <p className="text-sm font-semibold text-navy">{quote.number}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(quote.createdAt).toLocaleString()} · {formatPrice(quote.total)}
+                </p>
+              </div>
+              <button type="button" className="btn-base btn-outline-navy !h-9 px-3 text-xs" onClick={() => downloadQuote(quote)}>
+                <Download className="h-3.5 w-3.5" />
+                Download PDF
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button type="button" className="text-sm font-semibold text-navy underline-offset-2 hover:underline" onClick={() => setOpen((value) => !value)}>
+        {open ? "Close quote" : "Prepare quote"}
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {order.full_name} · {order.phone}
+            {order.email ? ` · ${order.email}` : ""} · {order.delivery_location}
+          </p>
+          {lines.map((line, index) => (
+            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_5.5rem_8rem_auto]">
+              <input
+                className="field-input"
+                value={line.description}
+                placeholder="Description"
+                onChange={(e) => updateLine(index, { description: e.target.value })}
+              />
+              <input
+                className="field-input"
+                type="number"
+                min={1}
+                value={line.quantity}
+                aria-label="Quantity"
+                onChange={(e) => updateLine(index, { quantity: e.target.value })}
+              />
+              <input
+                className="field-input"
+                type="number"
+                min={0}
+                step={500}
+                value={line.unitPrice}
+                placeholder="Unit TSh"
+                aria-label="Unit price"
+                onChange={(e) => updateLine(index, { unitPrice: e.target.value })}
+              />
+              <button
+                type="button"
+                className="text-sm font-semibold text-destructive disabled:opacity-40"
+                disabled={lines.length === 1}
+                onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy"
+            onClick={() => setLines((current) => [...current, { description: "", quantity: "1", unitPrice: "" }])}
+          >
+            <Plus className="h-4 w-4" /> Add line
+          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="field-label">Valid until</label>
+              <input type="date" className="field-input" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+              <p className="mt-1.5 text-xs text-muted-foreground">Filled as 3 days from today. The 50% advance note is included on the quote.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="field-label">Notes for the customer</label>
+              <textarea
+                className="field-input"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Lead time, delivery, and what is included"
+              />
+            </div>
+          </div>
+          <button type="button" className="btn-base btn-gold" disabled={busy} onClick={onSave}>
+            {busy ? "Saving…" : "Save and download PDF"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -105,7 +246,7 @@ function AdminCustomOrdersPage() {
     <div>
       <AdminPageHeader
         title="Custom orders"
-        description="Bespoke requests with reference photos — update status as you quote and build."
+        description="Bespoke requests with reference photos. Prepare a quote, save it here, and download the PDF."
       />
 
       <div className="space-y-4">
@@ -222,6 +363,7 @@ function AdminCustomOrdersPage() {
                 )}
               </div>
             </div>
+            <QuotePanel order={r} onSaved={refresh} />
           </AdminCard>
         ))}
         {!rows.length && <AdminEmpty>No custom orders yet.</AdminEmpty>}

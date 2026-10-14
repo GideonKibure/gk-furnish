@@ -1,8 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
-import { paymentAmountFor } from "@/config/payments";
-import { unpackReferenceImages } from "@/lib/order-options";
+import {
+  parseSavedQuotes,
+  QUOTE_VALID_DAYS,
+  quoteDateAfter,
+  serializeSavedQuotes,
+  withQuoteAdvanceNote,
+  type QuoteLine,
+  type SavedQuote,
+} from "@/lib/custom-quotes";
+import { formatPreference, unpackReferenceImages } from "@/lib/order-options";
 
 const slugify = (s: string) =>
   s
@@ -464,7 +472,15 @@ const PAYMENT_MARKS = ["unpaid", "advance", "full"] as const;
 /** Mark an existing order unpaid, paid as an advance, or paid in full. */
 export const updateOrderPayment = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
-  .inputValidator((d) => z.object({ id: z.string().uuid(), payment: z.enum(PAYMENT_MARKS) }).parse(d))
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        payment: z.enum(PAYMENT_MARKS),
+        amount: z.number().positive().max(50_000_000).optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: order, error: loadErr } = await supabaseAdmin
@@ -476,11 +492,15 @@ export const updateOrderPayment = createServerFn({ method: "POST" })
 
     const items = order.order_items ?? [];
     const total = items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0);
-    const amountPaid =
-      data.payment === "unpaid" ? 0 : data.payment === "full" ? total : Math.min(paymentAmountFor("advance", total), total || paymentAmountFor("advance", total));
+    if (data.payment === "advance" && data.amount == null) throw new Error("Enter the advance amount");
+    if (data.payment === "advance" && total > 0 && (data.amount ?? 0) > total) {
+      throw new Error("Advance is higher than the order total");
+    }
+    const advanceCoversTotal = data.payment === "advance" && total > 0 && Math.round(data.amount ?? 0) === Math.round(total);
+    const payment_kind = data.payment === "unpaid" ? "none" : advanceCoversTotal ? "full" : data.payment;
+    const amountPaid = payment_kind === "none" ? 0 : payment_kind === "full" ? total : (data.amount ?? 0);
     const amountDue = Math.max(0, total - amountPaid);
-    const payment_status = data.payment === "unpaid" ? "unpaid" : "paid";
-    const payment_kind = data.payment === "unpaid" ? "none" : data.payment;
+    const payment_status = payment_kind === "none" ? "unpaid" : "paid";
 
     const { error } = await supabaseAdmin
       .from("orders")
@@ -495,10 +515,10 @@ export const updateOrderPayment = createServerFn({ method: "POST" })
       .contains("metadata", { source: "admin" });
     if (clearErr) throw new Error(clearErr.message);
 
-    if (data.payment !== "unpaid") {
+    if (payment_kind !== "none") {
       const { error: payErr } = await supabaseAdmin.from("payments").insert({
         order_id: data.id,
-        payment_kind: data.payment,
+        payment_kind: payment_kind === "full" ? "full" : "advance",
         amount: amountPaid,
         status: "completed",
         metadata: { source: "admin" },
@@ -506,7 +526,12 @@ export const updateOrderPayment = createServerFn({ method: "POST" })
       if (payErr) throw new Error(payErr.message);
     }
 
-    const label = data.payment === "full" ? "paid in full" : data.payment === "advance" ? "advance paid" : "unpaid";
+    const label =
+      payment_kind === "full"
+        ? "paid in full"
+        : payment_kind === "advance"
+          ? `advance paid (${Math.round(amountPaid).toLocaleString("en-US")} TSh)`
+          : "unpaid";
     await supabaseAdmin.from("order_status_history").insert({
       order_id: data.id,
       status: order.status,
@@ -630,10 +655,74 @@ export const listAdminCustomOrders = createServerFn({ method: "GET" })
           return signed?.signedUrl ?? null;
         }
         const [signed_url, finish_signed_url] = await Promise.all([sign(design), sign(finish)]);
-        return { ...row, signed_url, finish_signed_url };
+        return { ...row, signed_url, finish_signed_url, quotes: parseSavedQuotes(row.budget_range) };
       }),
     );
     return withUrls;
+  });
+
+const QuoteLineInput = z.object({
+  description: z.string().trim().min(1).max(200),
+  quantity: z.number().int().min(1).max(100),
+  unitPrice: z.number().min(0).max(50_000_000),
+});
+
+export const saveCustomOrderQuote = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        notes: z.string().trim().max(2000).optional().or(z.literal("")),
+        valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+        lines: z.array(QuoteLineInput).min(1).max(12),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }): Promise<SavedQuote> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin.from("custom_orders").select("*").eq("id", data.id).single();
+    if (error || !row) throw new Error(error?.message ?? "Custom order not found");
+
+    const lines: QuoteLine[] = data.lines.map((line) => ({
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+    }));
+    const total = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+    if (total <= 0) throw new Error("Enter a price for the quote");
+
+    const existing = parseSavedQuotes(row.budget_range);
+    const quote: SavedQuote = {
+      id: crypto.randomUUID(),
+      number: `${row.request_number}-Q${existing.length + 1}`,
+      createdAt: new Date().toISOString(),
+      validUntil: data.valid_until || quoteDateAfter(QUOTE_VALID_DAYS),
+      notes: withQuoteAdvanceNote(data.notes ?? ""),
+      lines,
+      total,
+      customerName: row.full_name,
+      phone: row.phone,
+      email: row.email ?? "",
+      location: row.delivery_location,
+      furnitureType: row.furniture_type,
+      quantity: row.quantity,
+      description: row.design_description,
+      dimensions: row.preferred_dimensions ?? "",
+      material: formatPreference(row.preferred_material),
+      color: formatPreference(row.preferred_color),
+      requirements: row.additional_requirements ?? "",
+    };
+
+    const { error: saveErr } = await supabaseAdmin
+      .from("custom_orders")
+      .update({
+        budget_range: serializeSavedQuotes([...existing, quote]),
+        status: row.status === "pending" ? "quoted" : row.status,
+      })
+      .eq("id", row.id);
+    if (saveErr) throw new Error(saveErr.message);
+    return quote;
   });
 
 export const updateCustomOrderStatus = createServerFn({ method: "POST" })
@@ -659,6 +748,16 @@ export const deleteAdminCustomOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("custom_orders").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteContactMessage = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("contact_messages").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

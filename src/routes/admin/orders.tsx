@@ -103,6 +103,8 @@ function AdminOrdersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<Record<string, string>>({});
+  const [advanceAmount, setAdvanceAmount] = useState<Record<string, string>>({});
 
   async function refresh() {
     const [o, p] = await Promise.all([list(), listProducts()]);
@@ -133,10 +135,52 @@ function AdminOrdersPage() {
     }
   }
 
-  async function onPayment(id: string, payment: PaymentMark) {
+  function selectedPayment(order: OrderRow) {
+    return paymentChoice[order.id] ?? (order.payment_status === "paid" ? paymentMark(order) : order.payment_status);
+  }
+
+  function advanceValue(order: OrderRow) {
+    if (advanceAmount[order.id] != null) return advanceAmount[order.id];
+    if (order.payment_kind === "advance" && Number(order.amount_paid) > 0) return String(Math.round(Number(order.amount_paid)));
+    return "";
+  }
+
+  async function onPaymentPick(order: OrderRow, next: string) {
+    setPaymentChoice((current) => ({ ...current, [order.id]: next }));
+    if (next !== "unpaid" && next !== "full") return;
     try {
-      await updatePayment({ data: { id, payment } });
-      toast.success(payment === "full" ? "Marked paid in full" : payment === "advance" ? "Marked advance paid" : "Marked unpaid");
+      await updatePayment({ data: { id: order.id, payment: next } });
+      toast.success(next === "full" ? "Marked paid in full" : "Marked unpaid");
+      setPaymentChoice((current) => {
+        const copy = { ...current };
+        delete copy[order.id];
+        return copy;
+      });
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Payment update failed");
+    }
+  }
+
+  async function saveAdvance(order: OrderRow) {
+    const amount = Number(advanceValue(order));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter the advance amount");
+      return;
+    }
+    try {
+      const saved = await updatePayment({ data: { id: order.id, payment: "advance", amount } });
+      toast.success(saved.payment_kind === "full" ? "Amount matches the total, so this order is paid in full" : "Advance amount saved");
+      setPaymentChoice((current) => {
+        const copy = { ...current };
+        delete copy[order.id];
+        return copy;
+      });
+      setAdvanceAmount((current) => {
+        const copy = { ...current };
+        delete copy[order.id];
+        return copy;
+      });
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Payment update failed");
@@ -420,16 +464,34 @@ function AdminOrdersPage() {
                 </label>
                 <select
                   className="field-input !h-10 max-w-xs"
-                  value={o.payment_status === "paid" ? paymentMark(o) : o.payment_status}
-                  onChange={(e) => onPayment(o.id, e.target.value as PaymentMark)}
+                  value={selectedPayment(o)}
+                  onChange={(e) => onPaymentPick(o, e.target.value)}
                 >
-                  {o.payment_status !== "unpaid" && o.payment_status !== "paid" && (
+                  {o.payment_status !== "unpaid" && o.payment_status !== "paid" && selectedPayment(o) === o.payment_status && (
                     <option value={o.payment_status}>{paymentLabel(o)}</option>
                   )}
                   <option value="unpaid">Unpaid</option>
                   <option value="advance">Advance paid</option>
                   <option value="full">Paid in full</option>
                 </select>
+                {selectedPayment(o) === "advance" && (
+                  <>
+                    <input
+                      type="number"
+                      min={1}
+                      step={500}
+                      inputMode="numeric"
+                      className="field-input !h-10 w-36"
+                      placeholder="Advance TSh"
+                      aria-label="Advance amount"
+                      value={advanceValue(o)}
+                      onChange={(e) => setAdvanceAmount((current) => ({ ...current, [o.id]: e.target.value }))}
+                    />
+                    <button type="button" className="btn-base btn-navy !h-10 px-3 text-sm" onClick={() => saveAdvance(o)}>
+                      Save advance
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => onDelete(o.id, o.order_number)}
