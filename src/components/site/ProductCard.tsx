@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Play } from "lucide-react";
 import { useState } from "react";
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
@@ -82,11 +83,24 @@ export function ProductCard({ product }: { product: Product }) {
                   aria-label="Video"
                   aria-pressed={playingVideo}
                   className={cn(
-                    "grid h-10 w-14 shrink-0 place-items-center rounded-lg border-2 text-[0.6rem] font-semibold uppercase tracking-wide text-navy",
-                    playingVideo ? "border-gold bg-gold-soft" : "border-transparent bg-background/90 opacity-90 hover:opacity-100",
+                    "relative h-10 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all",
+                    playingVideo
+                      ? "border-gold shadow-[0_0_12px_-4px_color-mix(in_oklab,var(--gold)_80%,transparent)]"
+                      : "border-white/25 hover:border-gold/80",
                   )}
                 >
-                  Video
+                  <span className="absolute inset-0 bg-[linear-gradient(165deg,var(--navy-soft),var(--navy))]" />
+                  <span
+                    className={cn(
+                      "absolute left-1/2 top-[0.35rem] grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full text-navy shadow-sm",
+                      playingVideo ? "bg-gold" : "bg-white",
+                    )}
+                  >
+                    <Play className="ml-px h-2.5 w-2.5 fill-current" />
+                  </span>
+                  <span className="absolute inset-x-0 bottom-0 bg-gold py-px text-center text-[0.48rem] font-bold uppercase leading-none tracking-[0.12em] text-navy">
+                    Video
+                  </span>
                 </button>
               )}
               {angles.map((angle, idx) => (
