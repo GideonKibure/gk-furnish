@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { useSiteImages } from "@/hooks/use-site-images";
 import { categoriesQuery, productsQuery } from "@/lib/catalog";
+import { pageSectionsQuery } from "@/lib/site-content";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows } from "@/lib/order-options";
 import { PageHeader } from "@/components/site/PageHeader";
 import { PriceFilter } from "@/components/site/PriceFilter";
@@ -16,7 +18,12 @@ export const Route = createFileRoute("/products/")({
     { property: "og:title", content: "All Furniture — GK furnish" },
     { property: "og:description", content: "Search and filter the full GK furnish catalogue." },
   ] }),
-  loader: ({ context }) => Promise.all([context.queryClient.ensureQueryData(productsQuery), context.queryClient.ensureQueryData(categoriesQuery)]),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(productsQuery),
+      context.queryClient.ensureQueryData(categoriesQuery),
+      context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
+    ]),
   component: Products,
 });
 
@@ -24,6 +31,7 @@ function Products() {
   const { t, lang } = useLang();
   const { data: products } = useSuspenseQuery(productsQuery);
   const { data: cats } = useSuspenseQuery(categoriesQuery);
+  const { image } = useSiteImages();
   const maxAll = Math.max(
     ...products.flatMap((p) => {
       const rows = optionPriceRows(p);
@@ -45,7 +53,7 @@ function Products() {
 
   return (
     <>
-      <PageHeader title={t.products.title} subtitle={t.products.subtitle} />
+      <PageHeader title={t.products.title} subtitle={t.products.subtitle} image={image("header.products", null)} />
       <div className="container-page section-y">
         <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input aria-label={t.products.search} placeholder={t.products.searchPlaceholder} value={q} onChange={(e) => setQ(e.target.value)} className="field-input lg:col-span-2" />

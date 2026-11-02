@@ -53,7 +53,7 @@ export const en = {
     categoriesEyebrow: "Collections",
     categoriesTitle: "Browse by what you need",
     featuredEyebrow: "Featured",
-    featuredTitle: "Student favourites",
+    featuredTitle: "Customer favourites",
     latestEyebrow: "New",
     latestTitle: "Latest from the workshop",
     whyEyebrow: "Why GK furnish",
@@ -67,16 +67,22 @@ export const en = {
     viewAll: "View all products",
   },
   features: {
-    students: { title: "Student furniture", body: "Sized and priced for hostel rooms." },
-    desks: { title: "Study tables", body: "Space for a laptop, books and a lamp." },
-    chairs: { title: "Comfortable chairs", body: "Made for long study sessions." },
+    students: {
+      title: "Homes, offices & hotels",
+      body: "Furniture for living rooms, bedrooms, offices, hotels and schools.",
+    },
+    desks: { title: "Tables & desks", body: "Dining tables, office desks and study tables." },
+    chairs: { title: "Comfortable chairs", body: "For homes, offices, classrooms and waiting areas." },
     beds: { title: "Beds & lamps", body: "Rest and warm light, carefully made." },
   },
   why: {
-    affordable: { title: "Affordable", body: "Clear prices set with students in mind — no hidden extras." },
-    durable: { title: "Durable", body: "Solid timber and real joints that survive moving rooms." },
+    affordable: { title: "Affordable", body: "Clear prices for one piece or a full order — no hidden extras." },
+    durable: { title: "Durable", body: "Solid timber and real joints made for everyday use." },
     custom: { title: "Custom designs", body: "Any size, material or colour you describe, we can build." },
-    student: { title: "Student friendly", body: "Order on WhatsApp or a short form. No account needed." },
+    student: {
+      title: "For every customer",
+      body: "Homes, students, schools, offices, hotels and organizations. Order on WhatsApp or a short form.",
+    },
   },
   products: {
     title: "All furniture",
@@ -167,9 +173,9 @@ export const en = {
     phone: "Phone number",
     email: "Email (optional)",
     type: "Furniture type",
-    typePlaceholder: "Chair, study table, bed, shelf…",
+    typePlaceholder: "Chair, table, bed, sofa, shelf, reception desk…",
     description: "Describe what you need",
-    descriptionPlaceholder: "Size, use (study, sleep…) and any style notes.",
+    descriptionPlaceholder: "Size, where it will be used (home, office, hotel, school…) and any style notes.",
     dimensions: "Preferred dimensions",
     material: "Preferred material",
     color: "Preferred colour",
@@ -233,12 +239,12 @@ export const en = {
     lead: "GK furnish is a furniture workshop in Mbeya, Tanzania, making chairs, tables, beds and lamps by hand.",
     storyTitle: "Our story",
     story:
-      "GK furnish started from a simple problem: students needed furniture that was strong enough to last, small enough for a hostel room and cheap enough to actually afford. Most of what was available was either flimsy or priced for offices. So we began building the pieces students kept asking for — a proper study table, a chair you can sit in for hours, a bed frame that survives moving rooms.",
+      "GK furnish started with a simple goal: furniture that is strong enough to last and priced fairly. Too much of what was available was either flimsy or overpriced. So we began building pieces people kept asking for — beds, sofas, dining and office tables, and chairs you can sit in for hours — for homes, schools, offices, hotels and organizations.",
     story2:
       "Everything we sell is made in our own workshop, by hand, from local timber. That means we can change a size, a finish or a colour for you without starting from scratch — and it means we can stand behind what we make.",
     missionTitle: "Mission",
     mission:
-      "To make durable, well-made furniture that students and young households in Tanzania can genuinely afford.",
+      "To make durable, well-made furniture that homes, businesses and institutions in Tanzania can genuinely afford.",
     visionTitle: "Vision",
     vision:
       "To be the furniture workshop people in our region recommend first — for honest prices and work that lasts.",
@@ -251,7 +257,7 @@ export const en = {
     ],
     forTitle: "Who we build for",
     forBody:
-      "University students furnishing a hostel room, young adults setting up a first home, families replacing worn furniture, and anyone who needs a piece built to a specific size.",
+      "Families furnishing a home, students setting up a room, schools and colleges, offices, hotels, guest houses, churches and organizations — and anyone who needs a piece built to a specific size.",
   },
   process: {
     title: "How your furniture gets made",

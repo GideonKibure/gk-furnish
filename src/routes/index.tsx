@@ -1,31 +1,40 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeDollarSign, GraduationCap, Hammer, Ruler } from "lucide-react";
+import { ArrowRight, BadgeDollarSign, Hammer, Ruler, Users } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { HERO_VIDEO_SRC, IMAGES, GALLERY, imageFor } from "@/data/images";
+import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
+import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery } from "@/lib/catalog";
 import { ProductGrid } from "@/components/site/ProductCard";
 import { SectionTitle } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { categoryImageSlot } from "@/lib/site-images";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "GK furnish — Student furniture made in Mbeya" },
-      { name: "description", content: "Chairs, study tables, beds and lamps handmade in Mbeya. Order online or on WhatsApp." },
+      { title: "GK furnish — Furniture made in Mbeya for homes, offices and hotels" },
+      {
+        name: "description",
+        content: "Beds, sofas, chairs and tables handmade in Mbeya for homes, offices, schools, hotels and organizations. Order online or on WhatsApp.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "GK furnish — Student furniture made in Mbeya" },
-      { property: "og:description", content: "Durable, affordable furniture for students and homes in Tanzania." },
+      { property: "og:title", content: "GK furnish — Furniture made in Mbeya for homes, offices and hotels" },
+      {
+        property: "og:description",
+        content: "Durable, affordable furniture for homes, students, schools, offices, hotels and organizations in Tanzania.",
+      },
     ],
   }),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(productsQuery),
       context.queryClient.ensureQueryData(categoriesQuery),
+      context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
     ]),
   component: Home,
 });
@@ -40,18 +49,22 @@ function Home() {
   const customTitle = sectionText(sections, "home", "custom_title", lang, t.home.customTitle);
   const customBody = sectionText(sections, "home", "custom_body", lang, t.home.customBody);
 
+  const { image, gallery } = useSiteImages();
+  const heroPoster = image("home.hero", IMAGES.hero);
+  const customImage = image("home.custom", IMAGES.custom);
+
   const feats = [
-    { k: "students", img: IMAGES.room, slug: "" },
-    { k: "desks", img: IMAGES.tables, slug: "tables" },
-    { k: "chairs", img: IMAGES.chairs, slug: "chairs" },
-    { k: "beds", img: IMAGES.beds, slug: "beds" },
+    { k: "students", img: image("home.feature.homes", IMAGES.room), slug: "" },
+    { k: "desks", img: image("home.feature.desks", IMAGES.tables), slug: "tables" },
+    { k: "chairs", img: image("home.feature.chairs", IMAGES.chairs), slug: "chairs" },
+    { k: "beds", img: image("home.feature.beds", IMAGES.beds), slug: "beds" },
   ] as const;
 
   const why = [
     { k: "affordable", I: BadgeDollarSign },
     { k: "durable", I: Hammer },
     { k: "custom", I: Ruler },
-    { k: "student", I: GraduationCap },
+    { k: "student", I: Users },
   ] as const;
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -74,7 +87,7 @@ function Home() {
           loop
           playsInline
           preload="auto"
-          poster={IMAGES.hero}
+          poster={heroPoster ?? undefined}
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-navy via-navy/55 to-navy/15" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklab,var(--gold)_18%,transparent),transparent_55%)]" />
@@ -120,15 +133,17 @@ function Home() {
                 {...(f.slug
                   ? { to: "/categories/$slug" as const, params: { slug: f.slug } }
                   : { to: "/products" as const })}
-                className="home-feature group relative block overflow-hidden rounded-3xl"
+                className="home-feature group relative block overflow-hidden rounded-3xl bg-navy"
               >
                 <div className="aspect-[4/5] overflow-hidden sm:aspect-[4/3]">
-                  <img
-                    src={f.img}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                  />
+                  {f.img && (
+                    <img
+                      src={f.img}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                    />
+                  )}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/35 to-transparent opacity-90 transition-opacity duration-500 group-hover:opacity-100" />
                 <div className="absolute inset-x-0 bottom-0 p-5">
@@ -157,19 +172,23 @@ function Home() {
           <div className="grid gap-5 md:grid-cols-2">
             {cats
               .filter((c) => c.slug !== "custom-furniture")
-              .map((c, i) => (
+              .map((c, i) => {
+                const src = image(categoryImageSlot(c.slug), imageFor(c.image_key));
+                return (
                 <Reveal key={c.id} delayMs={i * 100} variant={i % 2 === 0 ? "left" : "right"}>
                   <Link
                     to="/categories/$slug"
                     params={{ slug: c.slug }}
-                    className="home-category group relative block aspect-[16/10] overflow-hidden rounded-3xl"
+                    className="home-category group relative block aspect-[16/10] overflow-hidden rounded-3xl bg-navy"
                   >
-                    <img
-                      src={imageFor(c.image_key)}
-                      alt=""
-                      loading="lazy"
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                    />
+                    {src && (
+                      <img
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/40 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
                       <h3 className="font-display text-3xl text-white sm:text-4xl">
@@ -185,7 +204,8 @@ function Home() {
                     </div>
                   </Link>
                 </Reveal>
-              ))}
+                );
+              })}
           </div>
         </div>
       </section>
@@ -239,7 +259,7 @@ function Home() {
 
       <section className="container-page pb-16 md:pb-24">
         <Reveal variant="scale">
-          <div className="home-custom group grid overflow-hidden rounded-[2rem] bg-gold md:grid-cols-2">
+          <div className={cn("home-custom group grid overflow-hidden rounded-[2rem] bg-gold", customImage && "md:grid-cols-2")}>
             <div className="relative z-10 flex flex-col justify-center p-8 md:p-12 lg:p-14">
               <h2 className="display-lg text-navy">{customTitle}</h2>
               <p className="mt-4 max-w-md text-base text-navy/80 md:text-lg">{customBody}</p>
@@ -248,15 +268,17 @@ function Home() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
               </Link>
             </div>
-            <div className="relative min-h-[16rem] overflow-hidden md:min-h-full">
-              <img
-                src={IMAGES.custom}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-l from-transparent to-gold/30 md:bg-gradient-to-r md:from-transparent md:to-gold/20" />
-            </div>
+            {customImage && (
+              <div className="relative min-h-[16rem] overflow-hidden md:min-h-full">
+                <img
+                  src={customImage}
+                  alt=""
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-gold/30 md:bg-gradient-to-r md:from-transparent md:to-gold/20" />
+              </div>
+            )}
           </div>
         </Reveal>
       </section>
@@ -276,8 +298,8 @@ function Home() {
             />
           </Reveal>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-            {GALLERY.slice(0, 8).map((g, i) => (
-              <Reveal key={i} delayMs={i * 50} variant="scale">
+            {gallery.slice(0, 8).map((g, i) => (
+              <Reveal key={g.id} delayMs={i * 50} variant="scale">
                 <Link
                   to="/gallery"
                   className={cn(
@@ -286,14 +308,14 @@ function Home() {
                   )}
                 >
                   <img
-                    src={IMAGES[g.key]}
-                    alt={g.caption}
+                    src={g.url}
+                    alt={localized(lang, g.caption, g.caption_sw)}
                     loading="lazy"
                     className="aspect-square w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-navy/0 transition-colors duration-500 group-hover:bg-navy/45" />
                   <span className="absolute inset-x-3 bottom-3 translate-y-2 truncate text-xs font-semibold text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100 sm:text-sm">
-                    {g.caption}
+                    {localized(lang, g.caption, g.caption_sw)}
                   </span>
                 </Link>
               </Reveal>

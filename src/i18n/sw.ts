@@ -55,7 +55,7 @@ export const sw: Dictionary = {
     categoriesEyebrow: "Makundi",
     categoriesTitle: "Tafuta kwa unachohitaji",
     featuredEyebrow: "Teule",
-    featuredTitle: "Zinazopendwa na wanafunzi",
+    featuredTitle: "Zinazopendwa na wateja",
     latestEyebrow: "Mpya",
     latestTitle: "Mpya kutoka karakana",
     whyEyebrow: "Kwa nini GK furnish",
@@ -69,16 +69,22 @@ export const sw: Dictionary = {
     viewAll: "Ona samani zote",
   },
   features: {
-    students: { title: "Samani za wanafunzi", body: "Ukubwa na bei zinazofaa vyumba vya hosteli." },
-    desks: { title: "Meza za kusomea", body: "Nafasi ya laptop, vitabu na taa." },
-    chairs: { title: "Viti vizuri", body: "Vinafaa kwa kusoma kwa muda mrefu." },
+    students: {
+      title: "Nyumba, ofisi na hoteli",
+      body: "Samani za sebule, chumba cha kulala, ofisi, hoteli na shule.",
+    },
+    desks: { title: "Meza na madawati", body: "Meza za chakula, madawati ya ofisi na meza za kusomea." },
+    chairs: { title: "Viti vizuri", body: "Kwa nyumbani, ofisini, darasani na sehemu za kusubiri." },
     beds: { title: "Vitanda na taa", body: "Mapumziko na mwanga laini, kazi safi." },
   },
   why: {
-    affordable: { title: "Bei nafuu", body: "Bei wazi zinazowafikiria wanafunzi — bila gharama za kujificha." },
-    durable: { title: "Imara", body: "Mbao bora na viungio halisi vinavyodumu unapohama." },
+    affordable: { title: "Bei nafuu", body: "Bei wazi kwa kipande kimoja au agizo kubwa — bila gharama za kujificha." },
+    durable: { title: "Imara", body: "Mbao bora na viungio halisi kwa matumizi ya kila siku." },
     custom: { title: "Miundo maalum", body: "Ukubwa, mbao au rangi yoyote unayoeleza, tunaweza kutengeneza." },
-    student: { title: "Rafiki wa wanafunzi", body: "Agiza kwa WhatsApp au fomu fupi. Hakuna akaunti inayohitajika." },
+    student: {
+      title: "Kwa kila mteja",
+      body: "Nyumba, wanafunzi, shule, ofisi, hoteli na taasisi. Agiza kwa WhatsApp au fomu fupi.",
+    },
   },
   products: {
     title: "Samani zote",
@@ -169,9 +175,9 @@ export const sw: Dictionary = {
     phone: "Namba ya simu",
     email: "Barua pepe (si lazima)",
     type: "Aina ya samani",
-    typePlaceholder: "Kiti, meza ya kusomea, kitanda, rafu…",
+    typePlaceholder: "Kiti, meza, kitanda, sofa, rafu, meza ya mapokezi…",
     description: "Eleza unachohitaji",
-    descriptionPlaceholder: "Ukubwa, matumizi (kusoma, kulala…) na mtindo wowote.",
+    descriptionPlaceholder: "Ukubwa, mahali itakapotumika (nyumbani, ofisini, hotelini, shuleni…) na mtindo wowote.",
     dimensions: "Vipimo unavyopendelea",
     material: "Mbao unayopendelea",
     color: "Rangi unayopendelea",
@@ -235,12 +241,12 @@ export const sw: Dictionary = {
     lead: "GK furnish ni karakana ya samani iliyoko Mbeya, Tanzania, inayotengeneza viti, meza, vitanda na taa kwa mikono.",
     storyTitle: "Historia yetu",
     story:
-      "GK furnish ilianza na tatizo rahisi: wanafunzi walihitaji samani imara, zinazotosha chumba cha hosteli na kwa bei wanayoweza kuilipa. Vilivyokuwa sokoni vilikuwa dhaifu au vya bei ya ofisi. Hivyo tulianza kutengeneza vile wanafunzi waliviomba — meza nzuri ya kusomea, kiti unaloweza kukaa masaa, na kitanda kinachodumu unapohama.",
+      "GK furnish ilianza na lengo rahisi: samani imara zinazodumu kwa bei ya haki. Vingi vilivyokuwa sokoni vilikuwa dhaifu au ghali kupita kiasi. Hivyo tulianza kutengeneza vile watu waliviomba — vitanda, sofa, meza za chakula na za ofisi, na viti vya kukaa masaa — kwa nyumba, shule, ofisi, hoteli na taasisi.",
     story2:
       "Kila kitu tunachouza kinatengenezwa katika karakana yetu, kwa mikono, kwa mbao za hapa. Hiyo inatuwezesha kubadilisha ukubwa, rangi au umaliziaji bila kuanza upya — na kusimamia kazi tunayofanya.",
     missionTitle: "Lengo",
     mission:
-      "Kutengeneza samani imara na za ubora ambazo wanafunzi na vijana Tanzania wanaweza kuzilipia kweli.",
+      "Kutengeneza samani imara na za ubora ambazo nyumba, biashara na taasisi Tanzania zinaweza kuzimudu kweli.",
     visionTitle: "Maono",
     vision:
       "Kuwa karakana ya samani ambayo watu wa mkoa wetu wanaipendekeza kwanza — kwa bei ya haki na kazi inayodumu.",
@@ -253,7 +259,7 @@ export const sw: Dictionary = {
     ],
     forTitle: "Tunawatengenezea nani",
     forBody:
-      "Wanafunzi wanaopanga chumba cha hosteli, vijana wanaoanza nyumba ya kwanza, familia zinazobadilisha samani kuukuu, na yeyote anayehitaji kipande cha vipimo maalum.",
+      "Familia zinazopamba nyumba, wanafunzi wanaopanga chumba, shule na vyuo, ofisi, hoteli, nyumba za wageni, makanisa na taasisi — na yeyote anayehitaji kipande cha vipimo maalum.",
   },
   process: {
     title: "Samani yako inatengenezwa vipi",

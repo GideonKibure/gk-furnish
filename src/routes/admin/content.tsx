@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { listAdminPageSections, upsertAdminPageSection } from "@/lib/content.functions";
+import { SITE_IMAGES_PAGE } from "@/lib/site-images";
 
 export const Route = createFileRoute("/admin/content")({
   head: () => ({ meta: [{ title: "Page content — Admin" }, { name: "robots", content: "noindex" }] }),
@@ -54,6 +55,7 @@ function AdminContentPage() {
   }
 
   const grouped = sections.reduce<Record<string, Section[]>>((acc, s) => {
+    if (s.page_key === SITE_IMAGES_PAGE) return acc;
     (acc[s.page_key] ??= []).push(s);
     return acc;
   }, {});
@@ -135,7 +137,7 @@ function AdminContentPage() {
             </AdminCard>
           </section>
         ))}
-        {!sections.length && <AdminEmpty>No page sections yet.</AdminEmpty>}
+        {!Object.keys(grouped).length && <AdminEmpty>No page sections yet.</AdminEmpty>}
       </div>
     </div>
   );

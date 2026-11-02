@@ -6,12 +6,27 @@ export function PageHeader({
   title,
   subtitle,
   children,
+  image,
 }: {
   eyebrow?: string;
   title: string;
   subtitle?: string;
   children?: ReactNode;
+  /** Optional admin-managed image shown beside the title. */
+  image?: string | null;
 }) {
+  const text = (
+    <div className="min-w-0">
+      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+      <h1 className="display-lg mt-2 max-w-3xl text-navy">{title}</h1>
+      {subtitle && (
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+          {subtitle}
+        </p>
+      )}
+      {children}
+    </div>
+  );
   return (
     <section className="page-hero-glass relative overflow-hidden lg:-mt-[5rem]">
       <div aria-hidden className="page-hero-glass-orbs pointer-events-none absolute inset-0" />
@@ -20,14 +35,16 @@ export function PageHeader({
         className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/35 to-transparent backdrop-blur-[2px]"
       />
       <div className="container-page relative pb-10 pt-6 md:pb-12 md:pt-8 lg:pb-14 lg:pt-[calc(5rem+1.5rem)]">
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1 className="display-lg mt-2 max-w-3xl text-navy">{title}</h1>
-        {subtitle && (
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            {subtitle}
-          </p>
+        {image ? (
+          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-12">
+            {text}
+            <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)] ring-1 ring-white/50">
+              <img src={image} alt="" className="aspect-[16/10] w-full object-cover" />
+            </div>
+          </div>
+        ) : (
+          text
         )}
-        {children}
       </div>
     </section>
   );

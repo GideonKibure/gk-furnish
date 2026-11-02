@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock3,
   FileText,
+  Images,
   Mail,
   Megaphone,
   Package,
@@ -79,6 +80,7 @@ function AdminDashboard() {
     { to: "/admin/messages" as const, label: "Customer messages", desc: "Contact form notes", Icon: Mail },
     { to: "/admin/popups" as const, label: "Offer popup", desc: "Homepage banner", Icon: Megaphone },
     { to: "/admin/content" as const, label: "Page content", desc: "EN / SW copy", Icon: FileText },
+    { to: "/admin/images" as const, label: "Site images", desc: "Page and gallery photos", Icon: Images },
     { to: "/admin/settings" as const, label: "Site settings", desc: "Contact & socials", Icon: Settings },
   ];
 

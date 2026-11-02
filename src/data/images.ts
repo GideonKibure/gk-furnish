@@ -35,15 +35,3 @@ export function imageFor(key: string | null | undefined): string {
   if (key && key in IMAGES) return IMAGES[key as ImageKey];
   return IMAGES.room;
 }
-
-export const GALLERY = [
-  { key: "chairs" as ImageKey, group: "chairs", caption: "Study chair, hand-finished" },
-  { key: "tables" as ImageKey, group: "tables", caption: "Study table with drawer" },
-  { key: "beds" as ImageKey, group: "beds", caption: "Single bed frame" },
-  { key: "lamps" as ImageKey, group: "lamps", caption: "Wooden table lamp" },
-  { key: "room" as ImageKey, group: "custom", caption: "A finished student room" },
-  { key: "hero" as ImageKey, group: "custom", caption: "Desk, chair and lamp together" },
-  { key: "workshop" as ImageKey, group: "workshop", caption: "Inside the workshop" },
-  { key: "craft" as ImageKey, group: "workshop", caption: "Sanding a chair joint" },
-  { key: "custom" as ImageKey, group: "custom", caption: "A custom desk, drawn to measure" },
-];

@@ -715,7 +715,7 @@ function AdminProductsPage() {
                         i === 0
                           ? "e.g. Solid hardwood frame"
                           : i === 1
-                            ? "e.g. Fits hostel rooms"
+                            ? "e.g. Fits small rooms"
                             : i === 2
                               ? "e.g. Easy to assemble"
                               : "Another unique feature"

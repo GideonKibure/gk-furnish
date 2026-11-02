@@ -7,8 +7,10 @@ import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { telLink, waLink } from "@/config/site";
+import { useSiteImages } from "@/hooks/use-site-images";
 import { useLang } from "@/i18n/LanguageProvider";
 import { STANDARD_COLORS } from "@/lib/color-swatches";
+import { pageSectionsQuery } from "@/lib/site-content";
 import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
 import { submitCustomOrder } from "@/lib/orders.functions";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,7 @@ export const Route = createFileRoute("/custom-order")({
       { property: "og:description", content: "Furniture built to your size, material and colour." },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: Custom,
 });
 
@@ -45,6 +48,7 @@ function Custom() {
   const { t } = useLang();
   const nav = useNavigate();
   const send = useServerFn(submitCustomOrder);
+  const { image } = useSiteImages();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -140,7 +144,7 @@ function Custom() {
 
   return (
     <>
-      <PageHeader title={t.custom.title} subtitle={t.custom.subtitle} />
+      <PageHeader title={t.custom.title} subtitle={t.custom.subtitle} image={image("header.custom-order", null)} />
 
       <section className="container-page pb-16 md:pb-24">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-14">
@@ -226,7 +230,7 @@ function Custom() {
                   <label className="field-label" htmlFor="delivery_location">
                     {t.custom.location} *
                   </label>
-                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, hostel, street…" />
+                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, area, street, building…" />
                   {fieldErr("delivery_location")}
                 </div>
 

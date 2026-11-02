@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   FileText,
+  Images,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -21,6 +22,7 @@ const links: { to: string; label: string; icon: typeof LayoutDashboard; exact?: 
   { to: "/admin/custom-orders", label: "Custom orders", icon: Sparkles },
   { to: "/admin/messages", label: "Messages", icon: Mail },
   { to: "/admin/content", label: "Page content", icon: FileText },
+  { to: "/admin/images", label: "Site images", icon: Images },
   { to: "/admin/popups", label: "Offer popups", icon: Megaphone },
   { to: "/admin/settings", label: "Site settings", icon: Settings },
 ];

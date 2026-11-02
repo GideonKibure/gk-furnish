@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { Lightbox } from "@/components/site/ZoomGallery";
-import { GALLERY, IMAGES } from "@/data/images";
-import { useLang } from "@/i18n/LanguageProvider";
+import { useSiteImages } from "@/hooks/use-site-images";
+import { localized, useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/gallery")({
       { property: "og:description", content: "See GK furnish work." },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: Gallery,
 });
 
@@ -28,18 +29,20 @@ const GROUPS = ["all", "chairs", "tables", "beds", "lamps", "custom", "workshop"
 function Gallery() {
   const { t, lang } = useLang();
   const { data: sections = [] } = useQuery(pageSectionsQuery);
+  const { image, gallery } = useSiteImages();
   const subtitle = sectionText(sections, "gallery", "subtitle", lang, t.gallery.subtitle);
   const [g, setG] = useState<(typeof GROUPS)[number]>("all");
   const [i, setI] = useState<number | null>(null);
 
   const items = useMemo(
-    () => GALLERY.filter((x) => g === "all" || x.group === g),
-    [g],
+    () => gallery.filter((x) => g === "all" || x.group === g),
+    [g, gallery],
   );
+  const captions = items.map((x) => localized(lang, x.caption, x.caption_sw));
 
   return (
     <>
-      <PageHeader title={t.gallery.title} subtitle={subtitle} />
+      <PageHeader title={t.gallery.title} subtitle={subtitle} image={image("header.gallery", null)} />
       <div className="container-page section-y">
         <Reveal>
           <div className="mb-8 flex flex-wrap gap-2">
@@ -66,15 +69,15 @@ function Gallery() {
 
         <div className="columns-2 gap-3 md:columns-3 md:gap-4">
           {items.map((x, k) => (
-            <Reveal key={`${x.key}-${x.caption}`} delayMs={(k % 6) * 40} variant="scale" className="mb-3 break-inside-avoid md:mb-4">
+            <Reveal key={x.id} delayMs={(k % 6) * 40} variant="scale" className="mb-3 break-inside-avoid md:mb-4">
               <button
                 type="button"
                 onClick={() => setI(k)}
                 className="group relative block w-full overflow-hidden rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 <img
-                  src={IMAGES[x.key]}
-                  alt={x.caption}
+                  src={x.url}
+                  alt={captions[k]}
                   loading="lazy"
                   className={cn(
                     "w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105",
@@ -83,7 +86,7 @@ function Gallery() {
                 />
                 <span className="absolute inset-0 bg-navy/0 transition-colors duration-300 group-hover:bg-navy/35" />
                 <span className="absolute inset-x-3 bottom-3 translate-y-2 text-left text-xs font-semibold text-white opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:text-sm">
-                  {x.caption}
+                  {captions[k]}
                 </span>
               </button>
             </Reveal>
@@ -91,10 +94,10 @@ function Gallery() {
         </div>
       </div>
 
-      {i !== null && (
+      {i !== null && items.length > 0 && (
         <Lightbox
-          images={items.map((x) => IMAGES[x.key])}
-          captions={items.map((x) => x.caption)}
+          images={items.map((x) => x.url)}
+          captions={captions}
           index={i}
           onIndex={setI}
           onClose={() => setI(null)}

@@ -4,8 +4,10 @@ import { ArrowRight, HeartHandshake, ShieldCheck, Sparkles, Wrench } from "lucid
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { IMAGES } from "@/data/images";
+import { useSiteImages } from "@/hooks/use-site-images";
 import { useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/about")({
       { property: "og:description", content: "Our story, mission and values." },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: About,
 });
 
@@ -31,26 +34,30 @@ function About() {
   const story = sectionText(sections, "about", "story", lang, a.story);
   const mission = sectionText(sections, "about", "mission", lang, a.mission);
   const vision = sectionText(sections, "about", "vision", lang, a.vision);
+  const { image } = useSiteImages();
+  const storyImage = image("about.story", IMAGES.workshop);
 
   return (
     <>
-      <PageHeader title={a.title} subtitle={lead} />
+      <PageHeader title={a.title} subtitle={lead} image={image("header.about", null)} />
 
-      <div className="container-page section-y grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+      <div className={cn("container-page section-y grid items-center gap-10 lg:gap-14", storyImage && "lg:grid-cols-2")}>
         <Reveal variant="left">
           <h2 className="display-lg text-navy">{a.storyTitle}</h2>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">{story}</p>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground md:text-lg">{a.story2}</p>
         </Reveal>
-        <Reveal variant="right" delayMs={80}>
-          <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)]">
-            <img
-              src={IMAGES.workshop}
-              alt=""
-              className="aspect-[4/3] w-full object-cover transition-transform duration-700 hover:scale-105"
-            />
-          </div>
-        </Reveal>
+        {storyImage && (
+          <Reveal variant="right" delayMs={80}>
+            <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)]">
+              <img
+                src={storyImage}
+                alt=""
+                className="aspect-[4/3] w-full object-cover transition-transform duration-700 hover:scale-105"
+              />
+            </div>
+          </Reveal>
+        )}
       </div>
 
       <section className="bg-navy text-primary-foreground">
