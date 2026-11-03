@@ -27,6 +27,7 @@ import { Route as AccountLoginRouteImport } from './routes/account.login'
 import { Route as AccountRegisterRouteImport } from './routes/account.register'
 import { Route as AccountResetRouteImport } from './routes/account.reset'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
 import { Route as AdminCustomOrdersRouteImport } from './routes/admin/custom-orders'
 import { Route as AdminImagesRouteImport } from './routes/admin/images'
@@ -135,6 +136,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAccountRoute = AdminAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminContentRoute = AdminContentRouteImport.update({
   id: '/content',
   path: '/content',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/account/login': typeof AccountLoginRoute
   '/account/register': typeof AccountRegisterRoute
   '/account/reset': typeof AccountResetRoute
+  '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -274,6 +281,7 @@ export interface FileRoutesByTo {
   '/account/login': typeof AccountLoginRoute
   '/account/register': typeof AccountRegisterRoute
   '/account/reset': typeof AccountResetRoute
+  '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -312,6 +320,7 @@ export interface FileRoutesById {
   '/account/login': typeof AccountLoginRoute
   '/account/register': typeof AccountRegisterRoute
   '/account/reset': typeof AccountResetRoute
+  '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/account/login'
     | '/account/register'
     | '/account/reset'
+    | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/account/login'
     | '/account/register'
     | '/account/reset'
+    | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/account/login'
     | '/account/register'
     | '/account/reset'
+    | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -601,6 +613,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/account': {
+      id: '/admin/account'
+      path: '/account'
+      fullPath: '/admin/account'
+      preLoaderRoute: typeof AdminAccountRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/content': {
       id: '/admin/content'
       path: '/content'
@@ -724,6 +743,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminAccountRoute: typeof AdminAccountRoute
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomOrdersRoute: typeof AdminCustomOrdersRoute
   AdminImagesRoute: typeof AdminImagesRoute
@@ -737,6 +757,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAccountRoute: AdminAccountRoute,
   AdminContentRoute: AdminContentRoute,
   AdminCustomOrdersRoute: AdminCustomOrdersRoute,
   AdminImagesRoute: AdminImagesRoute,

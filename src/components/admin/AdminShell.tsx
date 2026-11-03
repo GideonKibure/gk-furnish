@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   FileText,
   Images,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -25,6 +26,7 @@ const links: { to: string; label: string; icon: typeof LayoutDashboard; exact?: 
   { to: "/admin/images", label: "Site images", icon: Images },
   { to: "/admin/popups", label: "Offer popups", icon: Megaphone },
   { to: "/admin/settings", label: "Site settings", icon: Settings },
+  { to: "/admin/account", label: "Account & security", icon: KeyRound },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
