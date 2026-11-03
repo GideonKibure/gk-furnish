@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { z } from "zod";
 import { AuthCard, GoogleButton, useRoleDestination } from "@/components/site/AuthCard";
+import { useAuthUser } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 
@@ -16,8 +17,14 @@ function LoginPage() {
   const nav = useNavigate();
   const { next } = Route.useSearch();
   const destination = useRoleDestination();
+  const { user, ready } = useAuthUser();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    void destination(next).then(({ path }) => nav({ href: path, replace: true }));
+  }, [ready, user?.id]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,11 +38,7 @@ function LoginPage() {
     if (err) {
       setBusy(false);
       setError(err.message.toLowerCase().includes("invalid") ? t.auth.invalid : err.message);
-      return;
     }
-    const { path } = await destination(next);
-    setBusy(false);
-    void nav({ href: path });
   }
 
   return (

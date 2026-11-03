@@ -1,6 +1,7 @@
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSession } from "@/lib/session";
 
 /** Current Supabase user in the browser; `ready` turns true once the stored session is read. */
 export function useAuthUser() {
@@ -9,14 +10,17 @@ export function useAuthUser() {
 
   useEffect(() => {
     let alive = true;
-    supabase.auth.getSession().then(({ data }) => {
+    const settle = (session: Session | null) => {
       if (!alive) return;
-      setUser(data.session?.user ?? null);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setReady(true);
+    };
+    void loadSession().then(({ session, unknown }) => {
+      if (!unknown) settle(session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION reports null on a network failure; loadSession above handles the first read.
+      if (event !== "INITIAL_SESSION") settle(session);
     });
     return () => {
       alive = false;

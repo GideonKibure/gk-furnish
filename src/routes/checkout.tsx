@@ -30,7 +30,7 @@ function CheckoutPage() {
   const { t, lang } = useLang();
   const nav = useNavigate();
   const cart = useCart();
-  const { user } = useAuthUser();
+  const { user, ready: authReady } = useAuthUser();
   const send = useServerFn(createCheckout);
   const loadProfile = useServerFn(getMyProfile);
   const { data: settings } = useQuery(siteSettingsQuery);
@@ -161,7 +161,7 @@ function CheckoutPage() {
     <>
       <PageHeader title={t.checkout.title} subtitle={t.checkout.subtitle} />
       <div className="container-page section-y">
-        {!user && (
+        {authReady && !user && (
           <p className="mb-6 rounded-xl bg-secondary/60 px-4 py-3 text-sm text-navy">
             {t.checkout.signInPrompt}{" "}
             <Link to="/account/login" search={{ next: "/checkout" }} className="font-semibold text-gold underline">

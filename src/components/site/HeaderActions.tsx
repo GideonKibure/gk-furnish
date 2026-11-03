@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 export function HeaderActions({ dark = false }: { dark?: boolean }) {
   const { t } = useLang();
   const { count } = useCart();
-  const { user } = useAuthUser();
+  const { user, ready } = useAuthUser();
+  const signedOut = ready && !user;
   const tone = dark
     ? "text-white/85 hover:bg-white/10 hover:text-white"
     : "text-navy hover:bg-secondary";
@@ -17,9 +18,9 @@ export function HeaderActions({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-0.5 sm:gap-1">
       <Link
-        to={user ? "/account" : "/account/login"}
-        aria-label={user ? t.nav.account : t.nav.signIn}
-        title={user ? t.nav.account : t.nav.signIn}
+        to={signedOut ? "/account/login" : "/account"}
+        aria-label={signedOut ? t.nav.signIn : t.nav.account}
+        title={signedOut ? t.nav.signIn : t.nav.account}
         className={cn("grid h-8 w-8 place-items-center rounded-full transition-colors sm:h-9 sm:w-9", tone)}
       >
         <UserRound className="h-[1.15rem] w-[1.15rem]" />
