@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLang } from "@/i18n/LanguageProvider";
 import { PageHeader } from "@/components/site/PageHeader";
+import { PaymentPolicy } from "@/components/site/PaymentPolicy";
 import { Reveal } from "@/components/site/Reveal";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
 
@@ -31,6 +32,7 @@ function Faq() {
           ))}
         </Accordion>
         </Reveal>
+        <PaymentPolicy className="mt-10" />
       </div>
     </>
   );

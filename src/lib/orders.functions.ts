@@ -5,62 +5,6 @@ import { composeOrderNotes, packReferenceImages } from "@/lib/order-options";
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
-const OrderInput = z.object({
-  customer_name: z.string().trim().min(1).max(120),
-  phone,
-  email: z.string().trim().email().max(200).optional().or(z.literal("")),
-  product_id: z.string().uuid(),
-  quantity: z.number().int().min(1).max(100),
-  preferred_color: z.string().trim().min(1).max(80),
-  preferred_size: z.enum(["Small", "Standard", "Large"]),
-  delivery_location: z.string().trim().min(1).max(200),
-  notes: opt(1000),
-});
-
-export const submitOrder = createServerFn({ method: "POST" })
-  .inputValidator((d) => OrderInput.parse(d))
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Price comes from the database, never from the browser.
-    const { data: product, error: pErr } = await supabaseAdmin
-      .from("products")
-      .select("id,name,price")
-      .eq("id", data.product_id)
-      .single();
-    if (pErr || !product) throw new Error("Product not found");
-
-    const { data: order, error } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        customer_name: data.customer_name,
-        phone: data.phone,
-        email: data.email || null,
-        preferred_color: data.preferred_color,
-        preferred_size: data.preferred_size,
-        delivery_location: data.delivery_location,
-        notes: data.notes || null,
-      })
-      .select("id,order_number")
-      .single();
-    if (error || !order) throw new Error("Could not save order");
-
-    const { error: iErr } = await supabaseAdmin.from("order_items").insert({
-      order_id: order.id,
-      product_id: product.id,
-      product_name: product.name,
-      quantity: data.quantity,
-      unit_price: product.price,
-    });
-    if (iErr) throw new Error("Could not save order item");
-
-    return {
-      orderNumber: order.order_number,
-      productName: product.name,
-      quantity: data.quantity,
-      total: Number(product.price) * data.quantity,
-    };
-  });
-
 const CustomInput = z.object({
   full_name: z.string().trim().min(1).max(120),
   phone,

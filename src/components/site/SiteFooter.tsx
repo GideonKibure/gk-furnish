@@ -111,7 +111,12 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-primary-foreground/10">
         <div className="container-page flex flex-col gap-2 py-5 text-xs text-primary-foreground/50 sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} {SITE.name}. {t.footer.rights}</span>
+          <span>
+            © {new Date().getFullYear()} {SITE.name}. {t.footer.rights}{" "}
+            <Link to="/privacy" className="underline-offset-2 transition-colors hover:text-gold hover:underline">
+              {t.privacy.link}
+            </Link>
+          </span>
           <span>{t.footer.demoNote}</span>
         </div>
       </div>

@@ -7,7 +7,7 @@ import type { Product } from "@/lib/catalog";
 import { optionLabel, optionPriceRows, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
-import { OrderDialog } from "./OrderDialog";
+import { missingChoices, OrderDialog, useAddToCart } from "./OrderDialog";
 import { ProductVideo } from "./ProductVideo";
 import { ProductEngagement } from "./ProductEngagement";
 import { Reveal } from "./Reveal";
@@ -42,6 +42,7 @@ function PhotoThumb({
 
 export function ProductCard({ product }: { product: Product }) {
   const { t, lang } = useLang();
+  const addToCart = useAddToCart();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(0);
   const [material, setMaterial] = useState("");
@@ -231,10 +232,18 @@ export function ProductCard({ product }: { product: Product }) {
               {t.common.viewProduct}
             </Link>
             <button
-              onClick={() => setOpen(true)}
+              onClick={() => {
+                const choice = {
+                  material: materials.includes(material) ? material : "",
+                  size: dimensions.includes(dimension) ? dimension : "",
+                  color: "",
+                };
+                if (missingChoices(product, choice).length) setOpen(true);
+                else void addToCart(product, { ...choice, quantity: 1 });
+              }}
               className="btn-base btn-gold !h-11 !min-h-0 !px-2 !text-xs whitespace-nowrap transition-transform hover:scale-[1.03] active:scale-[0.97] sm:!text-sm"
             >
-              {t.common.orderNow}
+              {t.cart.add}
             </button>
           </div>
         </div>

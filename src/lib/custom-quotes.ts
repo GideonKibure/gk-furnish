@@ -1,7 +1,15 @@
 export const QUOTE_VALID_DAYS = 3;
 
-export const QUOTE_ADVANCE_NOTE =
-  "An advance payment of 50% of this quote must be paid within 3 days for the work to begin.";
+export function quoteAdvanceNote(percent: number) {
+  return `An advance payment of ${percent}% of this quote must be paid within ${QUOTE_VALID_DAYS} days for the work to begin.`;
+}
+
+export const QUOTE_POLICY_NOTES = [
+  "Production starts only after the advance payment is received.",
+  "Any change to the design or specifications must be agreed before production.",
+  "The remaining balance must be cleared before delivery.",
+  "A receipt is issued for every payment.",
+];
 
 export function quoteDateAfter(days: number, from = new Date()) {
   const date = new Date(from);
@@ -12,10 +20,11 @@ export function quoteDateAfter(days: number, from = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export function withQuoteAdvanceNote(notes: string) {
+export function withQuoteAdvanceNote(notes: string, percent: number) {
   const trimmed = notes.trim();
-  if (/50\s*%/.test(trimmed)) return trimmed;
-  return trimmed ? `${QUOTE_ADVANCE_NOTE}\n${trimmed}` : QUOTE_ADVANCE_NOTE;
+  if (/advance payment of \d+\s*%/i.test(trimmed)) return trimmed;
+  const note = quoteAdvanceNote(percent);
+  return trimmed ? `${note}\n${trimmed}` : note;
 }
 
 export type QuoteLine = {
@@ -32,6 +41,7 @@ export type SavedQuote = {
   notes: string;
   lines: QuoteLine[];
   total: number;
+  advancePercent: number;
   customerName: string;
   phone: string;
   email: string;
@@ -79,6 +89,7 @@ function quoteOf(value: unknown): SavedQuote | null {
     notes: text(row, "notes"),
     lines,
     total,
+    advancePercent: Number(row["advancePercent"]) || 50,
     customerName: text(row, "customerName"),
     phone: text(row, "phone"),
     email: text(row, "email"),

@@ -1,8 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Check, MessageCircle, Ruler, Sparkles, Trees } from "lucide-react";
+import { Check, MessageCircle, Ruler, ShoppingCart, Sparkles, Trees } from "lucide-react";
 import { useState } from "react";
-import { OrderDialog } from "@/components/site/OrderDialog";
+import { missingChoices, OrderDialog, useAddToCart } from "@/components/site/OrderDialog";
 import { ProductEngagement } from "@/components/site/ProductEngagement";
 import { ProductGrid } from "@/components/site/ProductCard";
 import { Reveal } from "@/components/site/Reveal";
@@ -49,6 +49,7 @@ function Detail() {
   const [size, setSize] = useState("");
   const [material, setMaterial] = useState("");
   const [open, setOpen] = useState(false);
+  const addToCart = useAddToCart();
 
   if (!p) return null;
 
@@ -77,6 +78,20 @@ function Detail() {
   const selectedColor = colors.some((item) => item.stored === color) ? color : "";
   const msg = `${t.whatsapp.productPrefix} ${p.name}${price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
   const related = data.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
+
+  async function onAdd(buyNow: boolean) {
+    if (!p) return;
+    const choice = {
+      material: selectedMaterial,
+      size: selectedSize,
+      color: colors.find((item) => item.stored === selectedColor)?.label ?? "",
+    };
+    if (missingChoices(p, choice).length) {
+      setOpen(true);
+      return;
+    }
+    await addToCart(p, { ...choice, quantity: qty }, buyNow);
+  }
 
   return (
     <div className="pb-16 md:pb-24">
@@ -241,10 +256,14 @@ function Detail() {
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <button type="button" className="btn-base btn-gold" onClick={() => setOpen(true)}>
-                {t.detail.orderThis}
+              <button type="button" className="btn-base btn-outline-navy" onClick={() => void onAdd(false)}>
+                <ShoppingCart className="h-4 w-4" />
+                {t.cart.add}
               </button>
-              <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-outline-navy">
+              <button type="button" className="btn-base btn-gold" onClick={() => void onAdd(true)}>
+                {t.cart.buyNow}
+              </button>
+              <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-outline-navy sm:col-span-2">
                 <MessageCircle className="h-4 w-4" />
                 {t.detail.askWhatsapp}
               </a>

@@ -11,6 +11,7 @@ import {
   type SavedQuote,
 } from "@/lib/custom-quotes";
 import { formatPreference, unpackReferenceImages } from "@/lib/order-options";
+import { advanceAmount, advanceSettingsFrom, advanceTierFor, statusBlockers } from "@/lib/payment-policy";
 
 const slugify = (s: string) =>
   s
@@ -432,10 +433,13 @@ export const listAdminOrders = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("*, order_items(*)")
+      .select("*, order_items(*), payments(*)")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return (data ?? []).map((order) => ({
+      ...order,
+      payments: [...(order.payments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    }));
   });
 
 const ORDER_STATUSES = [
@@ -455,6 +459,23 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order, error: loadErr } = await supabaseAdmin
+      .from("orders")
+      .select("total_amount,amount_paid,advance_required,specs_agreed_at")
+      .eq("id", data.id)
+      .single();
+    if (loadErr || !order) throw new Error(loadErr?.message ?? "Order not found");
+    const blockers = statusBlockers(
+      {
+        total_amount: Number(order.total_amount),
+        amount_paid: Number(order.amount_paid),
+        advance_required: Number(order.advance_required),
+        specs_agreed_at: order.specs_agreed_at,
+      },
+      data.status,
+    );
+    if (blockers.length) throw new Error(blockers.join(" "));
+
     const { error } = await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.id);
     if (error) throw new Error(error.message);
     if (data.note) {
@@ -467,78 +488,175 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const PAYMENT_MARKS = ["unpaid", "advance", "full"] as const;
-
-/** Mark an existing order unpaid, paid as an advance, or paid in full. */
-export const updateOrderPayment = createServerFn({ method: "POST" })
+/** Record a cash, bank or mobile money payment taken outside the website. It gets a receipt number. */
+export const recordAdminPayment = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) =>
     z
       .object({
         id: z.string().uuid(),
-        payment: z.enum(PAYMENT_MARKS),
-        amount: z.number().positive().max(50_000_000).optional(),
+        amount: z.number().positive().max(50_000_000),
+        method: z.enum(["Cash", "Bank transfer", "Mobile money", "Other"]),
+        note: z.string().trim().max(300).optional().or(z.literal("")),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { completePayment } = await import("@/lib/order-payments.server");
     const { data: order, error: loadErr } = await supabaseAdmin
       .from("orders")
-      .select("id,status,order_items(quantity,unit_price)")
+      .select("id,total_amount,amount_paid,advance_required")
       .eq("id", data.id)
       .single();
     if (loadErr || !order) throw new Error(loadErr?.message ?? "Order not found");
 
-    const items = order.order_items ?? [];
-    const total = items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0);
-    if (data.payment === "advance" && data.amount == null) throw new Error("Enter the advance amount");
-    if (data.payment === "advance" && total > 0 && (data.amount ?? 0) > total) {
-      throw new Error("Advance is higher than the order total");
+    const total = Number(order.total_amount);
+    const paid = Number(order.amount_paid);
+    const left = Math.max(0, Math.round(total) - Math.round(paid));
+    if (total > 0 && Math.round(data.amount) > left) {
+      throw new Error(`That is more than the balance of ${left.toLocaleString("en-US")} TSh`);
     }
-    const advanceCoversTotal = data.payment === "advance" && total > 0 && Math.round(data.amount ?? 0) === Math.round(total);
-    const payment_kind = data.payment === "unpaid" ? "none" : advanceCoversTotal ? "full" : data.payment;
-    const amountPaid = payment_kind === "none" ? 0 : payment_kind === "full" ? total : (data.amount ?? 0);
-    const amountDue = Math.max(0, total - amountPaid);
-    const payment_status = payment_kind === "none" ? "unpaid" : "paid";
+    const purpose =
+      paid <= 0 && Math.round(data.amount) >= Math.round(total)
+        ? "full"
+        : paid >= Number(order.advance_required)
+          ? "balance"
+          : "advance";
 
-    const { error } = await supabaseAdmin
-      .from("orders")
-      .update({ payment_status, payment_kind, amount_paid: amountPaid, amount_due: amountDue })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-
-    const { error: clearErr } = await supabaseAdmin
+    const { data: payment, error } = await supabaseAdmin
       .from("payments")
-      .delete()
-      .eq("order_id", data.id)
-      .contains("metadata", { source: "admin" });
-    if (clearErr) throw new Error(clearErr.message);
-
-    if (payment_kind !== "none") {
-      const { error: payErr } = await supabaseAdmin.from("payments").insert({
+      .insert({
         order_id: data.id,
-        payment_kind: payment_kind === "full" ? "full" : "advance",
-        amount: amountPaid,
-        status: "completed",
-        metadata: { source: "admin" },
-      });
-      if (payErr) throw new Error(payErr.message);
-    }
+        payment_kind: purpose === "full" ? "full" : "advance",
+        purpose,
+        amount: data.amount,
+        status: "pending",
+        metadata: { source: "admin", method: data.method, note: data.note || null },
+      })
+      .select("id")
+      .single();
+    if (error || !payment) throw new Error(error?.message ?? "Could not record payment");
+    await completePayment(supabaseAdmin, payment.id, {
+      amount: data.amount,
+      provider: data.method,
+      metadata: { source: "admin", method: data.method, note: data.note || null },
+    });
 
-    const label =
-      payment_kind === "full"
-        ? "paid in full"
-        : payment_kind === "advance"
-          ? `advance paid (${Math.round(amountPaid).toLocaleString("en-US")} TSh)`
-          : "unpaid";
+    const { data: updated } = await supabaseAdmin
+      .from("orders")
+      .select("payment_status,payment_kind,amount_paid,amount_due,status")
+      .eq("id", data.id)
+      .single();
+    return { ok: true, ...updated };
+  });
+
+/** Remove a payment the admin recorded by mistake. Snippe payments cannot be removed. */
+export const removeAdminPayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ paymentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { refreshOrderPayments } = await import("@/lib/order-payments.server");
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("id,order_id,amount,receipt_number,snippe_reference")
+      .eq("id", data.paymentId)
+      .single();
+    if (!payment) throw new Error("Payment not found");
+    if (payment.snippe_reference) throw new Error("Online payments cannot be removed");
+    const { error } = await supabaseAdmin.from("payments").delete().eq("id", payment.id);
+    if (error) throw new Error(error.message);
+    await refreshOrderPayments(
+      supabaseAdmin,
+      payment.order_id,
+      `Payment ${payment.receipt_number ?? ""} of ${Math.round(Number(payment.amount)).toLocaleString("en-US")} TSh removed by admin.`,
+    );
+    return { ok: true };
+  });
+
+/** Confirm (or undo) that the customer and GK furnish agreed the design and specifications. */
+export const setOrderSpecsAgreed = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z.object({ id: z.string().uuid(), agreed: z.boolean(), by: z.string().trim().max(120).optional().or(z.literal("")) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .update({
+        specs_agreed_at: data.agreed ? new Date().toISOString() : null,
+        specs_agreed_by: data.agreed ? data.by || "Admin" : null,
+      })
+      .eq("id", data.id)
+      .select("status,specs_agreed_at,specs_agreed_by")
+      .single();
+    if (error || !order) throw new Error(error?.message ?? "Order not found");
     await supabaseAdmin.from("order_status_history").insert({
       order_id: data.id,
       status: order.status,
-      note: `Payment marked ${label}`,
+      note: data.agreed
+        ? `Design and specifications agreed${data.by ? ` with ${data.by}` : ""}.`
+        : "Specification sign-off removed.",
     });
+    return order;
+  });
 
-    return { ok: true, payment_status, payment_kind, amount_paid: amountPaid, amount_due: amountDue };
+/** Log a design or specification change that was agreed with the customer. */
+export const recordOrderChange = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        change: z.string().trim().min(3).max(1000),
+        agreedBy: z.string().trim().min(1).max(120),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order } = await supabaseAdmin.from("orders").select("status").eq("id", data.id).single();
+    if (!order) throw new Error("Order not found");
+    const { error } = await supabaseAdmin.from("order_status_history").insert({
+      order_id: data.id,
+      status: order.status,
+      note: `Agreed change (with ${data.agreedBy}): ${data.change}`,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Change the advance percentage for one order. */
+export const setOrderAdvancePercent = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z
+      .object({ id: z.string().uuid(), percent: z.number().int().min(0).max(100), reason: z.string().trim().min(3).max(300) })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { refreshOrderPayments } = await import("@/lib/order-payments.server");
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("total_amount,advance_percent")
+      .eq("id", data.id)
+      .single();
+    if (!order) throw new Error("Order not found");
+    const required = advanceAmount(Number(order.total_amount), data.percent);
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({ advance_percent: data.percent, advance_required: required })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await refreshOrderPayments(
+      supabaseAdmin,
+      data.id,
+      `Advance changed from ${order.advance_percent}% to ${data.percent}% (${required.toLocaleString("en-US")} TSh). Reason: ${data.reason}`,
+    );
+    return { ok: true, advance_percent: data.percent, advance_required: required };
   });
 
 export const deleteAdminOrder = createServerFn({ method: "POST" })
@@ -581,8 +699,15 @@ export const createAdminOrder = createServerFn({ method: "POST" })
     if (pErr || !product) throw new Error("Product not found");
 
     const lineTotal = Number(product.price) * data.quantity;
-    const amountPaid = data.amount_paid ?? (data.payment_status === "paid" ? lineTotal : 0);
-    const amountDue = Math.max(0, lineTotal - amountPaid);
+    const amountPaid = Math.min(lineTotal, data.amount_paid ?? (data.payment_status === "paid" ? lineTotal : 0));
+    const { data: settingsRow } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const { percent } = advanceTierFor({ total: lineTotal, itemCount: data.quantity }, advanceSettingsFrom(settingsRow));
+    const advanceRequired = advanceAmount(lineTotal, percent);
+    const blockers = statusBlockers(
+      { total_amount: lineTotal, amount_paid: amountPaid, advance_required: advanceRequired, specs_agreed_at: "admin" },
+      data.status,
+    );
+    if (blockers.length) throw new Error(blockers.join(" "));
 
     const { data: order, error } = await supabaseAdmin
       .from("orders")
@@ -595,10 +720,16 @@ export const createAdminOrder = createServerFn({ method: "POST" })
         delivery_location: data.delivery_location,
         notes: data.notes || null,
         status: data.status,
-        payment_kind: data.payment_kind,
-        payment_status: data.payment_status,
-        amount_due: amountDue,
-        amount_paid: amountPaid,
+        payment_kind: "none",
+        payment_status: "unpaid",
+        amount_due: lineTotal,
+        amount_paid: 0,
+        total_amount: lineTotal,
+        advance_percent: percent,
+        advance_required: advanceRequired,
+        specs_agreed_at: new Date().toISOString(),
+        specs_agreed_by: "Agreed in person",
+        stock_applied: true,
         payment_phone: data.phone.replace(/\D/g, ""),
       })
       .select("id,order_number")
@@ -611,8 +742,29 @@ export const createAdminOrder = createServerFn({ method: "POST" })
       product_name: product.name,
       quantity: data.quantity,
       unit_price: product.price,
+      size: data.preferred_size,
+      color: data.preferred_color,
     });
     if (iErr) throw new Error(iErr.message);
+
+    if (amountPaid > 0) {
+      const { completePayment } = await import("@/lib/order-payments.server");
+      const purpose = amountPaid >= lineTotal ? "full" : "advance";
+      const { data: payment } = await supabaseAdmin
+        .from("payments")
+        .insert({
+          order_id: order.id,
+          payment_kind: purpose,
+          purpose,
+          amount: amountPaid,
+          status: "pending",
+          metadata: { source: "admin", method: "Recorded at order" },
+        })
+        .select("id")
+        .single();
+      if (payment) await completePayment(supabaseAdmin, payment.id, { amount: amountPaid, provider: "Recorded at order" });
+      await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", order.id);
+    }
 
     if (product.stock_quantity > 0) {
       await supabaseAdmin
@@ -675,6 +827,7 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         notes: z.string().trim().max(2000).optional().or(z.literal("")),
         valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+        advance_percent: z.number().int().min(10).max(100).optional(),
         lines: z.array(QuoteLineInput).min(1).max(12),
       })
       .parse(d),
@@ -692,15 +845,21 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
     const total = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
     if (total <= 0) throw new Error("Enter a price for the quote");
 
+    const { data: settingsRow } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const tier = advanceTierFor({ total, itemCount, isCustom: true }, advanceSettingsFrom(settingsRow));
+    const advancePercent = data.advance_percent ?? row.advance_percent ?? tier.percent;
+
     const existing = parseSavedQuotes(row.budget_range);
     const quote: SavedQuote = {
       id: crypto.randomUUID(),
       number: `${row.request_number}-Q${existing.length + 1}`,
       createdAt: new Date().toISOString(),
       validUntil: data.valid_until || quoteDateAfter(QUOTE_VALID_DAYS),
-      notes: withQuoteAdvanceNote(data.notes ?? ""),
+      notes: withQuoteAdvanceNote(data.notes ?? "", advancePercent),
       lines,
       total,
+      advancePercent,
       customerName: row.full_name,
       phone: row.phone,
       email: row.email ?? "",
@@ -718,6 +877,7 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
       .from("custom_orders")
       .update({
         budget_range: serializeSavedQuotes([...existing, quote]),
+        advance_percent: advancePercent,
         status: row.status === "pending" ? "quoted" : row.status,
       })
       .eq("id", row.id);

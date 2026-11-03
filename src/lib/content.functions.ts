@@ -64,6 +64,31 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
     return row;
   });
 
+export const updateAdvanceTiers = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z
+      .object({
+        advance_standard_percent: z.number().int().min(10).max(100),
+        advance_custom_percent: z.number().int().min(10).max(100),
+        advance_large_percent: z.number().int().min(10).max(100),
+        advance_expensive_from: z.number().min(0).max(1_000_000_000),
+        advance_large_from: z.number().min(0).max(1_000_000_000),
+        advance_large_items: z.number().int().min(1).max(10_000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("site_settings")
+      .upsert({ id: 1, ...data, updated_at: new Date().toISOString() })
+      .select("*")
+      .single();
+    if (error || !row) throw new Error(error?.message ?? "Save failed");
+    return row;
+  });
+
 export const listAdminPageSections = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {

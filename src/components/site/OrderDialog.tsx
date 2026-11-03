@@ -1,22 +1,49 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { useCart } from "@/lib/cart";
 import type { Product } from "@/lib/catalog";
 import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
-import { submitOrderWithPayment } from "@/lib/payments.functions";
 
-function todayIso() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+export type ProductChoice = { quantity: number; material: string; size: string; color: string };
+
+/** Options the customer still has to pick before the piece can go in the cart. */
+export function missingChoices(product: Product, choice: Omit<ProductChoice, "quantity">) {
+  const missing: ("material" | "size" | "color")[] = [];
+  if (parseOptionList(product.material).length && !choice.material) missing.push("material");
+  if (parseOptionList(product.dimensions).length && !choice.size) missing.push("size");
+  if (product.available_colors.length && !choice.color) missing.push("color");
+  return missing;
 }
 
+/** Add a fully chosen piece to the cart, then show a toast or open checkout. */
+export function useAddToCart() {
+  const cart = useCart();
+  const nav = useNavigate();
+  const { t } = useLang();
+  return async (product: Product, choice: ProductChoice, buyNow = false) => {
+    await cart.add({
+      product_id: product.id,
+      quantity: choice.quantity,
+      material: choice.material,
+      size: choice.size,
+      color: choice.color,
+    });
+    if (buyNow) {
+      void nav({ to: "/checkout" });
+      return;
+    }
+    toast.success(t.cart.added, {
+      action: { label: t.cart.viewCart, onClick: () => void nav({ to: "/cart" }) },
+    });
+  };
+}
+
+/** Pick colour, size, material and quantity, then add to the cart or buy now. */
 export function OrderDialog({
   product,
   open,
@@ -35,8 +62,7 @@ export function OrderDialog({
   initialMaterial?: string;
 }) {
   const { t, lang } = useLang();
-  const nav = useNavigate();
-  const send = useServerFn(submitOrderWithPayment);
+  const addToCart = useAddToCart();
   const colors = product.available_colors.map(parseCatalogColor);
   const materials = parseOptionList(product.material);
   const dimensions = parseOptionList(product.dimensions);
@@ -44,78 +70,29 @@ export function OrderDialog({
   const [color, setColor] = useState(initialColor && colors.some((item) => item.stored === initialColor) ? initialColor : "");
   const [size, setSize] = useState(initialSize && dimensions.includes(initialSize) ? initialSize : "");
   const [material, setMaterial] = useState(initialMaterial && materials.includes(initialMaterial) ? initialMaterial : "");
-  const [neededBy, setNeededBy] = useState("");
-  const [paymentKind, setPaymentKind] = useState<"advance" | "full">("advance");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
   const unitPrice = selectedOptionPrice(product, material, size);
-  const shownUnit = unitPrice ?? null;
-  const lineTotal = (shownUnit ?? 0) * qty;
-  const total = formatPrice(lineTotal);
-  const unitLabel = shownUnit != null
-    ? formatPrice(shownUnit)
+  const total = unitPrice != null ? formatPrice(unitPrice * qty) : null;
+  const unitLabel = unitPrice != null
+    ? formatPrice(unitPrice)
     : formatPriceSpan(optionPriceRows(product).map((row) => row.price)) ?? formatPrice(product.price);
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const v = (k: string) => String(fd.get(k) ?? "").trim();
-    const f = {
-      customer_name: v("customer_name"),
-      phone: v("phone"),
-      email: v("email"),
-      delivery_location: v("delivery_location"),
-      notes: v("notes"),
-      preferred_color: colors.find((item) => item.stored === color)?.label ?? "",
-      preferred_size: size,
-      preferred_material: material,
-      needed_by: neededBy,
-    };
+  async function submit(buyNow: boolean) {
+    const colorLabel = colors.find((item) => item.stored === color)?.label ?? "";
+    const missing = missingChoices(product, { material, size, color: colorLabel });
     const errs: Record<string, string> = {};
-    if (!f.customer_name) errs["customer_name"] = t.validation.nameRequired;
-    if (!f.phone) errs["phone"] = t.validation.phoneRequired;
-    else if (!/^[+\d\s()-]{7,20}$/.test(f.phone)) errs["phone"] = t.validation.phoneInvalid;
-    if (f.email && !/^\S+@\S+\.\S+$/.test(f.email)) errs["email"] = t.validation.emailInvalid;
-    if (dimensions.length && !f.preferred_size) errs["preferred_size"] = t.validation.sizeRequired;
-    if (colors.length && !color) errs["preferred_color"] = t.validation.colorRequired;
-    if (materials.length && !f.preferred_material) errs["preferred_material"] = t.validation.materialRequired;
-    if (!f.needed_by) errs["needed_by"] = t.validation.dateRequired;
-    if (!f.delivery_location) errs["delivery_location"] = t.validation.locationRequired;
+    if (missing.includes("size")) errs["size"] = t.validation.sizeRequired;
+    if (missing.includes("color")) errs["color"] = t.validation.colorRequired;
+    if (missing.includes("material")) errs["material"] = t.validation.materialRequired;
     if (qty < 1) errs["quantity"] = t.validation.quantityInvalid;
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
     try {
-      const r = await send({
-        data: {
-          ...f,
-          product_id: product.id,
-          quantity: qty,
-          payment_kind: paymentKind,
-        },
-      });
+      await addToCart(product, { quantity: qty, material, size, color: colorLabel }, buyNow);
       onOpenChange(false);
-      nav({
-        to: "/order-success",
-        search: {
-          ref: r.orderNumber,
-          item: r.productName,
-          qty: r.quantity,
-          total: r.total,
-          kind: r.paymentKind,
-          pay: r.paymentStatus,
-          msg: r.message,
-          name: r.customerName,
-          phone: r.phone,
-          email: r.email || undefined,
-          color: r.preferredColor,
-          size: r.preferredSize,
-          material: r.preferredMaterial,
-          needed: r.neededBy,
-          location: r.deliveryLocation,
-        },
-      });
     } catch {
       toast.error(t.validation.failed);
     } finally {
@@ -128,7 +105,7 @@ export function OrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-navy">{t.order.title}</DialogTitle>
+          <DialogTitle className="font-display text-2xl text-navy">{t.cart.chooseTitle}</DialogTitle>
           <DialogDescription>{t.order.intro}</DialogDescription>
         </DialogHeader>
         <div className="rounded-xl bg-sand p-4 text-sm">
@@ -136,34 +113,12 @@ export function OrderDialog({
           <strong className="text-navy">{name}</strong>
           {unitLabel && <span className="ml-2 font-semibold">{unitLabel}</span>}
         </div>
-        <form onSubmit={onSubmit} noValidate className="grid gap-4">
-          <div>
-            <label className="field-label" htmlFor="o-name">{t.order.name} *</label>
-            <input id="o-name" name="customer_name" className="field-input" autoComplete="name" />
-            {err("customer_name")}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="field-label" htmlFor="o-phone">{t.order.phone} *</label>
-              <input id="o-phone" name="phone" type="tel" inputMode="tel" className="field-input" placeholder="+255…" />
-              {err("phone")}
-            </div>
-            <div>
-              <label className="field-label" htmlFor="o-email">{t.order.email}</label>
-              <input id="o-email" name="email" type="email" className="field-input" />
-              {err("email")}
-            </div>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="o-qty">{t.order.quantity}</label>
-            <input id="o-qty" type="number" min={1} max={100} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} className="field-input" />
-            {err("quantity")}
-          </div>
+        <div className="grid gap-4">
           {colors.length > 0 && (
             <div>
               <p className="field-label">{t.order.color} *</p>
               <ColorImageChoices name="preferred_color" value={color} onChange={setColor} options={colors} />
-              {err("preferred_color")}
+              {err("color")}
             </div>
           )}
           {dimensions.length > 0 && (
@@ -175,7 +130,7 @@ export function OrderDialog({
                 onChange={setSize}
                 options={dimensions.map((value) => ({ value, label: optionLabel(value, product.dimensions, lang) }))}
               />
-              {err("preferred_size")}
+              {err("size")}
             </div>
           )}
           {materials.length > 0 && (
@@ -187,53 +142,32 @@ export function OrderDialog({
                 onChange={setMaterial}
                 options={materials.map((value) => ({ value, label: optionLabel(value, product.material, lang) }))}
               />
-              {err("preferred_material")}
+              {err("material")}
             </div>
           )}
           <div>
-            <label className="field-label" htmlFor="o-needed">{t.order.neededBy} *</label>
+            <label className="field-label" htmlFor="o-qty">{t.order.quantity}</label>
             <input
-              id="o-needed"
-              name="needed_by"
-              type="date"
-              min={todayIso()}
-              value={neededBy}
-              onChange={(e) => setNeededBy(e.target.value)}
+              id="o-qty"
+              type="number"
+              min={1}
+              max={100}
+              value={qty}
+              onChange={(e) => setQty(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
               className="field-input"
             />
-            <p className="mt-1.5 text-xs text-muted-foreground">{t.order.completionNote}</p>
-            {err("needed_by")}
+            {err("quantity")}
           </div>
-          <div>
-            <label className="field-label" htmlFor="o-loc">{t.order.location} *</label>
-            <input id="o-loc" name="delivery_location" className="field-input" />
-            {err("delivery_location")}
-          </div>
-          <div>
-            <label className="field-label" htmlFor="o-notes">{t.order.notes}</label>
-            <textarea id="o-notes" name="notes" rows={3} className="field-input" />
-          </div>
-
-          <fieldset className="rounded-xl border border-border p-4">
-            <legend className="px-1 text-sm font-semibold text-navy">{t.order.paymentTitle}</legend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className={`cursor-pointer rounded-lg border px-3 py-3 text-sm transition-colors ${paymentKind === "advance" ? "border-gold bg-gold-soft" : "border-border"}`}>
-                <input type="radio" className="sr-only" checked={paymentKind === "advance"} onChange={() => setPaymentKind("advance")} />
-                <span className="font-semibold text-navy">{t.order.payAdvance}</span>
-              </label>
-              <label className={`cursor-pointer rounded-lg border px-3 py-3 text-sm transition-colors ${paymentKind === "full" ? "border-gold bg-gold-soft" : "border-border"}`}>
-                <input type="radio" className="sr-only" checked={paymentKind === "full"} onChange={() => setPaymentKind("full")} />
-                <span className="font-semibold text-navy">{t.order.payFull}</span>
-              </label>
-            </div>
-          </fieldset>
-
           {total && <p className="text-sm text-muted-foreground">{t.order.estimate}: <strong className="text-navy">{total}</strong></p>}
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" className="btn-base btn-outline-navy" onClick={() => onOpenChange(false)}>{t.order.cancel}</button>
-            <button type="submit" className="btn-base btn-gold" disabled={busy}>{busy ? t.order.submitting : t.order.submit}</button>
+            <button type="button" className="btn-base btn-outline-navy" disabled={busy} onClick={() => void submit(false)}>
+              {t.cart.add}
+            </button>
+            <button type="button" className="btn-base btn-gold" disabled={busy} onClick={() => void submit(true)}>
+              {t.cart.buyNow}
+            </button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

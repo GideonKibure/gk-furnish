@@ -1,13 +1,5 @@
-/** Advance payment amount in Tanzanian Shillings (TZS). */
-export const ADVANCE_AMOUNT_TZS = 10_000;
-
 export type PaymentKind = "advance" | "full" | "none";
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed";
-
-export function paymentAmountFor(kind: "advance" | "full", productTotal: number) {
-  if (kind === "advance") return ADVANCE_AMOUNT_TZS;
-  return Math.max(0, Math.round(productTotal));
-}
 
 /** Normalize Tanzania mobile numbers to 255XXXXXXXXX for Snippe. */
 export function toSnippePhone(raw: string): string {

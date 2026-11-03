@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
 import { formatPrice } from "@/config/site";
-import { QUOTE_ADVANCE_NOTE, QUOTE_VALID_DAYS, quoteDateAfter } from "@/lib/custom-quotes";
+import { QUOTE_VALID_DAYS, quoteDateAfter } from "@/lib/custom-quotes";
 import { deleteAdminCustomOrder, listAdminCustomOrders, saveCustomOrderQuote, updateCustomOrderStatus } from "@/lib/admin.functions";
 import { colorSwatch } from "@/lib/color-swatches";
 import { downloadToDevice, photoFileName } from "@/lib/download-file";
@@ -62,7 +62,8 @@ function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<voi
   const save = useServerFn(saveCustomOrderQuote);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notes, setNotes] = useState(QUOTE_ADVANCE_NOTE);
+  const [notes, setNotes] = useState("");
+  const [advancePercent, setAdvancePercent] = useState("");
   const [validUntil, setValidUntil] = useState(() => quoteDateAfter(QUOTE_VALID_DAYS));
   const [lines, setLines] = useState([{ description: order.furniture_type, quantity: String(order.quantity), unitPrice: "" }]);
   const quotes = [...order.quotes].reverse();
@@ -83,11 +84,21 @@ function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<voi
     }
     setBusy(true);
     try {
-      const quote = await save({ data: { id: order.id, notes, valid_until: validUntil, lines: parsed } });
+      const percent = Math.round(Number(advancePercent));
+      const quote = await save({
+        data: {
+          id: order.id,
+          notes,
+          valid_until: validUntil,
+          lines: parsed,
+          ...(advancePercent.trim() && percent >= 10 && percent <= 100 ? { advance_percent: percent } : {}),
+        },
+      });
       downloadQuote(quote);
       toast.success(`Quote ${quote.number} saved`);
       setOpen(false);
-      setNotes(QUOTE_ADVANCE_NOTE);
+      setNotes("");
+      setAdvancePercent("");
       setValidUntil(quoteDateAfter(QUOTE_VALID_DAYS));
       await onSaved();
     } catch (e) {
@@ -174,7 +185,23 @@ function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<voi
             <div>
               <label className="field-label">Valid until</label>
               <input type="date" className="field-input" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
-              <p className="mt-1.5 text-xs text-muted-foreground">Filled as 3 days from today. The 50% advance note is included on the quote.</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">Filled as 3 days from today.</p>
+            </div>
+            <div>
+              <label className="field-label">Advance %</label>
+              <input
+                type="number"
+                min={10}
+                max={100}
+                className="field-input"
+                value={advancePercent}
+                onChange={(e) => setAdvancePercent(e.target.value)}
+                placeholder="Automatic"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Leave empty to use the tier from Site settings (custom orders start at 60%, large orders 70%). The advance
+                note and payment policy are added to the quote.
+              </p>
             </div>
             <div className="sm:col-span-2">
               <label className="field-label">Notes for the customer</label>

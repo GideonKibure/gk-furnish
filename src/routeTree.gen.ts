@@ -12,12 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CartRouteImport } from './routes/cart'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CustomOrderRouteImport } from './routes/custom-order'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProcessRouteImport } from './routes/process'
+import { Route as AccountIndexRouteImport } from './routes/account.index'
+import { Route as AccountForgotRouteImport } from './routes/account.forgot'
+import { Route as AccountLoginRouteImport } from './routes/account.login'
+import { Route as AccountRegisterRouteImport } from './routes/account.register'
+import { Route as AccountResetRouteImport } from './routes/account.reset'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
 import { Route as AdminCustomOrdersRouteImport } from './routes/admin/custom-orders'
@@ -28,10 +36,13 @@ import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminPopupsRouteImport } from './routes/admin/popups'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CategoriesIndexRouteImport } from './routes/categories.index'
 import { Route as CategoriesSlugRouteImport } from './routes/categories.$slug'
+import { Route as PayPaymentIdRouteImport } from './routes/pay.$paymentId'
 import { Route as ProductsIndexRouteImport } from './routes/products.index'
 import { Route as ProductsSlugRouteImport } from './routes/products.$slug'
+import { Route as AccountOrdersNumberRouteImport } from './routes/account.orders.$number'
 import { Route as ApiWebhooksSnippeRouteImport } from './routes/api/webhooks/snippe'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +58,16 @@ const AboutRoute = AboutRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -74,9 +95,39 @@ const OrderSuccessRoute = OrderSuccessRouteImport.update({
   path: '/order-success',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProcessRoute = ProcessRouteImport.update({
   id: '/process',
   path: '/process',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountIndexRoute = AccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountForgotRoute = AccountForgotRouteImport.update({
+  id: '/account/forgot',
+  path: '/account/forgot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountLoginRoute = AccountLoginRouteImport.update({
+  id: '/account/login',
+  path: '/account/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRegisterRoute = AccountRegisterRouteImport.update({
+  id: '/account/register',
+  path: '/account/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountResetRoute = AccountResetRouteImport.update({
+  id: '/account/reset',
+  path: '/account/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -129,6 +180,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CategoriesIndexRoute = CategoriesIndexRouteImport.update({
   id: '/categories/',
   path: '/categories/',
@@ -137,6 +193,11 @@ const CategoriesIndexRoute = CategoriesIndexRouteImport.update({
 const CategoriesSlugRoute = CategoriesSlugRouteImport.update({
   id: '/categories/$slug',
   path: '/categories/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayPaymentIdRoute = PayPaymentIdRouteImport.update({
+  id: '/pay/$paymentId',
+  path: '/pay/$paymentId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductsIndexRoute = ProductsIndexRouteImport.update({
@@ -149,6 +210,11 @@ const ProductsSlugRoute = ProductsSlugRouteImport.update({
   path: '/products/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountOrdersNumberRoute = AccountOrdersNumberRouteImport.update({
+  id: '/account/orders/$number',
+  path: '/account/orders/$number',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksSnippeRoute = ApiWebhooksSnippeRouteImport.update({
   id: '/api/webhooks/snippe',
   path: '/api/webhooks/snippe',
@@ -159,12 +225,19 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/custom-order': typeof CustomOrderRoute
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/account/forgot': typeof AccountForgotRoute
+  '/account/login': typeof AccountLoginRoute
+  '/account/register': typeof AccountRegisterRoute
+  '/account/reset': typeof AccountResetRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -174,22 +247,33 @@ export interface FileRoutesByFullPath {
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
+  '/pay/$paymentId': typeof PayPaymentIdRoute
   '/products/$slug': typeof ProductsSlugRoute
+  '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/categories/': typeof CategoriesIndexRoute
   '/products/': typeof ProductsIndexRoute
+  '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/custom-order': typeof CustomOrderRoute
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/account/forgot': typeof AccountForgotRoute
+  '/account/login': typeof AccountLoginRoute
+  '/account/register': typeof AccountRegisterRoute
+  '/account/reset': typeof AccountResetRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -199,11 +283,15 @@ export interface FileRoutesByTo {
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
+  '/pay/$paymentId': typeof PayPaymentIdRoute
   '/products/$slug': typeof ProductsSlugRoute
+  '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/categories': typeof CategoriesIndexRoute
   '/products': typeof ProductsIndexRoute
+  '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
 }
 export interface FileRoutesById {
@@ -211,12 +299,19 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/custom-order': typeof CustomOrderRoute
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/account/forgot': typeof AccountForgotRoute
+  '/account/login': typeof AccountLoginRoute
+  '/account/register': typeof AccountRegisterRoute
+  '/account/reset': typeof AccountResetRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/images': typeof AdminImagesRoute
@@ -226,11 +321,15 @@ export interface FileRoutesById {
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
+  '/pay/$paymentId': typeof PayPaymentIdRoute
   '/products/$slug': typeof ProductsSlugRoute
+  '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/categories/': typeof CategoriesIndexRoute
   '/products/': typeof ProductsIndexRoute
+  '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
 }
 export interface FileRouteTypes {
@@ -239,12 +338,19 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/cart'
+    | '/checkout'
     | '/contact'
     | '/custom-order'
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/privacy'
     | '/process'
+    | '/account/forgot'
+    | '/account/login'
+    | '/account/register'
+    | '/account/reset'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -254,22 +360,33 @@ export interface FileRouteTypes {
     | '/admin/popups'
     | '/admin/products'
     | '/admin/settings'
+    | '/auth/callback'
     | '/categories/$slug'
+    | '/pay/$paymentId'
     | '/products/$slug'
+    | '/account/'
     | '/admin/'
     | '/categories/'
     | '/products/'
+    | '/account/orders/$number'
     | '/api/webhooks/snippe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/cart'
+    | '/checkout'
     | '/contact'
     | '/custom-order'
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/privacy'
     | '/process'
+    | '/account/forgot'
+    | '/account/login'
+    | '/account/register'
+    | '/account/reset'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -279,23 +396,34 @@ export interface FileRouteTypes {
     | '/admin/popups'
     | '/admin/products'
     | '/admin/settings'
+    | '/auth/callback'
     | '/categories/$slug'
+    | '/pay/$paymentId'
     | '/products/$slug'
+    | '/account'
     | '/admin'
     | '/categories'
     | '/products'
+    | '/account/orders/$number'
     | '/api/webhooks/snippe'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/admin'
+    | '/cart'
+    | '/checkout'
     | '/contact'
     | '/custom-order'
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/privacy'
     | '/process'
+    | '/account/forgot'
+    | '/account/login'
+    | '/account/register'
+    | '/account/reset'
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/images'
@@ -305,11 +433,15 @@ export interface FileRouteTypes {
     | '/admin/popups'
     | '/admin/products'
     | '/admin/settings'
+    | '/auth/callback'
     | '/categories/$slug'
+    | '/pay/$paymentId'
     | '/products/$slug'
+    | '/account/'
     | '/admin/'
     | '/categories/'
     | '/products/'
+    | '/account/orders/$number'
     | '/api/webhooks/snippe'
   fileRoutesById: FileRoutesById
 }
@@ -317,16 +449,27 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
+  CartRoute: typeof CartRoute
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   CustomOrderRoute: typeof CustomOrderRoute
   FaqRoute: typeof FaqRoute
   GalleryRoute: typeof GalleryRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProcessRoute: typeof ProcessRoute
+  AccountForgotRoute: typeof AccountForgotRoute
+  AccountLoginRoute: typeof AccountLoginRoute
+  AccountRegisterRoute: typeof AccountRegisterRoute
+  AccountResetRoute: typeof AccountResetRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   CategoriesSlugRoute: typeof CategoriesSlugRoute
+  PayPaymentIdRoute: typeof PayPaymentIdRoute
   ProductsSlugRoute: typeof ProductsSlugRoute
+  AccountIndexRoute: typeof AccountIndexRoute
   CategoriesIndexRoute: typeof CategoriesIndexRoute
   ProductsIndexRoute: typeof ProductsIndexRoute
+  AccountOrdersNumberRoute: typeof AccountOrdersNumberRoute
   ApiWebhooksSnippeRoute: typeof ApiWebhooksSnippeRoute
 }
 
@@ -351,6 +494,20 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -388,11 +545,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrderSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/process': {
       id: '/process'
       path: '/process'
       fullPath: '/process'
       preLoaderRoute: typeof ProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/': {
+      id: '/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/forgot': {
+      id: '/account/forgot'
+      path: '/account/forgot'
+      fullPath: '/account/forgot'
+      preLoaderRoute: typeof AccountForgotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/login': {
+      id: '/account/login'
+      path: '/account/login'
+      fullPath: '/account/login'
+      preLoaderRoute: typeof AccountLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/register': {
+      id: '/account/register'
+      path: '/account/register'
+      fullPath: '/account/register'
+      preLoaderRoute: typeof AccountRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/reset': {
+      id: '/account/reset'
+      path: '/account/reset'
+      fullPath: '/account/reset'
+      preLoaderRoute: typeof AccountResetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -465,6 +664,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/categories/': {
       id: '/categories/'
       path: '/categories'
@@ -479,6 +685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CategoriesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pay/$paymentId': {
+      id: '/pay/$paymentId'
+      path: '/pay/$paymentId'
+      fullPath: '/pay/$paymentId'
+      preLoaderRoute: typeof PayPaymentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products/': {
       id: '/products/'
       path: '/products'
@@ -491,6 +704,13 @@ declare module '@tanstack/react-router' {
       path: '/products/$slug'
       fullPath: '/products/$slug'
       preLoaderRoute: typeof ProductsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/orders/$number': {
+      id: '/account/orders/$number'
+      path: '/account/orders/$number'
+      fullPath: '/account/orders/$number'
+      preLoaderRoute: typeof AccountOrdersNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/snippe': {
@@ -535,16 +755,27 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
+  CartRoute: CartRoute,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   CustomOrderRoute: CustomOrderRoute,
   FaqRoute: FaqRoute,
   GalleryRoute: GalleryRoute,
   OrderSuccessRoute: OrderSuccessRoute,
+  PrivacyRoute: PrivacyRoute,
   ProcessRoute: ProcessRoute,
+  AccountForgotRoute: AccountForgotRoute,
+  AccountLoginRoute: AccountLoginRoute,
+  AccountRegisterRoute: AccountRegisterRoute,
+  AccountResetRoute: AccountResetRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   CategoriesSlugRoute: CategoriesSlugRoute,
+  PayPaymentIdRoute: PayPaymentIdRoute,
   ProductsSlugRoute: ProductsSlugRoute,
+  AccountIndexRoute: AccountIndexRoute,
   CategoriesIndexRoute: CategoriesIndexRoute,
   ProductsIndexRoute: ProductsIndexRoute,
+  AccountOrdersNumberRoute: AccountOrdersNumberRoute,
   ApiWebhooksSnippeRoute: ApiWebhooksSnippeRoute,
 }
 export const routeTree = rootRouteImport

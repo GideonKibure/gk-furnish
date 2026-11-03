@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "@/i18n/LanguageProvider";
 import { BrandLogo } from "./BrandLogo";
+import { HeaderActions } from "./HeaderActions";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { cn } from "@/lib/utils";
@@ -130,10 +131,13 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
             <BrandLogo
               light={overlay}
               markClassName="h-8 drop-shadow-sm sm:h-9"
-              wordmarkClassName={cn(overlay ? "text-white" : "text-navy", "!text-base sm:!text-lg")}
+              wordmarkClassName={cn(overlay ? "text-white" : "text-navy", "!text-base sm:!text-lg max-[359px]:hidden")}
             />
           </Link>
-          <LanguageSwitcher dark={overlay} />
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <HeaderActions dark={overlay} />
+            <LanguageSwitcher dark={overlay} />
+          </div>
         </div>
       </header>
 
@@ -220,9 +224,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
 
               <div className="flex shrink-0 items-center gap-2 pr-0.5">
                 <LanguageSwitcher dark />
-                <Link to="/products" className="desktop-dock-cta">
-                  {t.nav.orderNow}
-                </Link>
+                <HeaderActions dark />
               </div>
             </div>
           </div>

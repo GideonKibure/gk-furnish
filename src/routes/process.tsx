@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare, PenTool, Trees, Hammer, Paintbrush, ShieldCheck, Truck } from "lucide-react";
 import { useLang } from "@/i18n/LanguageProvider";
 import { PageHeader } from "@/components/site/PageHeader";
+import { PaymentPolicy } from "@/components/site/PaymentPolicy";
 import { Reveal } from "@/components/site/Reveal";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
 
@@ -32,6 +33,9 @@ function Process() {
           </li>
           </Reveal>); })}
       </ol>
+      <div className="container-page pb-16 md:pb-24">
+        <PaymentPolicy />
+      </div>
     </>
   );
 }

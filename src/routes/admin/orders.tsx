@@ -4,6 +4,7 @@ import { Phone, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
+import { OrderPolicyPanel } from "@/components/admin/OrderPolicyPanel";
 import { formatPrice } from "@/config/site";
 import { colorSwatch } from "@/lib/color-swatches";
 import { parseCatalogColor } from "@/lib/order-options";
@@ -12,7 +13,6 @@ import {
   deleteAdminOrder,
   listAdminOrders,
   listAdminProducts,
-  updateOrderPayment,
   updateOrderStatus,
 } from "@/lib/admin.functions";
 
@@ -95,7 +95,6 @@ function AdminOrdersPage() {
   const listProducts = useServerFn(listAdminProducts);
   const create = useServerFn(createAdminOrder);
   const update = useServerFn(updateOrderStatus);
-  const updatePayment = useServerFn(updateOrderPayment);
   const remove = useServerFn(deleteAdminOrder);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<ProductOpt[]>([]);
@@ -103,8 +102,6 @@ function AdminOrdersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<Record<string, string>>({});
-  const [advanceAmount, setAdvanceAmount] = useState<Record<string, string>>({});
 
   async function refresh() {
     const [o, p] = await Promise.all([list(), listProducts()]);
@@ -131,59 +128,7 @@ function AdminOrdersPage() {
       toast.success("Status updated");
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Update failed");
-    }
-  }
-
-  function selectedPayment(order: OrderRow) {
-    return paymentChoice[order.id] ?? (order.payment_status === "paid" ? paymentMark(order) : order.payment_status);
-  }
-
-  function advanceValue(order: OrderRow) {
-    if (advanceAmount[order.id] != null) return advanceAmount[order.id];
-    if (order.payment_kind === "advance" && Number(order.amount_paid) > 0) return String(Math.round(Number(order.amount_paid)));
-    return "";
-  }
-
-  async function onPaymentPick(order: OrderRow, next: string) {
-    setPaymentChoice((current) => ({ ...current, [order.id]: next }));
-    if (next !== "unpaid" && next !== "full") return;
-    try {
-      await updatePayment({ data: { id: order.id, payment: next } });
-      toast.success(next === "full" ? "Marked paid in full" : "Marked unpaid");
-      setPaymentChoice((current) => {
-        const copy = { ...current };
-        delete copy[order.id];
-        return copy;
-      });
-      await refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Payment update failed");
-    }
-  }
-
-  async function saveAdvance(order: OrderRow) {
-    const amount = Number(advanceValue(order));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Enter the advance amount");
-      return;
-    }
-    try {
-      const saved = await updatePayment({ data: { id: order.id, payment: "advance", amount } });
-      toast.success(saved.payment_kind === "full" ? "Amount matches the total, so this order is paid in full" : "Advance amount saved");
-      setPaymentChoice((current) => {
-        const copy = { ...current };
-        delete copy[order.id];
-        return copy;
-      });
-      setAdvanceAmount((current) => {
-        const copy = { ...current };
-        delete copy[order.id];
-        return copy;
-      });
-      await refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Payment update failed");
+      toast.error(e instanceof Error ? e.message : "Update failed", { duration: 8000 });
     }
   }
 
@@ -218,8 +163,6 @@ function AdminOrdersPage() {
           delivery_location: String(fd.get("delivery_location") ?? "").trim(),
           notes: String(fd.get("notes") ?? "").trim(),
           status: String(fd.get("status") ?? "confirmed") as (typeof STATUSES)[number],
-          payment_kind: String(fd.get("payment_kind") ?? "full") as "advance" | "full",
-          payment_status: String(fd.get("payment_status") ?? "unpaid") as "unpaid" | "pending" | "paid" | "failed",
           amount_paid: Number(fd.get("amount_paid") || 0),
         },
       });
@@ -322,24 +265,11 @@ function AdminOrdersPage() {
             </select>
           </div>
           <div>
-            <label className="field-label">Payment kind</label>
-            <select name="payment_kind" className="field-input" defaultValue="full">
-              <option value="advance">Advance</option>
-              <option value="full">Full</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Payment status</label>
-            <select name="payment_status" className="field-input" defaultValue="unpaid">
-              <option value="unpaid">Unpaid</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-          <div>
             <label className="field-label">Amount already paid (TZS)</label>
             <input name="amount_paid" type="number" min={0} step={100} defaultValue={0} className="field-input" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Recorded with a receipt. In production needs the advance; delivery needs the full amount.
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="field-label">Notes</label>
@@ -376,9 +306,7 @@ function AdminOrdersPage() {
 
       <div className="space-y-4">
         {filtered.map((o) => {
-          const items =
-            (o as { order_items?: { product_name: string; quantity: number; unit_price: number }[] }).order_items ??
-            [];
+          const items = o.order_items ?? [];
           return (
             <AdminCard key={o.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -387,6 +315,7 @@ function AdminOrdersPage() {
                   <p className="text-sm text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {o.user_id && <AdminBadge tone="success">Registered customer</AdminBadge>}
                   <AdminBadge>{o.status.replace(/_/g, " ")}</AdminBadge>
                   <AdminBadge tone={paymentMark(o) === "full" ? "success" : paymentMark(o) === "advance" ? "gold" : "neutral"}>
                     {paymentLabel(o)}
@@ -394,7 +323,7 @@ function AdminOrdersPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_16rem]">
+              <div className="mt-5 grid gap-3 lg:grid-cols-2">
                 <div className="rounded-2xl bg-secondary/40 px-4 py-3">
                   <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Customer</p>
                   <p className="mt-1 font-semibold text-navy">{o.customer_name}</p>
@@ -411,31 +340,26 @@ function AdminOrdersPage() {
                   <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Delivery</p>
                   <p className="mt-1 text-sm text-navy">{o.delivery_location}</p>
                   {o.notes && <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{o.notes}</p>}
-                </div>
-                <div className="rounded-2xl border border-gold/25 bg-gold-soft/50 px-4 py-3">
-                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Payment</p>
-                  <p className="mt-1 text-sm font-semibold text-navy">Due {formatPrice(o.amount_due) ?? "—"}</p>
-                  <p className="text-sm text-navy">Paid {formatPrice(o.amount_paid) ?? "—"}</p>
-                  {o.payment_phone && <p className="mt-1 text-xs text-muted-foreground">MM: {o.payment_phone}</p>}
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-4 rounded-2xl border border-border/80 bg-background px-3 py-3">
-                <OrderColor value={o.preferred_color} />
-                <div className="h-8 w-px bg-border/80" aria-hidden />
-                <div>
-                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Size</p>
-                  <p className="text-sm font-semibold text-navy">{o.preferred_size || "—"}</p>
+                  {o.payment_phone && <p className="mt-1 text-xs text-muted-foreground">Mobile money: {o.payment_phone}</p>}
                 </div>
               </div>
 
               {items.length > 0 && (
-                <ul className="mt-4 space-y-1.5 rounded-xl bg-secondary/40 px-3 py-3 text-sm">
+                <ul className="mt-4 space-y-2 rounded-xl bg-secondary/40 px-3 py-3 text-sm">
                   {items.map((it, i) => (
-                    <li key={i} className="flex justify-between gap-2">
-                      <span>
-                        {it.quantity}× {it.product_name}
-                      </span>
+                    <li key={i} className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-3">
+                        <span className="font-semibold text-navy">
+                          {it.quantity}× {it.product_name}
+                        </span>
+                        {(it.color ?? (items.length === 1 ? o.preferred_color : null)) && (
+                          <OrderColor value={it.color ?? o.preferred_color} />
+                        )}
+                        {(it.size ?? (items.length === 1 ? o.preferred_size : null)) && (
+                          <span className="text-muted-foreground">Size: {it.size ?? o.preferred_size}</span>
+                        )}
+                        {it.material && <span className="text-muted-foreground">Material: {it.material}</span>}
+                      </div>
                       <span className="font-medium text-navy">
                         {formatPrice(Number(it.unit_price) * it.quantity)}
                       </span>
@@ -443,6 +367,17 @@ function AdminOrdersPage() {
                   ))}
                 </ul>
               )}
+
+              <OrderPolicyPanel
+                order={{
+                  ...o,
+                  total_amount: Number(o.total_amount),
+                  amount_paid: Number(o.amount_paid),
+                  advance_required: Number(o.advance_required),
+                  payments: o.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+                }}
+                onChanged={refresh}
+              />
 
               <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
                 <label className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
@@ -459,39 +394,6 @@ function AdminOrdersPage() {
                     </option>
                   ))}
                 </select>
-                <label className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  Payment
-                </label>
-                <select
-                  className="field-input !h-10 max-w-xs"
-                  value={selectedPayment(o)}
-                  onChange={(e) => onPaymentPick(o, e.target.value)}
-                >
-                  {o.payment_status !== "unpaid" && o.payment_status !== "paid" && selectedPayment(o) === o.payment_status && (
-                    <option value={o.payment_status}>{paymentLabel(o)}</option>
-                  )}
-                  <option value="unpaid">Unpaid</option>
-                  <option value="advance">Advance paid</option>
-                  <option value="full">Paid in full</option>
-                </select>
-                {selectedPayment(o) === "advance" && (
-                  <>
-                    <input
-                      type="number"
-                      min={1}
-                      step={500}
-                      inputMode="numeric"
-                      className="field-input !h-10 w-36"
-                      placeholder="Advance TSh"
-                      aria-label="Advance amount"
-                      value={advanceValue(o)}
-                      onChange={(e) => setAdvanceAmount((current) => ({ ...current, [o.id]: e.target.value }))}
-                    />
-                    <button type="button" className="btn-base btn-navy !h-10 px-3 text-sm" onClick={() => saveAdvance(o)}>
-                      Save advance
-                    </button>
-                  </>
-                )}
                 <button
                   type="button"
                   onClick={() => onDelete(o.id, o.order_number)}

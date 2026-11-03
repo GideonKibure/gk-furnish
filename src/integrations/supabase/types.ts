@@ -50,6 +50,69 @@ export type Database = {
         }
         Relationships: []
       }
+      cart_items: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          material: string
+          product_id: string
+          quantity: number
+          size: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          material?: string
+          product_id: string
+          quantity: number
+          size?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          material?: string
+          product_id?: string
+          quantity?: number
+          size?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_profiles: {
+        Row: {
+          created_at: string
+          default_location: string | null
+          full_name: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_location?: string | null
+          full_name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_location?: string | null
+          full_name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contact_messages: {
         Row: {
           created_at: string
@@ -98,6 +161,7 @@ export type Database = {
       custom_orders: {
         Row: {
           additional_requirements: string | null
+          advance_percent: number | null
           budget_range: string | null
           created_at: string
           delivery_location: string
@@ -117,6 +181,7 @@ export type Database = {
         }
         Insert: {
           additional_requirements?: string | null
+          advance_percent?: number | null
           budget_range?: string | null
           created_at?: string
           delivery_location: string
@@ -136,6 +201,7 @@ export type Database = {
         }
         Update: {
           additional_requirements?: string | null
+          advance_percent?: number | null
           budget_range?: string | null
           created_at?: string
           delivery_location?: string
@@ -157,30 +223,39 @@ export type Database = {
       }
       order_items: {
         Row: {
+          color: string | null
           created_at: string
           id: string
+          material: string | null
           order_id: string
           product_id: string | null
           product_name: string
           quantity: number
+          size: string | null
           unit_price: number
         }
         Insert: {
+          color?: string | null
           created_at?: string
           id?: string
+          material?: string | null
           order_id: string
           product_id?: string | null
           product_name: string
           quantity: number
+          size?: string | null
           unit_price: number
         }
         Update: {
+          color?: string | null
           created_at?: string
           id?: string
+          material?: string | null
           order_id?: string
           product_id?: string | null
           product_name?: string
           quantity?: number
+          size?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -267,6 +342,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          advance_percent: number
+          advance_required: number
           amount_due: number
           amount_paid: number
           created_at: string
@@ -274,6 +351,7 @@ export type Database = {
           delivery_location: string
           email: string | null
           id: string
+          needed_by: string | null
           notes: string | null
           order_number: string
           payment_kind: string
@@ -283,9 +361,16 @@ export type Database = {
           preferred_color: string | null
           preferred_size: string | null
           snippe_reference: string | null
+          specs_agreed_at: string | null
+          specs_agreed_by: string | null
           status: string
+          stock_applied: boolean
+          total_amount: number
+          user_id: string | null
         }
         Insert: {
+          advance_percent?: number
+          advance_required?: number
           amount_due?: number
           amount_paid?: number
           created_at?: string
@@ -293,6 +378,7 @@ export type Database = {
           delivery_location: string
           email?: string | null
           id?: string
+          needed_by?: string | null
           notes?: string | null
           order_number?: string
           payment_kind?: string
@@ -302,9 +388,16 @@ export type Database = {
           preferred_color?: string | null
           preferred_size?: string | null
           snippe_reference?: string | null
+          specs_agreed_at?: string | null
+          specs_agreed_by?: string | null
           status?: string
+          stock_applied?: boolean
+          total_amount?: number
+          user_id?: string | null
         }
         Update: {
+          advance_percent?: number
+          advance_required?: number
           amount_due?: number
           amount_paid?: number
           created_at?: string
@@ -312,6 +405,7 @@ export type Database = {
           delivery_location?: string
           email?: string | null
           id?: string
+          needed_by?: string | null
           notes?: string | null
           order_number?: string
           payment_kind?: string
@@ -321,7 +415,12 @@ export type Database = {
           preferred_color?: string | null
           preferred_size?: string | null
           snippe_reference?: string | null
+          specs_agreed_at?: string | null
+          specs_agreed_by?: string | null
           status?: string
+          stock_applied?: boolean
+          total_amount?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -363,6 +462,8 @@ export type Database = {
           payment_kind: string
           phone: string | null
           provider: string | null
+          purpose: string
+          receipt_number: string | null
           snippe_reference: string | null
           status: string
           updated_at: string
@@ -377,6 +478,8 @@ export type Database = {
           payment_kind: string
           phone?: string | null
           provider?: string | null
+          purpose?: string
+          receipt_number?: string | null
           snippe_reference?: string | null
           status?: string
           updated_at?: string
@@ -391,6 +494,8 @@ export type Database = {
           payment_kind?: string
           phone?: string | null
           provider?: string | null
+          purpose?: string
+          receipt_number?: string | null
           snippe_reference?: string | null
           status?: string
           updated_at?: string
@@ -407,6 +512,12 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          advance_custom_percent: number
+          advance_expensive_from: number
+          advance_large_from: number
+          advance_large_items: number
+          advance_large_percent: number
+          advance_standard_percent: number
           email: string | null
           facebook_url: string | null
           id: number
@@ -420,6 +531,12 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          advance_custom_percent?: number
+          advance_expensive_from?: number
+          advance_large_from?: number
+          advance_large_items?: number
+          advance_large_percent?: number
+          advance_standard_percent?: number
           email?: string | null
           facebook_url?: string | null
           id?: number
@@ -433,6 +550,12 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          advance_custom_percent?: number
+          advance_expensive_from?: number
+          advance_large_from?: number
+          advance_large_items?: number
+          advance_large_percent?: number
+          advance_standard_percent?: number
           email?: string | null
           facebook_url?: string | null
           id?: number

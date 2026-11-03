@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter, WhatsAppFab } from "@/components/site/SiteFooter";
 import { OfferBanner } from "@/components/site/OfferBanner";
+import { CartProvider } from "@/lib/cart";
 
 function NotFoundComponent() {
   return (
@@ -78,13 +79,13 @@ function RootComponent() {
         {isAdmin ? (
           <Outlet />
         ) : (
-          <>
+          <CartProvider>
             <OfferBanner onVisibilityChange={setOfferVisible} />
             <SiteHeader offerVisible={offerVisible} />
             <main><Outlet /></main>
             <SiteFooter />
             <WhatsAppFab />
-          </>
+          </CartProvider>
         )}
         <Toaster position="top-center" />
       </LanguageProvider>
