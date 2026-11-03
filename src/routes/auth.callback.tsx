@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { AuthCard, safeNext } from "@/components/site/AuthCard";
+import { AuthCard, useRoleDestination } from "@/components/site/AuthCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 
@@ -16,6 +16,7 @@ function AuthCallback() {
   const { t } = useLang();
   const nav = useNavigate();
   const { next, code } = Route.useSearch();
+  const destination = useRoleDestination();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ function AuthCallback() {
     const finish = () => {
       if (done) return;
       done = true;
-      void nav({ href: safeNext(next), replace: true });
+      void destination(next).then(({ path }) => nav({ href: path, replace: true }));
     };
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) finish();

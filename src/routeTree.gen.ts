@@ -30,12 +30,14 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
 import { Route as AdminCustomOrdersRouteImport } from './routes/admin/custom-orders'
+import { Route as AdminForgotRouteImport } from './routes/admin/forgot'
 import { Route as AdminImagesRouteImport } from './routes/admin/images'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminMessagesRouteImport } from './routes/admin/messages'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminPopupsRouteImport } from './routes/admin/popups'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminResetRouteImport } from './routes/admin/reset'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CategoriesIndexRouteImport } from './routes/categories.index'
@@ -151,6 +153,11 @@ const AdminCustomOrdersRoute = AdminCustomOrdersRouteImport.update({
   path: '/custom-orders',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminForgotRoute = AdminForgotRouteImport.update({
+  id: '/forgot',
+  path: '/forgot',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminImagesRoute = AdminImagesRouteImport.update({
   id: '/images',
   path: '/images',
@@ -179,6 +186,11 @@ const AdminPopupsRoute = AdminPopupsRouteImport.update({
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminResetRoute = AdminResetRouteImport.update({
+  id: '/reset',
+  path: '/reset',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -247,12 +259,14 @@ export interface FileRoutesByFullPath {
   '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
+  '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reset': typeof AdminResetRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -284,12 +298,14 @@ export interface FileRoutesByTo {
   '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
+  '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reset': typeof AdminResetRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -323,12 +339,14 @@ export interface FileRoutesById {
   '/admin/account': typeof AdminAccountRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
+  '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/popups': typeof AdminPopupsRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reset': typeof AdminResetRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
@@ -363,12 +381,14 @@ export interface FileRouteTypes {
     | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
+    | '/admin/forgot'
     | '/admin/images'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/popups'
     | '/admin/products'
+    | '/admin/reset'
     | '/admin/settings'
     | '/auth/callback'
     | '/categories/$slug'
@@ -400,12 +420,14 @@ export interface FileRouteTypes {
     | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
+    | '/admin/forgot'
     | '/admin/images'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/popups'
     | '/admin/products'
+    | '/admin/reset'
     | '/admin/settings'
     | '/auth/callback'
     | '/categories/$slug'
@@ -438,12 +460,14 @@ export interface FileRouteTypes {
     | '/admin/account'
     | '/admin/content'
     | '/admin/custom-orders'
+    | '/admin/forgot'
     | '/admin/images'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/popups'
     | '/admin/products'
+    | '/admin/reset'
     | '/admin/settings'
     | '/auth/callback'
     | '/categories/$slug'
@@ -634,6 +658,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomOrdersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/forgot': {
+      id: '/admin/forgot'
+      path: '/forgot'
+      fullPath: '/admin/forgot'
+      preLoaderRoute: typeof AdminForgotRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/images': {
       id: '/admin/images'
       path: '/images'
@@ -674,6 +705,13 @@ declare module '@tanstack/react-router' {
       path: '/products'
       fullPath: '/admin/products'
       preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reset': {
+      id: '/admin/reset'
+      path: '/reset'
+      fullPath: '/admin/reset'
+      preLoaderRoute: typeof AdminResetRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/settings': {
@@ -746,12 +784,14 @@ interface AdminRouteChildren {
   AdminAccountRoute: typeof AdminAccountRoute
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomOrdersRoute: typeof AdminCustomOrdersRoute
+  AdminForgotRoute: typeof AdminForgotRoute
   AdminImagesRoute: typeof AdminImagesRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPopupsRoute: typeof AdminPopupsRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminResetRoute: typeof AdminResetRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -760,12 +800,14 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAccountRoute: AdminAccountRoute,
   AdminContentRoute: AdminContentRoute,
   AdminCustomOrdersRoute: AdminCustomOrdersRoute,
+  AdminForgotRoute: AdminForgotRoute,
   AdminImagesRoute: AdminImagesRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPopupsRoute: AdminPopupsRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminResetRoute: AdminResetRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

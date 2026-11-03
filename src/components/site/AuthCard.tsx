@@ -1,14 +1,36 @@
+import { useServerFn } from "@tanstack/react-start";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
+import { getMyRole } from "@/lib/account.functions";
 
 /** Only same-site paths are allowed as a post-login destination. */
 export function safeNext(next: unknown, fallback = "/account") {
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
 }
 
-export function AuthCard({ title, intro, children }: { title: string; intro?: string; children: ReactNode }) {
+const isAdminPath = (path: string) => /^\/admin(?:[/?#]|$)/.test(path);
+
+/** Where a signed-in user goes: an explicit safe `next` wins, except admin pages for non-admins. */
+export function postLoginPath(next: unknown, isAdmin: boolean) {
+  const home = isAdmin ? "/admin" : "/account";
+  const target = safeNext(next, home);
+  return isAdminPath(target) && !isAdmin ? "/account" : target;
+}
+
+/** Resolves the post-login destination for the current session; role lookup failures count as customer. */
+export function useRoleDestination() {
+  const getRole = useServerFn(getMyRole);
+  return async (next: unknown) => {
+    const isAdmin = await getRole()
+      .then((r) => r.isAdmin)
+      .catch(() => false);
+    return { isAdmin, path: postLoginPath(next, isAdmin) };
+  };
+}
+
+export function AuthCard({ title, intro, children }: { title: string; intro?: string | undefined; children: ReactNode }) {
   return (
     <div className="container-page flex min-h-[70vh] items-center justify-center py-12 md:py-16">
       <div className="w-full max-w-md rounded-3xl border border-border/80 bg-background p-6 shadow-[var(--shadow-lift)] md:p-8">
@@ -20,10 +42,11 @@ export function AuthCard({ title, intro, children }: { title: string; intro?: st
   );
 }
 
-export function GoogleButton({ next }: { next: string }) {
+export function GoogleButton({ next }: { next?: string | undefined }) {
   const { t } = useLang();
   async function onClick() {
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    const query = next ? `?next=${encodeURIComponent(next)}` : "";
+    const redirectTo = `${window.location.origin}/auth/callback${query}`;
     const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
     if (error) toast.error(error.message || t.auth.failed);
   }

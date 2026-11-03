@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Loader2, LogOut, Package } from "lucide-react";
+import { ArrowRight, Loader2, LogOut, Package, ShieldCheck } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/PageHeader";
@@ -9,7 +9,7 @@ import { useRequireCustomer } from "@/hooks/use-require-customer";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
-import { getMyProfile, listMyOrders, updateMyProfile } from "@/lib/account.functions";
+import { getMyProfile, getMyRole, listMyOrders, updateMyProfile } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/account/")({
   head: () => ({ meta: [{ title: "My account — GK furnish" }, { name: "robots", content: "noindex" }] }),
@@ -26,14 +26,19 @@ function AccountPage() {
   const loadProfile = useServerFn(getMyProfile);
   const loadOrders = useServerFn(listMyOrders);
   const saveProfile = useServerFn(updateMyProfile);
+  const loadRole = useServerFn(getMyRole);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     loadProfile().then(setProfile).catch(() => setProfile({ email: user.email ?? "", full_name: "", phone: "", default_location: "" }));
     loadOrders().then(setOrders).catch(() => setOrders([]));
+    loadRole()
+      .then((r) => setIsAdmin(r.isAdmin))
+      .catch(() => setIsAdmin(false));
   }, [user?.id]);
 
   async function onSave(e: FormEvent<HTMLFormElement>) {
@@ -76,10 +81,18 @@ function AccountPage() {
   return (
     <>
       <PageHeader title={t.account.title} subtitle={profile.email}>
-        <button type="button" onClick={() => void signOut()} className="btn-base btn-outline-navy mt-6">
-          <LogOut className="h-4 w-4" />
-          {t.account.signOut}
-        </button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {isAdmin && (
+            <Link to="/admin" className="btn-base btn-gold">
+              <ShieldCheck className="h-4 w-4" />
+              {t.account.adminPortal}
+            </Link>
+          )}
+          <button type="button" onClick={() => void signOut()} className="btn-base btn-outline-navy">
+            <LogOut className="h-4 w-4" />
+            {t.account.signOut}
+          </button>
+        </div>
       </PageHeader>
       <div className="container-page section-y grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <section>

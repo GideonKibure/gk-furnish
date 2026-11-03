@@ -1,71 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AdminCard, AdminPageHeader } from "@/components/admin/admin-ui";
+import { PasswordChecklist, PasswordInput } from "@/components/admin/PasswordInput";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
+import { adminPasswordChecks } from "@/lib/password-rules";
 
 export const Route = createFileRoute("/admin/account")({
   head: () => ({ meta: [{ title: "Account & security — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminAccountPage,
 });
-
-const MIN_LENGTH = 12;
-
-function passwordChecks(password: string) {
-  return [
-    { ok: password.length >= MIN_LENGTH, label: `At least ${MIN_LENGTH} characters` },
-    { ok: /[a-z]/.test(password) && /[A-Z]/.test(password), label: "Upper and lower case letters" },
-    { ok: /\d/.test(password), label: "At least one number" },
-    { ok: /[^A-Za-z0-9]/.test(password), label: "At least one symbol (for example ! ? # @)" },
-  ];
-}
-
-function PasswordInput({
-  id,
-  name,
-  label,
-  autoComplete,
-  value,
-  onChange,
-}: {
-  id: string;
-  name: string;
-  label: string;
-  autoComplete: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [shown, setShown] = useState(false);
-  return (
-    <div>
-      <label className="field-label" htmlFor={id}>
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={id}
-          name={name}
-          type={shown ? "text" : "password"}
-          autoComplete={autoComplete}
-          required
-          className="field-input pr-11"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <button
-          type="button"
-          onClick={() => setShown((v) => !v)}
-          aria-label={shown ? "Hide password" : "Show password"}
-          className="absolute inset-y-0 right-0 grid w-11 place-items-center text-muted-foreground hover:text-navy"
-        >
-          {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function AdminAccountPage() {
   const [email, setEmail] = useState("");
@@ -80,7 +25,7 @@ function AdminAccountPage() {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
 
-  const checks = passwordChecks(next);
+  const checks = adminPasswordChecks(next);
   const strong = checks.every((c) => c.ok);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -161,14 +106,7 @@ function AdminAccountPage() {
               value={next}
               onChange={setNext}
             />
-            <ul className="space-y-1 text-xs">
-              {checks.map((c) => (
-                <li key={c.label} className={cn("flex items-center gap-1.5", c.ok ? "text-emerald-700" : "text-muted-foreground")}>
-                  <span aria-hidden>{c.ok ? "✓" : "•"}</span>
-                  {c.label}
-                </li>
-              ))}
-            </ul>
+            <PasswordChecklist checks={checks} />
             <PasswordInput
               id="confirm-password"
               name="confirm-password"

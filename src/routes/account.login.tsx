@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
-import { AuthCard, GoogleButton, safeNext } from "@/components/site/AuthCard";
+import { AuthCard, GoogleButton, useRoleDestination } from "@/components/site/AuthCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 
@@ -15,7 +15,7 @@ function LoginPage() {
   const { t } = useLang();
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const target = safeNext(next);
+  const destination = useRoleDestination();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -28,17 +28,19 @@ function LoginPage() {
       email: String(fd.get("email") ?? "").trim(),
       password: String(fd.get("password") ?? ""),
     });
-    setBusy(false);
     if (err) {
+      setBusy(false);
       setError(err.message.toLowerCase().includes("invalid") ? t.auth.invalid : err.message);
       return;
     }
-    void nav({ href: target });
+    const { path } = await destination(next);
+    setBusy(false);
+    void nav({ href: path });
   }
 
   return (
     <AuthCard title={t.auth.loginTitle} intro={t.auth.loginIntro}>
-      <GoogleButton next={target} />
+      <GoogleButton next={next} />
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="field-label" htmlFor="l-email">{t.auth.email}</label>
@@ -60,7 +62,7 @@ function LoginPage() {
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {t.auth.noAccount}{" "}
-        <Link to="/account/register" search={{ next: target }} className="font-semibold text-gold hover:underline">
+        <Link to="/account/register" search={{ next }} className="font-semibold text-gold hover:underline">
           {t.auth.createOne}
         </Link>
       </p>

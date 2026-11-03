@@ -34,7 +34,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
-    window.location.href = "/admin/login";
+    window.location.href = "/account/login";
   }
 
   return (

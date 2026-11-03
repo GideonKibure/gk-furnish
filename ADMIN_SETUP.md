@@ -18,7 +18,9 @@ INSERT INTO public.admin_users (user_id)
 VALUES ('PASTE-USER-UUID-HERE');
 ```
 
-3. Open `/admin/login` and sign in with that email and password.
+3. Open `/account/login` and sign in with that email and password. Everyone uses this one sign-in page: admins are taken to `/admin`, customers to `/account`. A signed-in admin also sees an **Open admin portal** button on My account.
+
+Forgotten passwords are reset from `/account/forgot` for everyone. Admin accounts must choose a strong password (12+ characters, upper and lower case, a number and a symbol).
 
 ## 3. Customer login (Supabase Auth)
 
@@ -32,6 +34,8 @@ In Supabase → Authentication → URL configuration:
   - `https://gk-furnish.vercel.app/account/reset`
   - `http://localhost:8080/auth/callback`
   - `http://localhost:8080/account/reset`
+
+  If you added the old `/admin/reset` URLs, you can remove them once any reset emails sent before the switch have expired. Those old links still work: `/admin/reset` forwards to `/account/reset`.
 
 Email and password sign-up is on by default. Under Authentication → Emails you can edit the confirmation and password reset emails.
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
-import { AuthCard, GoogleButton, safeNext } from "@/components/site/AuthCard";
+import { AuthCard, GoogleButton, postLoginPath } from "@/components/site/AuthCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 
@@ -15,7 +15,7 @@ function RegisterPage() {
   const { t } = useLang();
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const target = safeNext(next);
+  const target = postLoginPath(next, false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -56,7 +56,7 @@ function RegisterPage() {
         <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{t.auth.checkEmail}</p>
       ) : (
         <>
-          <GoogleButton next={target} />
+          <GoogleButton next={next} />
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <label className="field-label" htmlFor="r-name">{t.auth.fullName}</label>
@@ -84,7 +84,7 @@ function RegisterPage() {
       )}
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {t.auth.haveAccount}{" "}
-        <Link to="/account/login" search={{ next: target }} className="font-semibold text-gold hover:underline">
+        <Link to="/account/login" search={{ next }} className="font-semibold text-gold hover:underline">
           {t.auth.signIn}
         </Link>
       </p>

@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { isAdminUserId } from "@/integrations/supabase/admin-auth";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { balanceDue } from "@/lib/payment-policy";
+
+export const getMyRole = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => ({ isAdmin: await isAdminUserId(context.userId) }));
 
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

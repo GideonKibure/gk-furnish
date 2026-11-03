@@ -54,7 +54,7 @@ function AdminDashboard() {
         <p className="mt-3 text-sm">
           Ensure your Auth user is listed in <code className="rounded bg-muted px-1.5 py-0.5">admin_users</code>.
         </p>
-        <Link to="/admin/login" className="btn-base btn-outline-navy mt-5 inline-flex">
+        <Link to="/account/login" search={{ next: "/admin" }} className="btn-base btn-outline-navy mt-5 inline-flex">
           Back to login
         </Link>
       </div>
