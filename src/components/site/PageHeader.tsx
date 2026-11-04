@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
+import { Breadcrumbs, type Crumb } from "@/components/brand/Breadcrumbs";
 
-/** Inner-page hero — glass atmosphere from the very top (behind the floating desktop dock). */
+/** Compact light page banner with optional breadcrumb and admin-managed image. */
 export function PageHeader({
   eyebrow,
   title,
   subtitle,
   children,
   image,
+  crumbs,
 }: {
   eyebrow?: string;
   title: string;
@@ -14,32 +16,25 @@ export function PageHeader({
   children?: ReactNode;
   /** Optional admin-managed image shown beside the title. */
   image?: string | null;
+  crumbs?: Crumb[];
 }) {
   const text = (
     <div className="min-w-0">
+      {crumbs && <Breadcrumbs items={crumbs} className="mb-3" />}
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <h1 className="display-lg mt-2 max-w-3xl text-navy">{title}</h1>
-      {subtitle && (
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          {subtitle}
-        </p>
-      )}
+      <h1 className="display-lg mt-1 max-w-3xl">{title}</h1>
+      {subtitle && <p className="mt-2 max-w-2xl text-[0.95rem] leading-relaxed text-muted-foreground md:text-base">{subtitle}</p>}
       {children}
     </div>
   );
   return (
-    <section className="page-hero-glass relative overflow-hidden lg:-mt-[5rem]">
-      <div aria-hidden className="page-hero-glass-orbs pointer-events-none absolute inset-0" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/35 to-transparent backdrop-blur-[2px]"
-      />
-      <div className="container-page relative pb-10 pt-6 md:pb-12 md:pt-8 lg:pb-14 lg:pt-[calc(5rem+1.5rem)]">
+    <section className="border-b border-border bg-sand">
+      <div className="container-page py-6 md:py-8">
         {image ? (
-          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-12">
+          <div className="grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-10">
             {text}
-            <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)] ring-1 ring-white/50">
-              <img src={image} alt="" className="aspect-[16/10] w-full object-cover" />
+            <div className="overflow-hidden rounded-xl border border-border max-md:hidden">
+              <img src={image} alt="" className="aspect-[16/9] w-full object-cover" />
             </div>
           </div>
         ) : (
@@ -50,14 +45,24 @@ export function PageHeader({
   );
 }
 
-export function SectionTitle({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: ReactNode }) {
+export function SectionTitle({
+  eyebrow,
+  title,
+  action,
+  className,
+}: {
+  eyebrow?: string;
+  title: string;
+  action?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between md:mb-10">
+    <div className={`mb-5 flex items-end justify-between gap-4 md:mb-6 ${className ?? ""}`}>
       <div className="min-w-0">
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h2 className="display-lg mt-2 text-navy">{title}</h2>
+        <h2 className="section-title mt-1">{title}</h2>
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

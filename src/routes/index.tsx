@@ -1,342 +1,413 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeDollarSign, Hammer, Ruler, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  ClipboardList,
+  Hammer,
+  HandCoins,
+  MessageCircle,
+  PackageCheck,
+  Phone,
+  Ruler,
+  ShieldCheck,
+  ShoppingBag,
+  Tag,
+  Truck,
+  Wallet,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CategoryTile } from "@/components/brand/CategoryTile";
+import { FeatureBadges } from "@/components/brand/FeatureBadges";
+import { StarRating } from "@/components/brand/StarRating";
+import { SectionTitle } from "@/components/site/PageHeader";
+import { ProductGrid } from "@/components/site/ProductCard";
 import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
-import { categoriesQuery, productsQuery } from "@/lib/catalog";
-import { ProductGrid } from "@/components/site/ProductCard";
-import { SectionTitle } from "@/components/site/PageHeader";
-import { Reveal } from "@/components/site/Reveal";
-import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { approvedReviewsQuery, categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
+import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { categoryImageSlot } from "@/lib/site-images";
+import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "GK furnish — Furniture made in Mbeya for homes, offices and hotels" },
-      {
-        name: "description",
-        content: "Beds, sofas, chairs and tables handmade in Mbeya for homes, offices, schools, hotels and organizations. Order online or on WhatsApp.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "GK furnish — Furniture made in Mbeya for homes, offices and hotels" },
-      {
-        property: "og:description",
-        content: "Durable, affordable furniture for homes, students, schools, offices, hotels and organizations in Tanzania.",
-      },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "GK furnish — Stylish & affordable furniture, Mbeya",
+      description:
+        "Study chairs, tables, beds and more for homes, students, offices and schools. Prices in TZS, delivery arranged across Tanzania.",
+      path: "/",
+      image: IMAGES.hero,
+    }),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(productsQuery),
       context.queryClient.ensureQueryData(categoriesQuery),
       context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
+      context.queryClient.prefetchQuery(ratingSummaryQuery),
     ]),
   component: Home,
 });
+
+/** Split "Main | accent" (or "main, accent") so the accent line can be gold. */
+function splitTitle(title: string) {
+  const bar = title.indexOf("|");
+  if (bar > 0) return [title.slice(0, bar).trim(), title.slice(bar + 1).trim()] as const;
+  const comma = title.lastIndexOf(",");
+  if (comma > 0 && comma < title.length - 3) return [title.slice(0, comma + 1).trim(), title.slice(comma + 1).trim()] as const;
+  return [title, ""] as const;
+}
+
+function useHeroVideo() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    const slow = connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wide = window.matchMedia("(min-width: 768px)").matches;
+    setOn(!slow && !reduced && wide);
+  }, []);
+  return on;
+}
+
+function HeroSlides({ slides }: { slides: string[] }) {
+  const [index, setIndex] = useState(0);
+  const videoOn = useHeroVideo();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (slides.length < 2) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % slides.length), 7000);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (index === 0) video.play().catch(() => undefined);
+    else video.pause();
+  }, [index, videoOn]);
+
+  return (
+    <>
+      {slides.map((src, i) => (
+        <div
+          key={src + i}
+          aria-hidden
+          className={cn("hero-slide absolute inset-0", i === index ? "opacity-100" : "opacity-0")}
+        >
+          {i === 0 && videoOn ? (
+            <video
+              ref={videoRef}
+              className="h-full w-full object-cover"
+              src={HERO_VIDEO_SRC}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              poster={src}
+            />
+          ) : (
+            <img
+              src={src}
+              alt=""
+              decoding="async"
+              fetchPriority={i === 0 ? "high" : "low"}
+              loading={i === 0 ? "eager" : "lazy"}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
+      ))}
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 md:bottom-6">
+          {slides.map((src, i) => (
+            <button
+              key={src + i}
+              type="button"
+              aria-label={`${i + 1} / ${slides.length}`}
+              aria-current={i === index ? "true" : undefined}
+              onClick={() => setIndex(i)}
+              className={cn(
+                "h-2 rounded-full transition-all",
+                i === index ? "w-6 bg-gold" : "w-2 bg-navy/25 hover:bg-navy/45",
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 function Home() {
   const { t, lang } = useLang();
   const { data: products } = useSuspenseQuery(productsQuery);
   const { data: cats } = useSuspenseQuery(categoriesQuery);
   const { data: sections = [] } = useQuery(pageSectionsQuery);
+  const { data: reviews = [] } = useQuery(approvedReviewsQuery());
+  const { data: settings } = useQuery(siteSettingsQuery);
+  const site = settingsToSite(settings);
   const heroTitle = sectionText(sections, "home", "hero_title", lang, t.home.heroTitle);
   const heroSubtitle = sectionText(sections, "home", "hero_subtitle", lang, t.home.heroSubtitle);
   const customTitle = sectionText(sections, "home", "custom_title", lang, t.home.customTitle);
   const customBody = sectionText(sections, "home", "custom_body", lang, t.home.customBody);
+  const [titleMain, titleAccent] = splitTitle(heroTitle);
 
   const { image, gallery } = useSiteImages();
-  const heroPoster = image("home.hero", IMAGES.hero);
   const customImage = image("home.custom", IMAGES.custom);
+  const slides = useMemo(
+    () =>
+      [
+        image("home.hero", IMAGES.hero),
+        image("home.feature.homes", IMAGES.room),
+        image("home.feature.desks", IMAGES.tables),
+        image("home.feature.chairs", IMAGES.chairs),
+        image("home.feature.beds", IMAGES.beds),
+      ].filter((src): src is string => Boolean(src)),
+    [image],
+  );
 
-  const feats = [
-    { k: "students", img: image("home.feature.homes", IMAGES.room), slug: "" },
-    { k: "desks", img: image("home.feature.desks", IMAGES.tables), slug: "tables" },
-    { k: "chairs", img: image("home.feature.chairs", IMAGES.chairs), slug: "chairs" },
-    { k: "beds", img: image("home.feature.beds", IMAGES.beds), slug: "beds" },
-  ] as const;
-
-  const why = [
-    { k: "affordable", I: BadgeDollarSign },
-    { k: "durable", I: Hammer },
-    { k: "custom", I: Ruler },
-    { k: "student", I: Users },
-  ] as const;
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const [heroVideoOn, setHeroVideoOn] = useState(true);
-
-  useEffect(() => {
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "")) {
-      setHeroVideoOn(false);
-      return;
-    }
-    const video = heroVideoRef.current;
-    if (!video) return;
-    video.muted = true;
-    video.play().catch(() => undefined);
-  }, []);
+  const featured = products.filter((p) => p.is_featured).slice(0, 8);
+  const latest = products.slice(0, 4);
+  const productName = new Map(products.map((p) => [p.id, localized(lang, p.name, p.name_sw)]));
+  const whyIcons = [BadgeCheck, Ruler, Tag, Truck, ShieldCheck];
+  const howIcons = [ShoppingBag, ClipboardList, Wallet, PackageCheck];
+  const wa = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(t.whatsapp.general)}`;
+  const dial = site.phoneDial.startsWith("+") ? site.phoneDial : `+${site.phoneDial.replace(/\D/g, "")}`;
 
   return (
     <>
-      <section className="home-hero relative isolate flex min-h-svh items-end overflow-hidden bg-navy">
-        {heroVideoOn ? (
-          <video
-            ref={heroVideoRef}
-            className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover home-hero-video"
-            src={HERO_VIDEO_SRC}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            poster={heroPoster ?? undefined}
-          />
-        ) : (
-          heroPoster && (
-            <img
-              src={heroPoster}
-              alt=""
-              fetchPriority="high"
-              className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover"
-            />
-          )
-        )}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-navy via-navy/55 to-navy/15" />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklab,var(--gold)_18%,transparent),transparent_55%)]" />
-
-        <div className="container-page relative w-full pb-20 pt-28 md:pb-28 md:pt-36">
-          <p className="home-hero-line eyebrow !text-gold" style={{ animationDelay: "80ms" }}>
-            {t.home.heroEyebrow}
-          </p>
-          <h1
-            className="home-hero-line display-xl mt-3 max-w-4xl text-primary-foreground"
-            style={{ animationDelay: "180ms" }}
-          >
-            {heroTitle}
-          </h1>
-          <p
-            className="home-hero-line mt-5 max-w-xl text-lg text-primary-foreground/85 md:text-xl"
-            style={{ animationDelay: "300ms" }}
-          >
-            {heroSubtitle}
-          </p>
-          <div className="home-hero-line mt-8 flex flex-col gap-3 sm:flex-row" style={{ animationDelay: "420ms" }}>
-            <Link to="/products" className="btn-base btn-gold group">
-              {t.home.heroCta1}
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
-            <Link to="/custom-order" className="btn-base btn-outline-light group">
-              {t.home.heroCta2}
-              <ArrowRight className="h-4 w-4 opacity-70 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
+      {/* Hero */}
+      <section className="bg-sand pb-8 md:pb-12">
+        <div className="container-page pt-4 md:pt-6">
+          <div className="relative isolate overflow-hidden rounded-2xl border border-border bg-white">
+            <div className="absolute inset-0 -z-10">
+              <HeroSlides slides={slides} />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/5 md:bg-gradient-to-r md:from-white md:via-white/85 md:to-white/0" />
+            </div>
+            <div className="flex min-h-[26rem] flex-col justify-start px-5 pb-16 pt-8 sm:px-8 md:min-h-[30rem] md:justify-center md:px-12 md:py-16 lg:min-h-[32rem] lg:px-16">
+              <p className="eyebrow">{t.home.heroEyebrow}</p>
+              <h1 className="display-xl mt-2 max-w-xl text-navy">
+                {titleMain}
+                {titleAccent && (
+                  <>
+                    {" "}
+                    <span className="block text-gold-ink">{titleAccent}</span>
+                  </>
+                )}
+              </h1>
+              <p className="mt-3 text-base font-semibold text-navy md:text-lg">{t.home2.heroTagline}</p>
+              <p className="mt-2 max-w-md text-[0.95rem] leading-relaxed text-navy/75 md:text-base">{heroSubtitle}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to="/products" className="btn-base btn-gold btn-lg group">
+                  {t.home2.shopNow}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link to="/custom-order" className="btn-base btn-outline-navy btn-lg">
+                  {t.home2.customOrder}
+                </Link>
+              </div>
+            </div>
           </div>
+          <FeatureBadges className="relative z-10 -mt-6 mx-2 sm:mx-6 md:mx-10" />
         </div>
-
       </section>
 
-      <section id="start-here" className="container-page section-y">
-        <Reveal>
-          <SectionTitle eyebrow={t.home.featureEyebrow} title={t.home.featureTitle} />
-        </Reveal>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {feats.map((f, i) => (
-            <Reveal key={f.k} delayMs={i * 90} variant="scale">
-              <Link
-                {...(f.slug
-                  ? { to: "/categories/$slug" as const, params: { slug: f.slug } }
-                  : { to: "/products" as const })}
-                className="home-feature group relative block overflow-hidden rounded-3xl bg-navy"
-              >
-                <div className="aspect-[4/5] overflow-hidden sm:aspect-[4/3]">
-                  {f.img && (
-                    <img
-                      src={f.img}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                    />
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/35 to-transparent opacity-90 transition-opacity duration-500 group-hover:opacity-100" />
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <h3 className="font-display text-2xl text-white transition-transform duration-500 group-hover:-translate-y-1">
-                    {t.features[f.k].title}
-                  </h3>
-                  <p className="mt-1 max-h-0 overflow-hidden text-sm text-white/80 opacity-0 transition-all duration-500 group-hover:max-h-20 group-hover:opacity-100">
-                    {t.features[f.k].body}
-                  </p>
-                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-gold">
-                    {t.common.explore}
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </Link>
-            </Reveal>
+      {/* Categories */}
+      <section className="container-page section-y">
+        <SectionTitle
+          title={t.home2.categoriesTitle}
+          action={
+            <Link to="/categories" className="inline-flex items-center gap-1 text-sm font-semibold text-gold-ink hover:underline">
+              {t.home2.viewAll}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+          {cats.map((c) => (
+            <CategoryTile
+              key={c.id}
+              slug={c.slug}
+              label={localized(lang, c.name, c.name_sw)}
+              image={image(categoryImageSlot(c.slug), imageFor(c.image_key))}
+            />
           ))}
         </div>
       </section>
 
-      <section className="bg-sand">
-        <div className="container-page section-y">
-          <Reveal>
-            <SectionTitle eyebrow={t.home.categoriesEyebrow} title={t.home.categoriesTitle} />
-          </Reveal>
-          <div className="grid gap-5 md:grid-cols-2">
-            {cats
-              .filter((c) => c.slug !== "custom-furniture")
-              .map((c, i) => {
-                const src = image(categoryImageSlot(c.slug), imageFor(c.image_key));
-                return (
-                <Reveal key={c.id} delayMs={i * 100} variant={i % 2 === 0 ? "left" : "right"}>
-                  <Link
-                    to="/categories/$slug"
-                    params={{ slug: c.slug }}
-                    className="home-category group relative block aspect-[16/10] overflow-hidden rounded-3xl bg-navy"
-                  >
-                    {src && (
-                      <img
-                        src={src}
-                        alt=""
-                        loading="lazy"
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/40 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-                      <h3 className="font-display text-3xl text-white sm:text-4xl">
-                        {localized(lang, c.name, c.name_sw)}
-                      </h3>
-                      <p className="mt-1 text-sm text-white/75">
-                        {products.filter((p) => p.category_id === c.id).length} {t.common.items}
-                      </p>
-                      <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-gold/95 px-4 py-2 text-sm font-bold text-navy shadow-[var(--shadow-gold)] transition-transform duration-300 group-hover:translate-x-1 group-hover:scale-[1.03]">
-                        {t.common.viewCollection}
-                        <ArrowRight className="h-4 w-4" />
-                      </span>
-                    </div>
-                  </Link>
-                </Reveal>
-                );
-              })}
-          </div>
-        </div>
-      </section>
-
-      <section className="container-page section-y">
-        <Reveal>
-          <SectionTitle
-            eyebrow={t.home.featuredEyebrow}
-            title={t.home.featuredTitle}
-            action={
-              <Link to="/products" className="btn-base btn-outline-navy group">
-                {t.home.viewAll}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            }
-          />
-        </Reveal>
-        <ProductGrid products={products.filter((p) => p.is_featured).slice(0, 8)} />
-      </section>
-
-      <section className="home-why relative overflow-hidden bg-navy text-primary-foreground">
-        <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-gold/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 bottom-0 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
-        <div className="container-page section-y relative">
-          <Reveal>
-            <p className="eyebrow !text-gold">{t.home.whyEyebrow}</p>
-            <h2 className="display-lg mt-2">{t.home.whyTitle}</h2>
-          </Reveal>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {why.map(({ k, I }, i) => (
-              <Reveal key={k} delayMs={i * 90} variant="up">
-                <div className="home-why-card group">
-                  <span className="home-why-icon">
-                    <I className="h-7 w-7" />
-                  </span>
-                  <h3 className="mt-5 text-xl font-semibold">{t.why[k].title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-white/70">{t.why[k].body}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="container-page section-y">
-        <Reveal>
-          <SectionTitle eyebrow={t.home.latestEyebrow} title={t.home.latestTitle} />
-        </Reveal>
-        <ProductGrid products={products.slice(0, 4)} />
-      </section>
-
-      <section className="container-page pb-16 md:pb-24">
-        <Reveal variant="scale">
-          <div className={cn("home-custom group grid overflow-hidden rounded-[2rem] bg-gold", customImage && "md:grid-cols-2")}>
-            <div className="relative z-10 flex flex-col justify-center p-8 md:p-12 lg:p-14">
-              <h2 className="display-lg text-navy">{customTitle}</h2>
-              <p className="mt-4 max-w-md text-base text-navy/80 md:text-lg">{customBody}</p>
-              <Link to="/custom-order" className="btn-base btn-navy mt-7 w-fit group/btn">
-                {t.home.customCta}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
-              </Link>
-            </div>
-            {customImage && (
-              <div className="relative min-h-[16rem] overflow-hidden md:min-h-full">
-                <img
-                  src={customImage}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-gold/30 md:bg-gradient-to-r md:from-transparent md:to-gold/20" />
-              </div>
-            )}
-          </div>
-        </Reveal>
-      </section>
-
-      <section className="bg-sand">
-        <div className="container-page section-y">
-          <Reveal>
+      {/* Featured */}
+      {featured.length > 0 && (
+        <section className="bg-sand">
+          <div className="container-page section-y">
             <SectionTitle
-              eyebrow={t.home.galleryEyebrow}
-              title={t.home.galleryTitle}
+              title={t.home2.featuredTitle}
               action={
-                <Link to="/gallery" className="btn-base btn-outline-navy group">
-                  {t.home.galleryCta}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <Link to="/products" className="inline-flex items-center gap-1 text-sm font-semibold text-gold-ink hover:underline">
+                  {t.home2.viewAll}
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               }
             />
-          </Reveal>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-            {gallery.slice(0, 8).map((g, i) => (
-              <Reveal key={g.id} delayMs={i * 50} variant="scale">
-                <Link
-                  to="/gallery"
-                  className={cn(
-                    "home-gallery-tile group relative block overflow-hidden rounded-2xl",
-                    i === 0 || i === 5 ? "md:row-span-1" : "",
-                  )}
-                >
-                  <img
-                    src={g.url}
-                    alt={localized(lang, g.caption, g.caption_sw)}
-                    loading="lazy"
-                    className="aspect-square w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-navy/0 transition-colors duration-500 group-hover:bg-navy/45" />
-                  <span className="absolute inset-x-3 bottom-3 translate-y-2 truncate text-xs font-semibold text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100 sm:text-sm">
-                    {localized(lang, g.caption, g.caption_sw)}
-                  </span>
-                </Link>
-              </Reveal>
+            <ProductGrid products={featured} />
+          </div>
+        </section>
+      )}
+
+      {/* Why choose us */}
+      <section className="container-page section-y">
+        <SectionTitle eyebrow={t.home.whyEyebrow} title={t.home2.whyTitle} />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {t.home2.whyItems.map((item, i) => {
+            const Icon = whyIcons[i] ?? Hammer;
+            return (
+              <div key={item.title} className="panel p-5">
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-gold-tint text-navy">
+                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                </span>
+                <h3 className="mt-3 text-base font-bold">{item.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* How ordering works */}
+      <section className="bg-navy text-white">
+        <div className="container-page section-y">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="section-title !text-white">{t.home2.howTitle}</h2>
+            <Link to="/process" className="inline-flex items-center gap-1 text-sm font-semibold text-gold hover:underline">
+              {t.home2.howCta}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {t.home2.howSteps.map((step, i) => {
+              const Icon = howIcons[i] ?? HandCoins;
+              return (
+                <li key={step.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-gold text-sm font-bold text-navy">{i + 1}</span>
+                    <Icon className="h-5 w-5 text-gold" strokeWidth={1.8} />
+                  </div>
+                  <h3 className="mt-3 text-base font-bold !text-white">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-white/70">{step.body}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </section>
+
+      {/* Testimonials: only approved, verified-buyer reviews */}
+      {reviews.length > 0 && (
+        <section className="container-page section-y">
+          <SectionTitle title={t.home2.testimonialsTitle} />
+          <div className="grid gap-4 md:grid-cols-3">
+            {reviews.slice(0, 3).map((r) => (
+              <figure key={r.id} className="panel flex flex-col p-5">
+                <StarRating value={r.rating} />
+                {r.title && <p className="mt-2 font-semibold text-navy">{r.title}</p>}
+                {r.body && <blockquote className="mt-1 line-clamp-5 text-sm leading-relaxed text-navy/80">“{r.body}”</blockquote>}
+                <figcaption className="mt-auto pt-4 text-xs text-muted-foreground">
+                  <span className="font-semibold text-navy">{r.author_name}</span>
+                  {productName.get(r.product_id) ? ` · ${productName.get(r.product_id)}` : ""} · {t.reviews.verified}
+                </figcaption>
+              </figure>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Custom order banner */}
+      <section className={cn("container-page", reviews.length ? "pb-10 md:pb-16" : "section-y")}>
+        <div className={cn("grid overflow-hidden rounded-2xl bg-gold", customImage && "md:grid-cols-2")}>
+          <div className="flex flex-col justify-center p-6 sm:p-8 md:p-12">
+            <h2 className="display-lg text-navy">{customTitle}</h2>
+            <p className="mt-3 max-w-md text-base text-navy/85">{customBody}</p>
+            <Link to="/custom-order" className="btn-base btn-navy mt-6 w-fit">
+              {t.home.customCta}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          {customImage && (
+            <div className="relative min-h-[14rem] md:min-h-full">
+              <img src={customImage} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* New arrivals */}
+      {latest.length > 0 && (
+        <section className="bg-sand">
+          <div className="container-page section-y">
+            <SectionTitle
+              title={t.home2.latestTitle}
+              action={
+                <Link
+                  to="/products"
+                  search={{ sort: "new" }}
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-gold-ink hover:underline"
+                >
+                  {t.home2.viewAll}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              }
+            />
+            <ProductGrid products={latest} />
+          </div>
+        </section>
+      )}
+
+      {/* Gallery */}
+      <section className="container-page section-y">
+        <SectionTitle
+          title={t.home.galleryTitle}
+          action={
+            <Link to="/gallery" className="inline-flex items-center gap-1 text-sm font-semibold text-gold-ink hover:underline">
+              {t.home.galleryCta}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {gallery.slice(0, 8).map((g) => (
+            <Link key={g.id} to="/gallery" className="group relative block overflow-hidden rounded-xl border border-border">
+              <img
+                src={g.url}
+                alt={localized(lang, g.caption, g.caption_sw)}
+                loading="lazy"
+                decoding="async"
+                className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Contact strip */}
+      <section className="border-t border-border bg-sand">
+        <div className="container-page flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="section-title">{t.home2.contactTitle}</h2>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t.home2.contactBody}</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <a href={wa} target="_blank" rel="noreferrer" className="btn-base btn-gold">
+              <MessageCircle className="h-4 w-4" />
+              {t.common.whatsapp}
+            </a>
+            <a href={`tel:${dial}`} className="btn-base btn-outline-navy">
+              <Phone className="h-4 w-4" />
+              {site.phoneDisplay}
+            </a>
           </div>
         </div>
       </section>

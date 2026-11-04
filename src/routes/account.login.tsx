@@ -52,7 +52,7 @@ function LoginPage() {
         <div>
           <div className="flex items-center justify-between">
             <label className="field-label" htmlFor="l-password">{t.auth.password}</label>
-            <Link to="/account/forgot" className="text-xs font-semibold text-gold hover:underline">
+            <Link to="/account/forgot" className="text-xs font-semibold text-gold-ink hover:underline">
               {t.auth.forgot}
             </Link>
           </div>
@@ -65,7 +65,7 @@ function LoginPage() {
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {t.auth.noAccount}{" "}
-        <Link to="/account/register" search={{ next }} className="font-semibold text-gold hover:underline">
+        <Link to="/account/register" search={{ next }} className="font-semibold text-gold-ink hover:underline">
           {t.auth.createOne}
         </Link>
       </p>

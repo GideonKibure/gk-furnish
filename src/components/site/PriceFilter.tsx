@@ -69,17 +69,17 @@ export function PriceFilter({
     }
   }
 
-  const amount = `TSh ${value.toLocaleString("en-US")}`;
-  const thumbLeft = `calc(0.85rem + (100% - 1.7rem) * ${pct / 100})`;
+  const amount = `TZS ${value.toLocaleString("en-US")}`;
+  const thumbLeft = `calc(0.6rem + (100% - 1.2rem) * ${pct / 100})`;
 
   return (
-    <div className={cn("price-filter sm:col-span-2 lg:col-span-5", active && "is-active")}>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-          <p key={value} className="price-filter-amount mt-1 font-sans text-2xl font-bold text-navy">{amount}</p>
-        </div>
-        <p key={count} className="price-filter-count">{count} {resultsLabel}</p>
+    <div className={cn("price-filter", active && "is-active")}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="price-filter-amount text-sm font-semibold text-navy">
+          <span className="sr-only">{label}: </span>
+          TZS 0 – {amount}
+        </p>
+        <p className="price-filter-count">{count} {resultsLabel}</p>
       </div>
       <div
         ref={trackRef}
@@ -106,8 +106,8 @@ export function PriceFilter({
         <span className="price-filter-thumb" style={{ left: thumbLeft }} aria-hidden />
       </div>
       <div className="price-filter-ends" aria-hidden>
-        <span>TSh 0</span>
-        <span>TSh {max.toLocaleString("en-US")}</span>
+        <span>TZS 0</span>
+        <span>TZS {max.toLocaleString("en-US")}</span>
       </div>
     </div>
   );

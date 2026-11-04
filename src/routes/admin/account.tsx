@@ -77,11 +77,11 @@ function AdminAccountPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <AdminCard hover={false}>
           <div className="mb-5 flex items-start gap-3 border-b border-border/70 pb-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gold-soft text-[#B86A00]">
               <KeyRound className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <h2 className="font-display text-xl text-navy">Change password</h2>
+              <h2 className="text-base font-semibold text-navy">Change password</h2>
               <p className="mt-0.5 truncate text-sm text-muted-foreground">
                 Signed in as <span className="font-semibold text-navy">{email || "…"}</span>
               </p>
@@ -137,7 +137,7 @@ function AdminAccountPage() {
 
         <AdminCard hover={false} className="h-fit">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-gold" />
+            <ShieldCheck className="h-4 w-4 text-[#B86A00]" />
             <h2 className="font-semibold text-navy">Password tips</h2>
           </div>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">

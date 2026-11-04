@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight, Maximize2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Play, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ProductVideo } from "./ProductVideo";
 import {
   useCallback,
   useEffect,
@@ -16,27 +17,34 @@ function normalizeImages(images: string[] | GalleryImage[]): GalleryImage[] {
   return images.map((item) => (typeof item === "string" ? { src: item } : item)).filter((item) => Boolean(item.src));
 }
 
-/** Product gallery with hover magnifier, labeled angle thumbs, and a pan/zoom lightbox. */
+/** Product gallery: vertical thumbs on desktop, hover magnifier, optional video, pan/zoom lightbox. */
 export function ZoomGallery({
   images,
   alt,
   hint,
-  viewsTitle,
-  viewsHint,
+  video,
+  videoLabel = "Video",
 }: {
   images: string[] | GalleryImage[];
   alt: string;
   hint?: string;
   viewsTitle?: string;
   viewsHint?: string;
+  /** Optional product video, offered as the last thumbnail. */
+  video?: string | null;
+  videoLabel?: string;
 }) {
   const items = normalizeImages(images);
   const [i, setI] = useState(0);
+  const [showVideo, setShowVideo] = useState(false);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const [full, setFull] = useState(false);
   const n = items.length;
   const active = items[Math.min(i, Math.max(0, n - 1))] ?? items[0];
-  const go = (d: number) => setI((v) => (v + d + n) % n);
+  const go = (d: number) => {
+    setShowVideo(false);
+    setI((v) => (v + d + n) % n);
+  };
 
   useEffect(() => {
     if (i >= n && n > 0) setI(0);
@@ -50,13 +58,56 @@ export function ZoomGallery({
     });
   }
 
+  const thumbs = (n > 1 || video) && (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar md:max-h-[34rem] md:flex-col md:overflow-y-auto md:overflow-x-visible">
+      {items.map((item, k) => (
+        <button
+          key={`${item.src}-${k}`}
+          type="button"
+          onClick={() => {
+            setShowVideo(false);
+            setI(k);
+          }}
+          aria-label={item.label ?? `Image ${k + 1}`}
+          aria-current={!showVideo && k === i ? "true" : undefined}
+          className={cn(
+            "h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-colors md:h-[4.5rem] md:w-[4.5rem]",
+            !showVideo && k === i ? "border-gold" : "border-border hover:border-navy/30",
+          )}
+        >
+          <img src={item.src} alt="" className="h-full w-full object-cover" />
+        </button>
+      ))}
+      {video && (
+        <button
+          type="button"
+          onClick={() => setShowVideo(true)}
+          aria-label={videoLabel}
+          aria-current={showVideo ? "true" : undefined}
+          className={cn(
+            "relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border-2 bg-navy text-white transition-colors md:h-[4.5rem] md:w-[4.5rem]",
+            showVideo ? "border-gold" : "border-border hover:border-navy/30",
+          )}
+        >
+          {items[0] && <img src={items[0].src} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
+          <span className="relative grid h-8 w-8 place-items-center rounded-full bg-white/90 text-navy">
+            <Play className="ml-0.5 h-4 w-4 fill-current" />
+          </span>
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="zoom-gallery">
+    <div className="zoom-gallery flex flex-col gap-3 md:flex-row-reverse">
       <div
-        className="group relative aspect-square overflow-hidden rounded-[1.75rem] bg-muted shadow-[var(--shadow-card)]"
-        onMouseMove={onMove}
+        className="group relative aspect-square min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-sand"
+        onMouseMove={showVideo ? undefined : onMove}
         onMouseLeave={() => setZoom(null)}
       >
+        {showVideo && video ? (
+          <ProductVideo src={video} poster={items[0]?.src} className="absolute inset-0" />
+        ) : (
         <button
           type="button"
           className="absolute inset-0 z-0 cursor-zoom-in"
@@ -75,14 +126,9 @@ export function ZoomGallery({
             draggable={false}
           />
         </button>
-
-        {active?.label && (
-          <span className="pointer-events-none absolute left-3 top-3 z-[3] rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-navy shadow-sm backdrop-blur">
-            {active.label}
-          </span>
         )}
 
-        {zoom && active?.src && (
+        {zoom && !showVideo && active?.src && (
           <div
             aria-hidden
             className="pointer-events-none absolute z-[1] hidden h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90 shadow-[0_0_0_1px_rgba(20,33,61,0.25),0_12px_28px_-10px_rgba(0,0,0,0.45)] md:block"
@@ -96,83 +142,43 @@ export function ZoomGallery({
           />
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-navy/50 to-transparent p-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:opacity-100">
-          <p className="flex items-center gap-1.5 text-xs font-medium text-white/90">
-            <ZoomIn className="h-3.5 w-3.5" />
-            {hint ?? "Hover to zoom · tap for fullscreen"}
-          </p>
-        </div>
+        {!showVideo && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 max-md:hidden">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-navy">
+              <ZoomIn className="h-3.5 w-3.5" />
+              {hint ?? "Hover to zoom · tap for fullscreen"}
+            </p>
+          </div>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setFull(true)}
-          aria-label="Fullscreen"
-          className="absolute right-3 top-3 z-[3] grid h-10 w-10 place-items-center rounded-full bg-background/90 text-navy shadow-sm backdrop-blur transition-transform hover:scale-105"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </button>
+        {!showVideo && (
+          <button
+            type="button"
+            onClick={() => setFull(true)}
+            aria-label="Fullscreen"
+            className="absolute right-3 top-3 z-[3] grid h-10 w-10 place-items-center rounded-full bg-white/95 text-navy shadow-sm transition-transform hover:scale-105"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        )}
 
-        {n > 1 && (
+        {n > 1 && !showVideo && (
           <>
             <NavBtn
               side="left"
-              className="z-[3] opacity-0 transition-opacity group-hover:opacity-100"
+              className="z-[3] opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
               onClick={() => go(-1)}
             />
             <NavBtn
               side="right"
-              className="z-[3] opacity-0 transition-opacity group-hover:opacity-100"
+              className="z-[3] opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
               onClick={() => go(1)}
             />
           </>
         )}
       </div>
 
-      {n > 0 && (
-        <div className="mt-4">
-          {(viewsTitle || n > 1) && (
-            <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2">
-              <p className="text-sm font-semibold text-navy">{viewsTitle ?? "Product views"}</p>
-              {viewsHint && n > 1 && <p className="text-xs text-muted-foreground">{viewsHint}</p>}
-            </div>
-          )}
-          <div className={cn("grid gap-2.5", n >= 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1 max-w-[9rem]")}>
-            {items.map((item, k) => (
-              <button
-                key={`${item.src}-${k}`}
-                type="button"
-                onClick={() => setI(k)}
-                aria-label={item.label ?? `Image ${k + 1}`}
-                aria-current={k === i}
-                className={cn(
-                  "group/thumb overflow-hidden rounded-xl border-2 text-left transition-all duration-300",
-                  k === i
-                    ? "border-gold shadow-[var(--shadow-gold)]"
-                    : "border-border/70 opacity-80 hover:border-gold/40 hover:opacity-100",
-                )}
-              >
-                <div className="aspect-square overflow-hidden bg-muted">
-                  <img
-                    src={item.src}
-                    alt=""
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
-                  />
-                </div>
-                {item.label && (
-                  <span
-                    className={cn(
-                      "block px-2 py-1.5 text-center text-[0.7rem] font-semibold uppercase tracking-wider",
-                      k === i ? "bg-gold-soft text-navy" : "bg-secondary/70 text-muted-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {thumbs}
 
       {full && (
         <Lightbox

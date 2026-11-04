@@ -8,7 +8,7 @@ export const REMOVED_IMAGE = "none";
 export const BUILTIN_PREFIX = "builtin:";
 export const SITE_IMAGE_FOLDER = "site";
 
-export type SitePage = "home" | "categories" | "gallery" | "about" | "products" | "custom-order";
+export type SitePage = "home" | "categories" | "gallery" | "about" | "custom-order";
 
 export type SiteImageSlot = {
   id: string;
@@ -23,22 +23,30 @@ export const SITE_PAGES: { id: SitePage; label: string }[] = [
   { id: "categories", label: "Categories page" },
   { id: "gallery", label: "Gallery page" },
   { id: "about", label: "About page" },
-  { id: "products", label: "Products page" },
   { id: "custom-order", label: "Custom order page" },
 ];
 
+const HERO_SLIDE_HINT =
+  "Home page hero slideshow. Use a wide landscape photo; the headline covers the left side (the top on phones), so keep the furniture on the right. Remove it to skip this slide.";
+
+/** Slot ids are fixed: the storefront reads them by id (the `home.feature.*` ids now feed the hero slideshow). */
 export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
-  { id: "home.hero", page: "home", label: "Hero image", hint: "Shown behind the hero while the video loads.", fallback: "hero" },
-  { id: "home.feature.homes", page: "home", label: "Start here — Homes, offices & hotels", hint: "First card under the hero.", fallback: "room" },
-  { id: "home.feature.desks", page: "home", label: "Start here — Tables & desks", hint: "Second card under the hero.", fallback: "tables" },
-  { id: "home.feature.chairs", page: "home", label: "Start here — Comfortable chairs", hint: "Third card under the hero.", fallback: "chairs" },
-  { id: "home.feature.beds", page: "home", label: "Start here — Beds & lamps", hint: "Fourth card under the hero.", fallback: "beds" },
-  { id: "home.custom", page: "home", label: "Custom piece banner", hint: "Gold “Cannot find what you need?” section.", fallback: "custom" },
+  { id: "home.hero", page: "home", label: "Hero slide 1", hint: `First slide. ${HERO_SLIDE_HINT}`, fallback: "hero" },
+  { id: "home.feature.homes", page: "home", label: "Hero slide 2", hint: HERO_SLIDE_HINT, fallback: "room" },
+  { id: "home.feature.desks", page: "home", label: "Hero slide 3", hint: HERO_SLIDE_HINT, fallback: "tables" },
+  { id: "home.feature.chairs", page: "home", label: "Hero slide 4", hint: HERO_SLIDE_HINT, fallback: "chairs" },
+  { id: "home.feature.beds", page: "home", label: "Hero slide 5", hint: HERO_SLIDE_HINT, fallback: "beds" },
+  {
+    id: "home.custom",
+    page: "home",
+    label: "Custom order banner",
+    hint: "Photo beside the gold “custom piece” section lower on the home page. Remove it to show the text only.",
+    fallback: "custom",
+  },
   { id: "header.categories", page: "categories", label: "Page header image", hint: "Optional image beside the page title.", fallback: null },
   { id: "header.gallery", page: "gallery", label: "Page header image", hint: "Optional image beside the page title.", fallback: null },
   { id: "about.story", page: "about", label: "Our story image", hint: "Beside the “Our story” text.", fallback: "workshop" },
   { id: "header.about", page: "about", label: "Page header image", hint: "Optional image beside the page title.", fallback: null },
-  { id: "header.products", page: "products", label: "Page header image", hint: "Optional image beside the page title.", fallback: null },
   { id: "header.custom-order", page: "custom-order", label: "Page header image", hint: "Optional image beside the page title.", fallback: null },
 ];
 

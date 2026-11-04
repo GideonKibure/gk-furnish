@@ -96,7 +96,7 @@ function AdminImagesPage() {
     const cats = categories.map((c) => ({
       id: categoryImageSlot(c.slug),
       label: `${c.name} category image`,
-      hint: "Shown on the Home and Categories pages.",
+      hint: "Category tile on the Home and Categories pages.",
       fallback: imageFor(c.image_key),
     }));
     return [...fixed, ...cats];
@@ -136,16 +136,17 @@ function AdminImagesPage() {
         <div className="space-y-10">
           {SITE_PAGES.map((p) => (
             <section key={p.id} id={`images-${p.id}`} className="scroll-mt-24">
-              <h2 className="mb-4 font-display text-2xl tracking-tight text-navy">{p.label}</h2>
+              <h2 className="mb-4 text-lg font-semibold text-navy">{p.label}</h2>
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {slotsFor(p.id).map((slot) => (
                   <SlotCard key={slot.id} slot={slot} value={values.get(slot.id)} onSaved={onSlotSaved} />
                 ))}
               </div>
               {p.id === "gallery" && <GalleryEditor raw={values.get(GALLERY_SLOT)} onSaved={refresh} />}
-              {p.id === "products" && (
+              {p.id === "categories" && (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Product photos and videos are managed on the Products page of this portal.
+                  Category photos can also be changed under Catalogue → Categories. Product photos and videos are managed on
+                  the Products page.
                 </p>
               )}
             </section>
@@ -348,7 +349,7 @@ function GalleryEditor({ raw, onSaved }: { raw: string | undefined; onSaved: () 
     <div className="mt-6">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="font-display text-xl text-navy">Gallery photos</h3>
+          <h3 className="text-base font-semibold text-navy">Gallery photos</h3>
           <p className="text-sm text-muted-foreground">
             Shown on the Gallery page. The first 8 also appear on the Home page.
           </p>
@@ -499,7 +500,7 @@ function GalleryEditor({ raw, onSaved }: { raw: string | undefined; onSaved: () 
         ))}
       </div>
       {!items.length && (
-        <p className="rounded-2xl border border-dashed border-border bg-background/70 px-6 py-10 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-border bg-background/70 px-6 py-10 text-center text-sm text-muted-foreground">
           The gallery is empty. Add a photo above.
         </p>
       )}

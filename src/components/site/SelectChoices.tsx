@@ -50,7 +50,7 @@ export function ColorImageChoices(props: ColorChoicesProps) {
             aria-pressed={selected}
             className={cn(
               "flex w-[4.75rem] flex-col items-center gap-1.5 rounded-xl border p-1.5 text-center transition-all",
-              selected ? "border-gold bg-gold-soft shadow-sm" : "border-border bg-background hover:border-navy/25",
+              selected ? "border-gold bg-gold-tint shadow-sm" : "border-border bg-background hover:border-navy/25",
             )}
           >
             <HexSwatch hex={option.hex} label={option.label} />
@@ -97,7 +97,7 @@ export function TextChoices(props: TextChoicesProps) {
               "border font-semibold transition-all",
               scroll && "shrink-0 whitespace-nowrap",
               compact ? "h-7 rounded-full px-2.5 text-xs leading-none" : "rounded-xl px-3.5 py-2.5 text-sm",
-              selected ? "border-gold bg-gold-soft text-navy shadow-sm" : "border-border bg-background text-navy hover:border-navy/25",
+              selected ? "border-gold-ink bg-gold-tint text-navy shadow-sm" : "border-border bg-background text-navy hover:border-navy/25",
             )}
           >
             {option.label}

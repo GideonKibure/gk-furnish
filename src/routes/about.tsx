@@ -7,19 +7,17 @@ import { IMAGES } from "@/data/images";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/about")({
-  head: () => ({
-    meta: [
-      { title: "About — GK furnish" },
-      { name: "description", content: "A furniture workshop in Mbeya making durable, affordable furniture by hand." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "About — GK furnish" },
-      { property: "og:description", content: "Our story, mission and values." },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "About — GK furnish",
+      description: "GK Furnish makes study chairs and tables in Mbeya and works with trusted partner carpenters for beds and larger pieces.",
+      path: "/about",
+      image: IMAGES.workshop,
+    }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: About,
 });
@@ -39,7 +37,12 @@ function About() {
 
   return (
     <>
-      <PageHeader title={a.title} subtitle={lead} image={image("header.about", null)} />
+      <PageHeader
+        title={a.title}
+        subtitle={lead}
+        image={image("header.about", null)}
+        crumbs={[{ label: t.nav.home, href: "/" }, { label: t.nav.about }]}
+      />
 
       <div className={cn("container-page section-y grid items-center gap-10 lg:gap-14", storyImage && "lg:grid-cols-2")}>
         <Reveal variant="left">
@@ -49,7 +52,7 @@ function About() {
         </Reveal>
         {storyImage && (
           <Reveal variant="right" delayMs={80}>
-            <div className="overflow-hidden rounded-[1.75rem] shadow-[var(--shadow-lift)]">
+            <div className="overflow-hidden rounded-xl shadow-[var(--shadow-lift)]">
               <img
                 src={storyImage}
                 alt=""
@@ -65,13 +68,13 @@ function About() {
       <section className="bg-navy text-primary-foreground">
         <div className="container-page section-y grid gap-5 md:grid-cols-2">
           <Reveal>
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-7 backdrop-blur transition-transform duration-300 hover:-translate-y-1">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-7 backdrop-blur transition-transform duration-300 hover:-translate-y-1">
               <p className="eyebrow !text-gold">{a.missionTitle}</p>
               <p className="mt-3 text-base leading-relaxed text-white/80 md:text-lg">{mission}</p>
             </div>
           </Reveal>
           <Reveal delayMs={80}>
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-7 backdrop-blur transition-transform duration-300 hover:-translate-y-1">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-7 backdrop-blur transition-transform duration-300 hover:-translate-y-1">
               <p className="eyebrow !text-gold">{a.visionTitle}</p>
               <p className="mt-3 text-base leading-relaxed text-white/80 md:text-lg">{vision}</p>
             </div>
@@ -89,8 +92,8 @@ function About() {
               const Icon = VALUE_ICONS[i % VALUE_ICONS.length] ?? ShieldCheck;
               return (
                 <Reveal key={v.title} delayMs={i * 70} variant="up">
-                  <div className="group h-full rounded-[1.5rem] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-gold/35 hover:shadow-[var(--shadow-lift)]">
-                    <span className="grid h-11 w-11 place-items-center rounded-full bg-gold text-navy transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-105">
+                  <div className="panel h-full p-5">
+                    <span className="grid h-11 w-11 place-items-center rounded-lg bg-gold-tint text-navy">
                       <Icon className="h-5 w-5" />
                     </span>
                     <h3 className="mt-4 text-xl text-navy">{v.title}</h3>

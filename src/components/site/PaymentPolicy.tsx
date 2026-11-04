@@ -11,9 +11,9 @@ export function PaymentPolicy({ className, compact = false }: { className?: stri
   const { data: settings } = useQuery(siteSettingsQuery);
   const s = advanceSettingsFrom(settings);
   return (
-    <section className={cn("rounded-2xl border border-gold/30 bg-gold-soft/40 p-5", className)}>
+    <section className={cn("rounded-xl border border-gold/40 bg-gold-tint p-5", className)}>
       <h2 className="flex items-center gap-2 font-semibold text-navy">
-        <ShieldCheck className="h-4 w-4 text-gold" />
+        <ShieldCheck className="h-4 w-4 text-gold-ink" />
         {t.policy.title}
       </h2>
       <p className="mt-2 text-sm font-medium text-navy">

@@ -24,6 +24,9 @@ export type InvoiceData = {
   lines?: InvoiceLine[];
   advancePercent?: number;
   advanceRequired?: number;
+  /** "Free", "To be confirmed" or a confirmed fee such as "TZS 15,000". */
+  deliveryLabel?: string;
+  subtotal?: number;
 };
 
 export type ReceiptData = {
@@ -79,7 +82,7 @@ function money(amount: number) {
 
 function header(kind: string, number: string, extra: string) {
   return `<div class="noprint" style="margin-bottom:16px">
-      <button onclick="window.print()" style="background:#fca311;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer">
+      <button onclick="window.print()" style="background:#fca311;color:#14213d;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">
         Print / Save as PDF
       </button>
     </div>
@@ -183,6 +186,7 @@ export function downloadInvoice(data: InvoiceData) {
     <h2>Items</h2>
     ${linesTable(lines)}
     <div class="totals">
+      ${data.deliveryLabel ? `<div><span class="muted">Subtotal</span><span>${escapeHtml(money(data.subtotal ?? total))}</span></div><div><span class="muted">Delivery</span><span>${escapeHtml(data.deliveryLabel)}</span></div>` : ""}
       ${data.advanceRequired ? `<div><span class="muted">Advance to begin (${data.advancePercent ?? 50}%)</span><span>${escapeHtml(money(data.advanceRequired))}</span></div>` : ""}
       ${paid > 0 ? `<div><span class="muted">Paid</span><span>${escapeHtml(money(paid))}</span></div>` : ""}
       ${paid > 0 ? `<div><span class="muted">Balance before delivery</span><span>${escapeHtml(money(Math.max(0, total - paid)))}</span></div>` : ""}
@@ -286,6 +290,9 @@ export function downloadQuote(quote: SavedQuote) {
       <div><span class="muted">Advance to begin (${percent}%)</span><span>${escapeHtml(money(Math.ceil((quote.total * percent) / 100)))}</span></div>
       <div class="grand"><span>Quote total</span><span>${escapeHtml(money(quote.total))}</span></div>
     </div>
+    ${quote.inclusions ? `<h2>Included</h2><p>${escapeHtml(quote.inclusions).replaceAll("\n", "<br>")}</p>` : ""}
+    ${quote.exclusions ? `<h2>Not included</h2><p>${escapeHtml(quote.exclusions).replaceAll("\n", "<br>")}</p>` : ""}
+    ${quote.estimatedCompletion ? `<p><span class="muted">Estimated completion:</span> ${escapeHtml(quote.estimatedCompletion)}</p>` : ""}
     ${quote.notes ? `<h2>Notes</h2><p>${escapeHtml(quote.notes).replaceAll("\n", "<br>")}</p>` : ""}
     ${policyList()}
     <div class="foot">

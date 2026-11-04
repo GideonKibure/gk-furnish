@@ -8,6 +8,8 @@ import { localized, useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import type { Product } from "@/lib/catalog";
 import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
+import { isPurchasable } from "@/lib/product-display";
+import { QtyStepper } from "@/components/brand/QtyStepper";
 
 export type ProductChoice = { quantity: number; material: string; size: string; color: string };
 
@@ -73,6 +75,7 @@ export function OrderDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
+  const canBuy = isPurchasable(product);
   const unitPrice = selectedOptionPrice(product, material, size);
   const total = unitPrice != null ? formatPrice(unitPrice * qty) : null;
   const unitLabel = unitPrice != null
@@ -105,7 +108,7 @@ export function OrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-navy">{t.cart.chooseTitle}</DialogTitle>
+          <DialogTitle className="font-display text-xl font-bold text-navy">{t.cart.chooseTitle}</DialogTitle>
           <DialogDescription>{t.order.intro}</DialogDescription>
         </DialogHeader>
         <div className="rounded-xl bg-sand p-4 text-sm">
@@ -146,24 +149,16 @@ export function OrderDialog({
             </div>
           )}
           <div>
-            <label className="field-label" htmlFor="o-qty">{t.order.quantity}</label>
-            <input
-              id="o-qty"
-              type="number"
-              min={1}
-              max={100}
-              value={qty}
-              onChange={(e) => setQty(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
-              className="field-input"
-            />
+            <p className="field-label">{t.order.quantity}</p>
+            <QtyStepper value={qty} onChange={setQty} label={t.order.quantity} />
             {err("quantity")}
           </div>
           {total && <p className="text-sm text-muted-foreground">{t.order.estimate}: <strong className="text-navy">{total}</strong></p>}
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" className="btn-base btn-outline-navy" disabled={busy} onClick={() => void submit(false)}>
+            <button type="button" className="btn-base btn-gold" disabled={busy || !canBuy} onClick={() => void submit(false)}>
               {t.cart.add}
             </button>
-            <button type="button" className="btn-base btn-gold" disabled={busy} onClick={() => void submit(true)}>
+            <button type="button" className="btn-base btn-navy" disabled={busy || !canBuy} onClick={() => void submit(true)}>
               {t.cart.buyNow}
             </button>
           </div>

@@ -15,11 +15,7 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
   onVisibilityChangeRef.current = onVisibilityChange;
 
   function finishHide() {
-    setPhase((current) => {
-      if (current !== "in") return current;
-      onVisibilityChangeRef.current?.(false);
-      return "out";
-    });
+    setPhase((current) => (current === "in" ? "out" : current));
   }
 
   useEffect(() => {
@@ -54,6 +50,7 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
 
   useEffect(() => {
     if (phase !== "out") return;
+    onVisibilityChangeRef.current?.(false);
     const done = window.setTimeout(() => setPhase("hidden"), 680);
     return () => window.clearTimeout(done);
   }, [phase]);
@@ -80,11 +77,11 @@ export function OfferBanner({ onVisibilityChange }: { onVisibilityChange?: (visi
       className={cn("offer-banner", phase === "out" && "is-leaving")}
     >
       <div className="offer-banner-stripe" aria-hidden />
-      <div className="container-page relative flex items-center justify-center gap-3 py-3 pr-12 text-center sm:py-3.5">
+      <div className="container-page relative flex min-h-[2.75rem] items-center justify-center gap-3 py-1.5 pr-12 text-center">
         <span className="offer-banner-icon hidden sm:grid">
-          <Megaphone className="h-4 w-4" />
+          <Megaphone className="h-3.5 w-3.5" />
         </span>
-        <p className="text-sm font-semibold tracking-wide text-white sm:text-[0.95rem]">
+        <p className="line-clamp-2 text-[0.8rem] font-medium leading-snug text-white sm:text-sm">
           <span className="offer-banner-badge mr-2">{badge}</span>
           {message}
         </p>

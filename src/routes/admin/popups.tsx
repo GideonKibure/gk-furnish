@@ -103,7 +103,7 @@ function AdminPopupsPage() {
               <Megaphone className="h-4 w-4" />
             </span>
             <div>
-              <h2 className="font-display text-xl text-navy">{editing ? "Edit offer" : "New offer"}</h2>
+              <h2 className="text-base font-semibold text-navy">{editing ? "Edit offer" : "New offer"}</h2>
               <p className="text-sm text-muted-foreground">Live preview updates as you type the English message.</p>
             </div>
           </div>

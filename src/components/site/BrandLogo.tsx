@@ -6,20 +6,23 @@ type BrandLogoProps = {
   markClassName?: string;
   showWordmark?: boolean;
   wordmarkClassName?: string;
-  /** Invert / light wordmark for dark surfaces */
+  /** Small line under the wordmark, e.g. "Live · Study · Work in comfort". */
+  tagline?: string | undefined;
+  /** White wordmark for dark surfaces */
   light?: boolean;
 };
 
-/** GK furnish brand mark + optional wordmark. */
+/** GK Furnish brand mark + optional uppercase wordmark. */
 export function BrandLogo({
   className,
   markClassName,
   showWordmark = true,
   wordmarkClassName,
+  tagline,
   light = false,
 }: BrandLogoProps) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
       <img
         src="/brand/gk-furnish-logo.svg"
         alt=""
@@ -29,14 +32,21 @@ export function BrandLogo({
         decoding="async"
       />
       {showWordmark && (
-        <span
-          className={cn(
-            "font-display text-lg font-semibold tracking-tight md:text-xl",
-            light ? "text-white" : "text-navy",
-            wordmarkClassName,
+        <span className="flex min-w-0 flex-col leading-none">
+          <span
+            className={cn(
+              "truncate font-display text-lg font-extrabold uppercase tracking-tight md:text-xl",
+              light ? "text-white" : "text-navy",
+              wordmarkClassName,
+            )}
+          >
+            {SITE.name}
+          </span>
+          {tagline && (
+            <span className={cn("mt-1 truncate text-[0.68rem] font-medium", light ? "text-white/70" : "text-muted-foreground")}>
+              {tagline}
+            </span>
           )}
-        >
-          {SITE.name}
         </span>
       )}
     </span>

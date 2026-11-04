@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Mail, Phone, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
+import { AdminCard, AdminEmpty, AdminLoading, AdminPageHeader, SearchInput, StatusPill, btn, formatDate } from "@/components/admin/admin-ui";
 import { deleteContactMessage, listContactMessages } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin/messages")({
@@ -16,8 +16,14 @@ type Row = Awaited<ReturnType<typeof listContactMessages>>[number];
 function AdminMessagesPage() {
   const list = useServerFn(listContactMessages);
   const remove = useServerFn(deleteContactMessage);
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<Row[] | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!rows || !term) return rows ?? [];
+    return rows.filter((m) => [m.name, m.email, m.phone, m.subject, m.message].some((v) => v?.toLowerCase().includes(term)));
+  }, [rows, q]);
 
   async function refresh() {
     setRows(await list());
@@ -48,21 +54,24 @@ function AdminMessagesPage() {
         description="Notes sent through the contact form, newest first."
       />
 
-      <div className="space-y-4">
-        {rows.map((message) => (
+      <SearchInput value={q} onChange={setQ} placeholder="Search name, email, phone or message" className="mb-4 max-w-md" />
+
+      {!rows && <AdminLoading label="Loading messages…" />}
+      <div className="space-y-3">
+        {shown.map((message) => (
           <AdminCard key={message.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="font-display text-lg text-navy">{message.name}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{new Date(message.created_at).toLocaleString()}</p>
+                <p className="text-base font-semibold text-navy">{message.name}</p>
+                <p className="mt-0.5 text-xs text-[#6B7280]">{formatDate(message.created_at, true)}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {message.subject && <AdminBadge tone="gold">{message.subject}</AdminBadge>}
+                {message.subject && <StatusPill tone="info">{message.subject}</StatusPill>}
                 <button
                   type="button"
                   onClick={() => onDelete(message.id, message.name)}
                   disabled={deletingId === message.id}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  className={btn("danger", "sm")}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   {deletingId === message.id ? "Deleting…" : "Delete"}
@@ -74,7 +83,7 @@ function AdminMessagesPage() {
               {message.phone && (
                 <a
                   href={`tel:${message.phone.replace(/[^\d+]/g, "")}`}
-                  className="inline-flex items-center gap-1.5 font-semibold text-gold transition-colors hover:text-navy hover:underline"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#B86A00] transition-colors hover:text-navy hover:underline"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   {message.phone}
@@ -83,7 +92,7 @@ function AdminMessagesPage() {
               {message.email && (
                 <a
                   href={`mailto:${message.email}`}
-                  className="inline-flex items-center gap-1.5 font-semibold text-gold transition-colors hover:text-navy hover:underline"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#B86A00] transition-colors hover:text-navy hover:underline"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   {message.email}
@@ -92,7 +101,7 @@ function AdminMessagesPage() {
             </div>
           </AdminCard>
         ))}
-        {!rows.length && <AdminEmpty>No messages yet.</AdminEmpty>}
+        {rows && !shown.length && <AdminEmpty title={rows.length ? "No messages match" : "No messages yet"} />}
       </div>
     </div>
   );

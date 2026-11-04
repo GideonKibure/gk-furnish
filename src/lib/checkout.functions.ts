@@ -13,28 +13,50 @@ import {
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
-const CheckoutInput = z.object({
-  items: z
-    .array(
-      z.object({
-        product_id: z.string().uuid(),
-        quantity: z.number().int().min(1).max(100),
-        material: z.string().trim().max(120),
-        size: z.string().trim().max(120),
-        color: z.string().trim().max(120),
-      }),
-    )
-    .min(1)
-    .max(30),
-  customer_name: z.string().trim().min(1).max(120),
-  phone,
-  email: z.string().trim().email().max(200).optional().or(z.literal("")),
-  delivery_location: z.string().trim().min(1).max(200),
-  needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  notes: opt(1000),
-  payment_choice: z.enum(["advance", "full"]),
-  payment_phone: phone,
-  specs_agreed: z.literal(true),
+const CheckoutInput = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          product_id: z.string().uuid(),
+          quantity: z.number().int().min(1).max(100),
+          material: z.string().trim().max(120),
+          size: z.string().trim().max(120),
+          color: z.string().trim().max(120),
+        }),
+      )
+      .min(1)
+      .max(30),
+    customer_name: z.string().trim().min(1).max(120),
+    phone,
+    email: z.string().trim().email().max(200).optional().or(z.literal("")),
+    fulfilment_method: z.enum(["delivery", "collection"]).default("delivery"),
+    region: opt(80),
+    district: opt(80),
+    address_line: opt(200),
+    /** Older clients send one free-text location. */
+    delivery_location: opt(200),
+    save_address: z.boolean().optional(),
+    needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    notes: opt(1000),
+    payment_choice: z.enum(["advance", "full"]),
+    payment_phone: phone.optional().or(z.literal("")),
+    specs_agreed: z.literal(true),
+  })
+  .refine(
+    (d) => d.fulfilment_method === "collection" || Boolean(d.region && d.address_line) || Boolean(d.delivery_location),
+    { message: "Delivery address is required", path: ["address_line"] },
+  );
+
+/** Public checkout settings: whether online payment is on, and where to collect from. */
+export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
+  const { snippeConfigured } = await import("@/lib/order-payments.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+  return {
+    onlinePayment: snippeConfigured(),
+    collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
+  };
 });
 
 /** Amount the customer pays now; never below the mobile money minimum or above what is left. */
@@ -50,17 +72,21 @@ export const createCheckout = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { snippeConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
 
+    const { isMissingSchema } = await import("@/lib/db-compat");
+    const { notify } = await import("@/lib/notify.server");
+    const { composeDeliveryLocation, deliveryFeeStatusFor, orderTotal } = await import("@/lib/delivery");
+
     const ids = [...new Set(data.items.map((i) => i.product_id))];
-    const { data: products, error: pErr } = await supabaseAdmin
-      .from("products")
-      .select("id,name,price,material,dimensions,features,available_colors,is_available")
-      .in("id", ids);
+    const { data: products, error: pErr } = await supabaseAdmin.from("products").select("*").in("id", ids);
     if (pErr) throw new Error("Could not load products");
     const byId = new Map((products ?? []).map((p) => [p.id, p]));
 
     const lines = data.items.map((item) => {
       const product = byId.get(item.product_id);
       if (!product) throw new Error("A product in your cart is no longer available");
+      if (!product.is_available || (product.status ?? "active") !== "active") {
+        throw new Error(`${product.name} is not available to order right now. Remove it from your cart to continue.`);
+      }
       const materials = parseOptionList(product.material);
       const dimensions = parseOptionList(product.dimensions);
       const colors = product.available_colors.map((c) => parseCatalogColor(c).label);
@@ -72,64 +98,164 @@ export const createCheckout = createServerFn({ method: "POST" })
       return { ...item, product, unitPrice };
     });
 
-    const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+    const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
     const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
     const { data: settingsRow } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
-    const { percent } = advanceTierFor({ total, itemCount }, advanceSettingsFrom(settingsRow));
-    const advanceRequired = advanceAmount(total, percent);
+    const { percent } = advanceTierFor({ total: subtotal, itemCount }, advanceSettingsFrom(settingsRow));
+    const advanceRequired = advanceAmount(subtotal, percent);
     const first = lines[0];
 
-    const { data: order, error } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: context.userId,
-        customer_name: data.customer_name,
-        phone: data.phone,
-        email: data.email || context.email || null,
-        preferred_color: first?.color || null,
-        preferred_size: first?.size || null,
-        delivery_location: data.delivery_location,
-        needed_by: data.needed_by,
-        notes: composeOrderNotes({ material: lines.length === 1 ? first?.material : "", neededBy: data.needed_by, notes: data.notes }),
-        payment_kind: data.payment_choice,
-        payment_status: "unpaid",
-        payment_phone: data.payment_phone,
-        total_amount: total,
-        advance_percent: percent,
-        advance_required: advanceRequired,
-        amount_due: total,
-        amount_paid: 0,
-      })
-      .select("id,order_number")
-      .single();
-    if (error || !order) throw new Error("Could not save order");
+    // Delivery fee: confirmed by GK Furnish after the order, unless collection or every item ships free.
+    const method = data.fulfilment_method;
+    const deliveryFeeStatus = deliveryFeeStatusFor(method, lines.map((l) => l.product));
+    const deliveryFee = deliveryFeeStatus === "free" ? 0 : null;
+    const total = orderTotal(subtotal, deliveryFee);
+    const collectionLabel = `Collection from GK Furnish (${settingsRow?.collection_address || settingsRow?.location || "Mbeya"})`;
+    const deliveryLocation =
+      (method === "delivery" && data.region && data.address_line
+        ? composeDeliveryLocation({ method, region: data.region, district: data.district ?? "", area: data.address_line })
+        : method === "collection"
+          ? collectionLabel
+          : data.delivery_location) || collectionLabel;
+    const paymentPhone = data.payment_phone || data.phone;
 
-    const { error: iErr } = await supabaseAdmin.from("order_items").insert(
-      lines.map((l) => ({
-        order_id: order.id,
-        product_id: l.product.id,
-        product_name: l.product.name,
-        quantity: l.quantity,
-        unit_price: l.unitPrice,
-        material: l.material || null,
-        size: l.size || null,
-        color: l.color || null,
-      })),
-    );
-    if (iErr) {
+    const baseOrder = {
+      user_id: context.userId,
+      customer_name: data.customer_name,
+      phone: data.phone,
+      email: data.email || context.email || null,
+      preferred_color: first?.color || null,
+      preferred_size: first?.size || null,
+      delivery_location: deliveryLocation,
+      needed_by: data.needed_by,
+      notes: composeOrderNotes({ material: lines.length === 1 ? first?.material : "", neededBy: data.needed_by, notes: data.notes }),
+      payment_kind: data.payment_choice,
+      payment_status: "unpaid",
+      payment_phone: paymentPhone,
+      total_amount: total,
+      advance_percent: percent,
+      advance_required: advanceRequired,
+      amount_due: total,
+      amount_paid: 0,
+    };
+    const fullOrder = {
+      ...baseOrder,
+      fulfilment_method: method,
+      region: method === "delivery" ? data.region || null : null,
+      district: method === "delivery" ? data.district || null : null,
+      address_line: method === "delivery" ? data.address_line || null : null,
+      subtotal_amount: subtotal,
+      delivery_fee: deliveryFee,
+      delivery_fee_status: deliveryFeeStatus,
+    };
+
+    let schemaReady = true;
+    let inserted = await supabaseAdmin.from("orders").insert(fullOrder).select("id,order_number,tracking_token").single();
+    if (inserted.error && isMissingSchema(inserted.error)) {
+      // Migration 0007 not run yet: save the order the old way.
+      schemaReady = false;
+      const legacy = await supabaseAdmin.from("orders").insert(baseOrder).select("id,order_number").single();
+      inserted = { ...legacy, data: legacy.data ? { ...legacy.data, tracking_token: "" } : null } as typeof inserted;
+    }
+    const order = inserted.data;
+    if (inserted.error || !order) throw new Error("Could not save order");
+
+    const itemRows = lines.map((l) => ({
+      order_id: order.id,
+      product_id: l.product.id,
+      product_name: l.product.name,
+      quantity: l.quantity,
+      unit_price: l.unitPrice,
+      material: l.material || null,
+      size: l.size || null,
+      color: l.color || null,
+    }));
+    let itemsResult = schemaReady
+      ? await supabaseAdmin.from("order_items").insert(
+          itemRows.map((row, i) => {
+            const product = lines[i]!.product;
+            return {
+              ...row,
+              sku: product.sku ?? null,
+              snapshot: {
+                sku: product.sku ?? null,
+                name: product.name,
+                unit_price: row.unit_price,
+                material: row.material,
+                size: row.size,
+                color: row.color,
+                source_type: product.source_type ?? "in_house",
+                finish: product.finish ?? null,
+                free_delivery: product.free_delivery ?? false,
+              },
+            };
+          }),
+        )
+      : await supabaseAdmin.from("order_items").insert(itemRows);
+    if (itemsResult.error && isMissingSchema(itemsResult.error)) {
+      itemsResult = await supabaseAdmin.from("order_items").insert(itemRows);
+    }
+    if (itemsResult.error) {
       await supabaseAdmin.from("orders").delete().eq("id", order.id);
       throw new Error("Could not save order items");
     }
 
+    const deliveryNote =
+      deliveryFeeStatus === "free"
+        ? method === "collection"
+          ? " Collection (free)."
+          : " Free delivery."
+        : " Delivery fee to be confirmed.";
     await supabaseAdmin.from("order_status_history").insert({
       order_id: order.id,
       status: "pending",
-      note: `Customer confirmed the design and specifications at checkout. Advance ${percent}% = ${advanceRequired.toLocaleString("en-US")} TSh.`,
+      note: `Customer confirmed the design and specifications at checkout. Advance ${percent}% = ${advanceRequired.toLocaleString("en-US")} TZS.${deliveryNote}`,
     });
 
     if (context.userId) {
       await supabaseAdmin.from("cart_items").delete().eq("user_id", context.userId);
+      if (data.save_address && method === "delivery" && data.region && data.address_line) {
+        const { count } = await supabaseAdmin
+          .from("customer_addresses")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", context.userId);
+        await supabaseAdmin.from("customer_addresses").insert({
+          user_id: context.userId,
+          full_name: data.customer_name,
+          phone: data.phone,
+          region: data.region,
+          district: data.district || null,
+          address_line: data.address_line,
+          is_default: !count,
+        });
+      }
     }
+
+    const trackingToken = order.tracking_token || null;
+    await Promise.all([
+      notify({
+        audience: "customer",
+        userId: context.userId,
+        type: "order_received",
+        title: `Order ${order.order_number} received`,
+        body:
+          deliveryFeeStatus === "pending"
+            ? "We will confirm your order and the delivery fee with you shortly."
+            : "We will confirm your order with you shortly.",
+        link: `/account/orders/${order.order_number}`,
+        entity: "order",
+        entityId: order.id,
+      }),
+      notify({
+        audience: "staff",
+        type: "order_new",
+        title: `New order ${order.order_number}`,
+        body: `${data.customer_name} · ${subtotal.toLocaleString("en-US")} TZS${deliveryFeeStatus === "pending" ? " · delivery fee to confirm" : ""}`,
+        link: "/admin/orders",
+        entity: "order",
+        entityId: order.id,
+      }),
+    ]);
 
     const amount = chargeNow(data.payment_choice === "full" ? total : advanceRequired, total);
     let paymentId: string | null = null;
@@ -141,7 +267,7 @@ export const createCheckout = createServerFn({ method: "POST" })
           orderNumber: order.order_number,
           purpose: data.payment_choice === "full" ? "full" : "advance",
           amount,
-          phone: data.payment_phone,
+          phone: paymentPhone,
           customerName: data.customer_name,
           email: data.email || context.email || null,
         });
@@ -153,13 +279,17 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     return {
       orderNumber: order.order_number,
+      trackingToken,
       paymentId,
       paymentError,
       onlinePayment: snippeConfigured(),
+      subtotal,
+      deliveryFeeStatus,
       total,
       advancePercent: percent,
       advanceRequired,
       amount,
+      deliveryLocation,
       itemSummary: lines.map((l) => `${l.product.name} × ${l.quantity}`).join(", "),
       quantity: itemCount,
     };

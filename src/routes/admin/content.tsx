@@ -70,11 +70,11 @@ function AdminContentPage() {
       {editing && (
         <AdminCard hover={false} className="mb-8 space-y-4">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gold-soft text-[#B86A00]">
               <FileText className="h-4 w-4" />
             </span>
             <div>
-              <h2 className="font-display text-xl text-navy">
+              <h2 className="text-base font-semibold text-navy">
                 {editing.page_key} / {editing.section_key}
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">Update both languages so the language switcher stays accurate.</p>
@@ -106,7 +106,7 @@ function AdminContentPage() {
       <div className="space-y-6">
         {Object.entries(grouped).map(([page, items]) => (
           <section key={page}>
-            <h2 className="mb-3 font-display text-xl capitalize tracking-tight text-navy">{page}</h2>
+            <h2 className="mb-3 text-lg font-semibold capitalize text-navy">{page}</h2>
             <AdminCard hover={false} className="!p-0 overflow-hidden">
               <ul className="divide-y divide-border/70">
                 {items.map((s) => (
@@ -115,7 +115,7 @@ function AdminContentPage() {
                     className="group flex flex-wrap items-start justify-between gap-3 px-5 py-4 transition-colors hover:bg-secondary/40 md:px-6"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-[#6B7280]">
                         {s.section_key}
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm text-navy">{s.content_en}</p>

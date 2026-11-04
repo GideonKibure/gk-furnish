@@ -5,13 +5,14 @@
 
 export const SITE = {
   name: "GK furnish",
+  url: "https://gkfurnish.co.tz",
   tagline: "Locally made furniture from Mbeya, Tanzania",
   phoneDisplay: "+255 692 713 993",
   phoneDial: "+255692713993",
   whatsappNumber: "255692713993",
   email: "gideonkibure@gmail.com",
   location: "Mbeya, Tanzania",
-  currency: "TSh",
+  currency: "TZS",
   social: {
     instagram: "https://www.instagram.com/gkbottlebloom/",
     facebook: "https://facebook.com",
@@ -30,6 +31,11 @@ export function telLink() {
 export function formatPrice(price: number | null | undefined) {
   if (!price || price <= 0) return null;
   return `${SITE.currency} ${new Intl.NumberFormat("en-US").format(Math.round(price))}`;
+}
+
+/** Like formatPrice, but shows "TZS 0" instead of nothing. */
+export function formatAmount(price: number | null | undefined) {
+  return `${SITE.currency} ${new Intl.NumberFormat("en-US").format(Math.round(price ?? 0))}`;
 }
 
 export function formatPriceSpan(prices: number[]) {

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
+import { isMissingSchema } from "@/lib/db-compat";
 import {
   BUILTIN_PREFIX,
   DEFAULT_GALLERY,
@@ -36,6 +37,8 @@ const SettingsInput = z.object({
   instagram_url: z.string().trim().max(500).optional().or(z.literal("")),
   facebook_url: z.string().trim().max(500).optional().or(z.literal("")),
   tiktok_url: z.string().trim().max(500).optional().or(z.literal("")),
+  /** Where customers collect orders (migration 0007). */
+  collection_address: z.string().trim().max(300).optional(),
 });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
@@ -43,25 +46,26 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
   .inputValidator((d) => SettingsInput.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row, error } = await supabaseAdmin
-      .from("site_settings")
-      .upsert({
-        id: 1,
-        phone_display: data.phone_display || null,
-        phone_dial: data.phone_dial || null,
-        whatsapp_number: data.whatsapp_number || null,
-        email: data.email || null,
-        location: data.location || null,
-        tagline: data.tagline || null,
-        instagram_url: data.instagram_url || null,
-        facebook_url: data.facebook_url || null,
-        tiktok_url: data.tiktok_url || null,
-        updated_at: new Date().toISOString(),
-      })
-      .select("*")
-      .single();
-    if (error || !row) throw new Error(error?.message ?? "Save failed");
-    return row;
+    const base = {
+      id: 1,
+      phone_display: data.phone_display || null,
+      phone_dial: data.phone_dial || null,
+      whatsapp_number: data.whatsapp_number || null,
+      email: data.email || null,
+      location: data.location || null,
+      tagline: data.tagline || null,
+      instagram_url: data.instagram_url || null,
+      facebook_url: data.facebook_url || null,
+      tiktok_url: data.tiktok_url || null,
+      updated_at: new Date().toISOString(),
+    };
+    const write = (body: typeof base & { collection_address?: string | null }) =>
+      supabaseAdmin.from("site_settings").upsert(body).select("*").single();
+    let result =
+      data.collection_address === undefined ? await write(base) : await write({ ...base, collection_address: data.collection_address || null });
+    if (result.error && isMissingSchema(result.error)) result = await write(base);
+    if (result.error || !result.data) throw new Error(result.error?.message ?? "Save failed");
+    return result.data;
   });
 
 export const updateAdvanceTiers = createServerFn({ method: "POST" })

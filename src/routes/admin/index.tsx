@@ -1,25 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, PieChart, ShoppingCart, Sparkles, Truck, Wallet } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
-  AlertTriangle,
-  ArrowUpRight,
-  CheckCircle2,
-  Clock3,
-  FileText,
-  Images,
-  Mail,
-  Megaphone,
-  Package,
-  Settings,
-  ShoppingBag,
-  Sparkles,
-  Wallet,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader, AdminStatCard } from "@/components/admin/admin-ui";
-import { formatPrice, SITE } from "@/config/site";
+  AdminEmpty,
+  AdminLoading,
+  AdminNotice,
+  AdminPageHeader,
+  ChartCard,
+  DateRangeSelect,
+  KpiCard,
+  StatusPill,
+  formatDate,
+  tzs,
+} from "@/components/admin/admin-ui";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { getAdminDashboard } from "@/lib/admin.functions";
-import { cn } from "@/lib/utils";
+import { bucketLabel, DATE_RANGE_LABELS, type DateRange } from "@/lib/ops/date-range";
+import { orderStatusLabel, orderStatusTone } from "@/lib/ops/status";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -28,318 +27,340 @@ export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
 });
 
-function statusTone(status: string): "neutral" | "gold" | "success" | "danger" {
-  if (status === "completed") return "success";
-  if (status === "cancelled" || status === "failed") return "danger";
-  if (["in_production", "ready", "out_for_delivery", "quoted", "in_progress"].includes(status)) return "gold";
-  return "neutral";
+type Dashboard = Awaited<ReturnType<typeof getAdminDashboard>>;
+
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+const chartConfig = { sales: { label: "Sales", color: "#FCA311" } } satisfies ChartConfig;
+
+function SalesTooltip({
+  active,
+  payload,
+  label,
+  bucket,
+}: {
+  active?: boolean;
+  payload?: { value?: number | string }[];
+  label?: string;
+  bucket: "day" | "month";
+}) {
+  if (!active || !payload?.length || !label) return null;
+  return (
+    <div className="rounded-lg bg-navy px-3 py-2 text-xs text-white shadow-lg">
+      <p className="text-white/65">{bucketLabel(label, bucket)}</p>
+      <p className="mt-0.5 text-sm font-semibold">{tzs(Number(payload[0]?.value ?? 0))}</p>
+    </div>
+  );
+}
+
+function SalesChart({ data }: { data: Dashboard }) {
+  const total = data.series.reduce((s, p) => s + p.sales, 0);
+  if (!total) {
+    return (
+      <div className="grid h-64 place-items-center rounded-lg bg-[#F9FAFB] text-sm text-[#6B7280]">
+        No completed payments in this period yet.
+      </div>
+    );
+  }
+  return (
+    <ChartContainer config={chartConfig} className="aspect-auto h-64 w-full">
+      <AreaChart data={data.series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FCA311" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#FCA311" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke="#EEF0F3" />
+        <XAxis
+          dataKey="key"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={24}
+          tickFormatter={(key: string) => bucketLabel(key, data.bucket)}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          width={48}
+          tickFormatter={(v: number) => compact.format(v)}
+        />
+        <ChartTooltip cursor={{ stroke: "#14213D", strokeDasharray: "3 3" }} content={<SalesTooltip bucket={data.bucket} />} />
+        <Area
+          type="monotone"
+          dataKey="sales"
+          stroke="#FCA311"
+          strokeWidth={2.5}
+          fill="url(#salesFill)"
+          activeDot={{ r: 5, fill: "#FCA311", stroke: "#fff", strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ChartContainer>
+  );
+}
+
+function ActionList({
+  title,
+  icon,
+  to,
+  count,
+  empty,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  to: "/admin/orders" | "/admin/custom-orders" | "/admin/products";
+  count: number;
+  empty: string;
+  children: ReactNode;
+}) {
+  return (
+    <ChartCard
+      title={
+        <span className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-gold-soft text-[#B86A00]">{icon}</span>
+          {title}
+          {count > 0 && <StatusPill tone="pending">{count}</StatusPill>}
+        </span>
+      }
+      action={
+        <Link to={to} className="text-xs font-semibold text-[#B86A00] hover:underline">
+          Open
+        </Link>
+      }
+      bodyClassName="px-0 md:px-0 pb-2"
+    >
+      {count ? <ul className="divide-y divide-[#F0F0F0]">{children}</ul> : <p className="px-4 py-6 text-sm text-[#6B7280] md:px-5">{empty}</p>}
+    </ChartCard>
+  );
+}
+
+function ActionRow({ title, detail, href }: { title: string; detail: string; href: { to: "/admin/orders" | "/admin/custom-orders"; q: string } }) {
+  return (
+    <li>
+      <Link to={href.to} search={{ q: href.q }} className="block px-4 py-2.5 hover:bg-[#F9FAFB] md:px-5">
+        <p className="truncate text-sm font-semibold text-navy">{title}</p>
+        <p className="truncate text-xs text-[#6B7280]">{detail}</p>
+      </Link>
+    </li>
+  );
 }
 
 function AdminDashboard() {
   const load = useServerFn(getAdminDashboard);
-  const [data, setData] = useState<Awaited<ReturnType<typeof load>> | null>(null);
+  const [range, setRange] = useState<DateRange>("30d");
+  const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    load()
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [load]);
+    let alive = true;
+    setLoading(true);
+    load({ data: { range } })
+      .then((d) => {
+        if (!alive) return;
+        setData(d);
+        setError(null);
+      })
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Failed to load"))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [load, range]);
 
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 md:p-8">
-        <p className="font-display text-xl text-destructive">Access error</p>
-        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-        <p className="mt-3 text-sm">
-          Ensure your Auth user is listed in <code className="rounded bg-muted px-1.5 py-0.5">admin_users</code>.
-        </p>
-        <Link to="/account/login" search={{ next: "/admin" }} className="btn-base btn-outline-navy mt-5 inline-flex">
-          Back to login
-        </Link>
+      <div>
+        <AdminPageHeader title="Dashboard" />
+        <AdminNotice tone="danger">
+          <p className="font-semibold">Could not load the dashboard</p>
+          <p className="mt-1">{error}</p>
+          {/forbidden/i.test(error) && (
+            <p className="mt-1">
+              Your sign-in is not listed in <code className="rounded bg-white px-1">admin_users</code>. See ADMIN_SETUP.md.
+            </p>
+          )}
+        </AdminNotice>
       </div>
     );
   }
 
-  if (!data) {
-    return (
-      <AdminEmpty>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-gold" />
-          Loading dashboard…
-        </span>
-      </AdminEmpty>
-    );
-  }
-
-  const attention = data.ordersNotDone + data.lowStock + data.customOpen + data.outOfStock;
-  const shortcuts = [
-    { to: "/admin/orders" as const, label: "Manage orders", desc: "Walk-in and online", Icon: ShoppingBag },
-    { to: "/admin/products" as const, label: "Edit products", desc: "Stock, photos, features", Icon: Package },
-    { to: "/admin/custom-orders" as const, label: "Custom requests", desc: "Quotes and builds", Icon: Sparkles },
-    { to: "/admin/messages" as const, label: "Customer messages", desc: "Contact form notes", Icon: Mail },
-    { to: "/admin/popups" as const, label: "Offer popup", desc: "Homepage banner", Icon: Megaphone },
-    { to: "/admin/content" as const, label: "Page content", desc: "EN / SW copy", Icon: FileText },
-    { to: "/admin/images" as const, label: "Site images", desc: "Page and gallery photos", Icon: Images },
-    { to: "/admin/settings" as const, label: "Site settings", desc: "Contact & socials", Icon: Settings },
-  ];
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <AdminPageHeader
         title="Dashboard"
-        description="Live snapshot of orders, payments, stock and custom requests."
+        description={`Sales and orders for the ${DATE_RANGE_LABELS[range].toLowerCase()}.`}
+        action={<DateRangeSelect value={range} onChange={(v) => v !== "all" && setRange(v)} className="w-44" />}
       />
 
-      {/* Hero overview */}
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-navy px-6 py-7 text-primary-foreground shadow-[var(--shadow-lift)] md:px-8 md:py-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-gold/25 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-gold/10 blur-3xl"
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-6">
-          <div className="min-w-0">
-            <p className="text-[0.7rem] font-bold uppercase tracking-[0.16em] text-gold/90">Workshop overview</p>
-            <h2 className="mt-2 font-display text-3xl tracking-tight md:text-4xl">
-              Welcome back to {SITE.name}
-            </h2>
-            <p className="mt-2 max-w-xl text-sm text-white/65 md:text-base">
-              {attention > 0
-                ? `${attention} item${attention === 1 ? "" : "s"} need attention across orders, stock and custom work.`
-                : "Everything looks clear — no urgent stock or order alerts."}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Orders</p>
-              <p className="mt-1 font-display text-2xl text-white">{data.ordersTotal}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Revenue</p>
-              <p className="mt-1 font-display text-xl text-gold sm:text-2xl">
-                {formatPrice(data.revenueTotal) ?? "—"}
-              </p>
-            </div>
-            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur sm:col-span-1">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-white/50">Open custom</p>
-              <p className="mt-1 font-display text-2xl text-white">{data.customOpen}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Orders */}
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="font-display text-xl text-navy">Orders pipeline</h2>
-          <Link to="/admin/orders" className="text-sm font-semibold text-gold hover:underline">
-            View all
-          </Link>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Link to="/admin/orders" className="block focus-visible:outline-none">
-            <AdminStatCard
-              label="Not done"
-              value={data.ordersNotDone}
-              hint="Pending / confirmed"
-              icon={<Clock3 className="h-4 w-4" />}
-              tone={data.ordersNotDone > 0 ? "warn" : "default"}
-            />
-          </Link>
-          <Link to="/admin/orders" className="block focus-visible:outline-none">
-            <AdminStatCard
-              label="In progress"
-              value={data.ordersInProgress}
-              hint="Production to delivery"
-              icon={<Package className="h-4 w-4" />}
+      {!data ? (
+        <AdminLoading label="Loading dashboard…" />
+      ) : (
+        <div className={loading ? "space-y-5 opacity-60 transition-opacity" : "space-y-5 transition-opacity"}>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Total orders"
+              value={data.kpis.orders.toLocaleString("en-US")}
+              icon={<ShoppingCart className="h-5 w-5" />}
               tone="gold"
+              trend={data.kpis.ordersTrend}
             />
-          </Link>
-          <Link to="/admin/orders" className="block focus-visible:outline-none">
-            <AdminStatCard
-              label="Completed"
-              value={data.ordersDone}
-              hint="Fulfilled"
-              icon={<CheckCircle2 className="h-4 w-4" />}
+            <KpiCard
+              label="Total sales"
+              value={tzs(data.kpis.sales)}
+              icon={<Wallet className="h-5 w-5" />}
               tone="success"
+              trend={data.kpis.salesTrend}
             />
-          </Link>
-          <Link to="/admin/orders" className="block focus-visible:outline-none">
-            <AdminStatCard
-              label="All orders"
-              value={data.ordersTotal}
-              hint="All time"
-              icon={<ShoppingBag className="h-4 w-4" />}
+            <KpiCard
+              label="Outstanding balances"
+              value={tzs(data.kpis.outstanding)}
+              icon={<Clock3 className="h-5 w-5" />}
+              tone="pending"
+              hint={`${data.kpis.outstandingOrders} open order${data.kpis.outstandingOrders === 1 ? "" : "s"} with a balance`}
             />
-          </Link>
-        </div>
-      </section>
+            <KpiCard
+              label="Net profit"
+              value={<span className="text-[#9CA3AF]">—</span>}
+              icon={<PieChart className="h-5 w-5" />}
+              tone="navy"
+              hint="Switches on in phase 2, once expenses and purchases are recorded."
+            />
+          </section>
 
-      {/* Payments + catalogue */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <h2 className="mb-3 font-display text-xl text-navy">Payments</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link to="/admin/orders" className="block focus-visible:outline-none">
-              <AdminStatCard
-                label="Paid advance"
-                value={data.paidAdvance}
-                hint={formatPrice(data.paidAdvanceSum) ?? "—"}
-                icon={<Wallet className="h-4 w-4" />}
-                tone="gold"
-              />
-            </Link>
-            <Link to="/admin/orders" className="block focus-visible:outline-none">
-              <AdminStatCard
-                label="Paid full"
-                value={data.paidFull}
-                hint={formatPrice(data.paidFullSum) ?? "—"}
-                icon={<Wallet className="h-4 w-4" />}
-                tone="success"
-              />
-            </Link>
-          </div>
-        </div>
-        <div>
-          <h2 className="mb-3 font-display text-xl text-navy">Catalogue</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link to="/admin/products" className="block focus-visible:outline-none">
-              <AdminStatCard
-                label="Products"
-                value={data.productsTotal}
-                hint="Catalogue items"
-                icon={<Package className="h-4 w-4" />}
-              />
-            </Link>
-            <Link to="/admin/products" className="block focus-visible:outline-none">
-              <AdminStatCard
-                label="Low stock"
-                value={data.lowStock}
-                hint={data.outOfStock > 0 ? `${data.outOfStock} out of stock` : "≤ 3 units"}
-                icon={<AlertTriangle className="h-4 w-4" />}
-                tone={data.lowStock > 0 || data.outOfStock > 0 ? "danger" : "default"}
-              />
-            </Link>
-          </div>
-        </div>
-      </section>
+          <section className="grid gap-4 xl:grid-cols-3">
+            <ChartCard
+              className="xl:col-span-2"
+              title="Sales overview"
+              description={`Completed payments, ${data.bucket === "month" ? "per month" : "per day"} (Dar es Salaam time)`}
+            >
+              <SalesChart data={data} />
+            </ChartCard>
 
-      {/* Activity + alerts */}
-      <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <AdminCard hover={false} className="!p-0 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4 md:px-6">
-            <h2 className="font-display text-xl text-navy">Recent orders</h2>
-            <Link to="/admin/orders" className="text-sm font-semibold text-gold hover:underline">
-              Open orders
-            </Link>
-          </div>
-          {data.recentOrders.length ? (
-            <ul className="divide-y divide-border/60">
-              {data.recentOrders.map((o) => (
-                <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-secondary/35 md:px-6">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-navy">{o.order_number}</p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {o.customer_name} · {new Date(o.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <AdminBadge tone={statusTone(o.status)}>{o.status.replace(/_/g, " ")}</AdminBadge>
-                    <AdminBadge tone={o.payment_status === "paid" ? "success" : "neutral"}>
-                      {o.payment_status}
-                    </AdminBadge>
-                  </div>
+            <ChartCard
+              title="Recent orders"
+              action={
+                <Link to="/admin/orders" className="inline-flex items-center gap-1 text-xs font-semibold text-[#B86A00] hover:underline">
+                  View all <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              }
+              bodyClassName="px-0 md:px-0 pb-2"
+            >
+              {data.recentOrders.length ? (
+                <ul className="divide-y divide-[#F0F0F0]">
+                  {data.recentOrders.map((o) => (
+                    <li key={o.id}>
+                      <Link
+                        to="/admin/orders"
+                        search={{ q: o.order_number }}
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-[#F9FAFB] md:px-5"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-navy">#{o.order_number}</span>
+                          <span className="block truncate text-xs text-[#6B7280]">
+                            {o.customer_name} · {formatDate(o.created_at)}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-sm font-semibold text-navy">{tzs(o.total_amount)}</span>
+                          <StatusPill tone={orderStatusTone(o.status)}>{orderStatusLabel(o.status)}</StatusPill>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <AdminEmpty className="m-4 border-0 py-8">No orders yet.</AdminEmpty>
+              )}
+            </ChartCard>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ActionList
+              title="Quotes to send"
+              icon={<Sparkles className="h-4 w-4" />}
+              to="/admin/custom-orders"
+              count={data.customAwaitingCount}
+              empty="Every custom request has an up-to-date quote."
+            >
+              {data.customAwaiting.map((c) => (
+                <ActionRow
+                  key={c.id}
+                  title={`${c.request_number} · ${c.full_name}`}
+                  detail={`${c.status === "changes_requested" ? "Changes requested" : "New request"} · ${c.furniture_type} · ${formatDate(c.created_at)}`}
+                  href={{ to: "/admin/custom-orders", q: c.request_number }}
+                />
+              ))}
+            </ActionList>
+            <ActionList
+              title="Quote accepted"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              to="/admin/custom-orders"
+              count={data.customAcceptedCount}
+              empty="No accepted quotes waiting to start."
+            >
+              {data.customAccepted.map((c) => (
+                <ActionRow
+                  key={c.id}
+                  title={`${c.request_number} · ${c.full_name}`}
+                  detail={`${c.furniture_type} · collect the advance and start`}
+                  href={{ to: "/admin/custom-orders", q: c.request_number }}
+                />
+              ))}
+            </ActionList>
+            <ActionList
+              title="Waiting for advance"
+              icon={<Wallet className="h-4 w-4" />}
+              to="/admin/orders"
+              count={data.awaitingAdvance.length}
+              empty="No orders are waiting for an advance."
+            >
+              {data.awaitingAdvance.map((o) => (
+                <ActionRow
+                  key={o.id}
+                  title={`#${o.order_number} · ${o.customer_name}`}
+                  detail={`${tzs(o.advance_left)} advance still due`}
+                  href={{ to: "/admin/orders", q: o.order_number }}
+                />
+              ))}
+            </ActionList>
+            <ActionList
+              title="Delivery fee to confirm"
+              icon={<Truck className="h-4 w-4" />}
+              to="/admin/orders"
+              count={data.feeToConfirm.length}
+              empty="No delivery fees waiting."
+            >
+              {data.feeToConfirm.map((o) => (
+                <ActionRow
+                  key={o.id}
+                  title={`#${o.order_number} · ${o.customer_name}`}
+                  detail={o.delivery_location}
+                  href={{ to: "/admin/orders", q: o.order_number }}
+                />
+              ))}
+            </ActionList>
+            <ActionList
+              title="Low stock"
+              icon={<AlertTriangle className="h-4 w-4" />}
+              to="/admin/products"
+              count={data.lowStockItems.length}
+              empty="Stock levels look healthy."
+            >
+              {data.lowStockItems.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 md:px-5">
+                  <span className="truncate text-sm font-medium text-navy">{p.name}</span>
+                  <StatusPill tone={p.stock_quantity <= 0 ? "danger" : "pending"}>
+                    {p.stock_quantity <= 0 ? "Out" : `${p.stock_quantity} left`}
+                  </StatusPill>
                 </li>
               ))}
-            </ul>
-          ) : (
-            <p className="px-5 py-10 text-center text-sm text-muted-foreground md:px-6">No orders yet.</p>
-          )}
-        </AdminCard>
-
-        <div className="space-y-5">
-          <AdminCard hover={false} className="!p-0 overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
-              <h2 className="font-display text-lg text-navy">Stock alerts</h2>
-              <Link to="/admin/products" className="text-sm font-semibold text-gold hover:underline">
-                Products
-              </Link>
-            </div>
-            {data.lowStockItems.length ? (
-              <ul className="divide-y divide-border/60">
-                {data.lowStockItems.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <span className="truncate font-medium text-navy">{p.name}</span>
-                    <AdminBadge tone={p.stock_quantity <= 0 ? "danger" : "warn"}>
-                      {p.stock_quantity <= 0 ? "Out" : `${p.stock_quantity} left`}
-                    </AdminBadge>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Stock levels look healthy.</p>
-            )}
-          </AdminCard>
-
-          <AdminCard hover={false} className="!p-0 overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
-              <h2 className="font-display text-lg text-navy">Open custom</h2>
-              <Link to="/admin/custom-orders" className="text-sm font-semibold text-gold hover:underline">
-                View
-              </Link>
-            </div>
-            {data.recentCustom.length ? (
-              <ul className="divide-y divide-border/60">
-                {data.recentCustom.map((c) => (
-                  <li key={c.id} className="px-5 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-navy">{c.request_number}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {c.full_name} · {c.furniture_type}
-                        </p>
-                      </div>
-                      <AdminBadge tone={statusTone(c.status)}>{c.status.replace(/_/g, " ")}</AdminBadge>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No open custom requests.</p>
-            )}
-          </AdminCard>
+            </ActionList>
+          </section>
         </div>
-      </section>
-
-      {/* Quick actions */}
-      <section>
-        <h2 className="mb-3 font-display text-xl text-navy">Quick actions</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shortcuts.map((s) => (
-            <Link
-              key={s.to}
-              to={s.to}
-              className={cn(
-                "group flex items-center gap-3 rounded-2xl border border-border/80 bg-background p-4 shadow-[var(--shadow-card)]",
-                "transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/35 hover:shadow-[var(--shadow-lift)]",
-              )}
-            >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy transition-transform duration-300 group-hover:scale-110">
-                <s.Icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-navy">{s.label}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{s.desc}</span>
-              </span>
-              <ArrowUpRight className="h-4 w-4 shrink-0 text-gold transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
-          ))}
-        </div>
-      </section>
+      )}
     </div>
   );
 }

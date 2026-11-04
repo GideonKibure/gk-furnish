@@ -45,7 +45,7 @@ function ForgotPage() {
         </form>
       )}
       <p className="mt-6 text-center text-sm">
-        <Link to="/account/login" className="font-semibold text-gold hover:underline">
+        <Link to="/account/login" className="font-semibold text-gold-ink hover:underline">
           {t.auth.signIn}
         </Link>
       </p>

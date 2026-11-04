@@ -1,177 +1,67 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Images, Package, Phone, Sparkles } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { Home, ShoppingBag, ShoppingCart, UserRound } from "lucide-react";
+import { useAuthUser } from "@/hooks/use-auth";
 import { useLang } from "@/i18n/LanguageProvider";
+import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
+import { CartCountBadge } from "./HeaderActions";
 
-type NavIcon = ComponentType<{ className?: string; strokeWidth?: number | string }>;
-
-type DockLink = {
-  to: "/" | "/products" | "/custom-order" | "/gallery" | "/contact";
-  label: string;
-  icon: NavIcon;
-  match: (pathname: string) => boolean;
-};
-
-export function MobileBottomNav({ hidden = false }: { hidden?: boolean }) {
+/** Fixed 4-tab bar for phones and tablets: Home, Shop, Cart, Account. */
+export function MobileBottomNav() {
   const { t } = useLang();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const trackRef = useRef<HTMLDivElement>(null);
-  const cellRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [indicator, setIndicator] = useState({ x: 0, y: 0, w: 0, h: 0, ready: false });
-  const [pressed, setPressed] = useState<string | null>(null);
-  const [hasSlid, setHasSlid] = useState(false);
+  const { count } = useCart();
+  const { user, ready } = useAuthUser();
+  const signedOut = ready && !user;
 
-  useEffect(() => {
-    if (hidden) setHasSlid(true);
-  }, [hidden]);
-
-  const links: DockLink[] = useMemo(
-    () => [
-      { to: "/", label: t.nav.home, icon: Home, match: (p) => p === "/" },
-      {
-        to: "/products",
-        label: t.nav.products,
-        icon: Package,
-        match: (p) => p.startsWith("/products") || p.startsWith("/categories"),
-      },
-      { to: "/custom-order", label: t.nav.custom, icon: Sparkles, match: (p) => p.startsWith("/custom-order") },
-      { to: "/gallery", label: t.nav.gallery, icon: Images, match: (p) => p.startsWith("/gallery") },
-      { to: "/contact", label: t.nav.contact, icon: Phone, match: (p) => p.startsWith("/contact") },
-    ],
-    [t],
-  );
-
-  const activeIndex = Math.max(
-    0,
-    links.findIndex((l) => l.match(pathname)),
-  );
-
-  useLayoutEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    const measure = () => {
-      const cell = cellRefs.current[activeIndex];
-      if (!cell) return;
-      const trackBox = track.getBoundingClientRect();
-      const cellBox = cell.getBoundingClientRect();
-      // Compact gold circle sized to the icon bubble, not the full cell
-      const size = Math.min(cellBox.width - 8, window.innerWidth < 640 ? 26 : 32);
-      const x = cellBox.left - trackBox.left + (cellBox.width - size) / 2;
-      const y = cellBox.top - trackBox.top + (window.innerWidth < 640 ? 4 : 5);
-      setIndicator({
-        x,
-        y,
-        w: size,
-        h: size,
-        ready: true,
-      });
-    };
-
-    measure();
-    requestAnimationFrame(measure);
-
-    const ro = new ResizeObserver(() => requestAnimationFrame(measure));
-    ro.observe(track);
-    cellRefs.current.forEach((el) => el && ro.observe(el));
-    window.addEventListener("resize", measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [activeIndex, pathname, links]);
+  const tabs = [
+    { key: "home", to: "/" as const, label: t.nav.home, icon: Home, active: pathname === "/" },
+    {
+      key: "shop",
+      to: "/products" as const,
+      label: t.shell.shop,
+      icon: ShoppingBag,
+      active: pathname.startsWith("/products") || pathname.startsWith("/categories"),
+    },
+    {
+      key: "cart",
+      to: "/cart" as const,
+      label: t.shell.cart,
+      icon: ShoppingCart,
+      active: pathname.startsWith("/cart") || pathname.startsWith("/checkout"),
+      badge: count,
+    },
+    {
+      key: "account",
+      to: signedOut ? ("/account/login" as const) : ("/account" as const),
+      label: t.shell.account,
+      icon: UserRound,
+      active: pathname.startsWith("/account"),
+    },
+  ];
 
   return (
-    <nav
-      aria-label={t.nav.menu}
-      className={cn(
-        "mobile-dock nav-reveal nav-reveal-down pointer-events-none fixed inset-x-0 bottom-0 z-50 px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] sm:px-5 lg:hidden",
-        hidden ? "is-hidden" : hasSlid && "is-shown",
-      )}
-    >
-      <div className="mobile-dock-glow pointer-events-auto relative mx-auto w-full max-w-md">
-        <span className="mobile-dock-glow-spin" aria-hidden />
-        <span className="mobile-dock-glow-pulse" aria-hidden />
-
-        <div className="mobile-dock-shell relative">
-          <div ref={trackRef} className="relative grid grid-cols-5 gap-0.5 p-1 sm:gap-1 sm:p-1.5">
-            <div
-              aria-hidden
+    <nav aria-label={t.nav.menu} className="tabbar lg:hidden">
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4">
+        {tabs.map(({ key, to, label, icon: Icon, active, badge }) => (
+          <li key={key}>
+            <Link
+              to={to}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "mobile-dock-indicator absolute rounded-full",
-                "transition-[transform,width,height,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                indicator.ready ? "opacity-100" : "opacity-0",
+                "flex h-full flex-col items-center justify-center gap-1 text-[0.7rem] font-semibold transition-colors",
+                active ? "text-gold-ink" : "text-muted-foreground hover:text-navy",
               )}
-              style={{
-                width: indicator.w,
-                height: indicator.h,
-                transform: `translate3d(${indicator.x}px, ${indicator.y}px, 0)`,
-              }}
-            />
-
-            {links.map((l, i) => {
-              const active = i === activeIndex;
-              const Icon = l.icon;
-              return (
-                <div
-                  key={l.to}
-                  ref={(node) => {
-                    cellRefs.current[i] = node;
-                  }}
-                  className="min-w-0"
-                >
-                  <Link
-                    to={l.to}
-                    onPointerDown={() => setPressed(l.to)}
-                    onPointerUp={() => setPressed(null)}
-                    onPointerLeave={() => setPressed(null)}
-                    onClick={() => {
-                      setPressed(l.to);
-                      window.setTimeout(() => setPressed(null), 280);
-                    }}
-                    className={cn(
-                      "mobile-dock-link relative z-10 flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-0.5 py-1 font-sans outline-none transition-all duration-300 sm:gap-1 sm:py-1.5",
-                      active ? "text-navy" : "text-white/72 hover:text-white",
-                      pressed === l.to && "scale-[0.9]",
-                      active && "mobile-dock-link-active",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "grid h-6 w-6 place-items-center rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-7 sm:w-7",
-                        active && "mobile-dock-icon-pop",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-3.5 w-3.5 transition-transform duration-300 sm:h-4 sm:w-4",
-                          active && "scale-110",
-                        )}
-                        strokeWidth={active ? 2.55 : 2.1}
-                      />
-                    </span>
-                    <span
-                      className={cn(
-                        "max-w-full truncate px-0.5 text-center text-[0.56rem] font-semibold leading-none tracking-[0.01em] sm:text-[0.65rem]",
-                        active ? "text-gold" : "text-white/85",
-                      )}
-                    >
-                      {l.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "h-0.5 w-0.5 rounded-full transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-1 sm:w-1",
-                        active ? "scale-100 bg-gold opacity-100" : "scale-0 bg-gold opacity-0",
-                      )}
-                    />
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+            >
+              <span className="relative">
+                <Icon className="h-[1.35rem] w-[1.35rem]" strokeWidth={active ? 2.3 : 1.8} />
+                {badge ? <CartCountBadge count={badge} /> : null}
+              </span>
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }

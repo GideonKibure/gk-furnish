@@ -75,7 +75,15 @@ type PolicyOrder = {
   amount_paid: number;
   advance_required: number;
   specs_agreed_at: string | null;
+  /** From migration 0007. Absent on older rows, which have no delivery fee to confirm. */
+  fulfilment_method?: string | null | undefined;
+  delivery_fee_status?: string | null | undefined;
 };
+
+/** True while a delivery order still waits for GK Furnish to set its delivery fee. */
+export function deliveryFeePending(order: Pick<PolicyOrder, "fulfilment_method" | "delivery_fee_status">) {
+  return order.fulfilment_method === "delivery" && order.delivery_fee_status === "pending";
+}
 
 /** Statuses that mean production has started or finished. */
 export const PRODUCTION_STATUSES = ["in_production", "ready"] as const;
@@ -97,6 +105,7 @@ export function statusBlockers(order: PolicyOrder, status: string): string[] {
     }
   }
   if ((DELIVERY_STATUSES as readonly string[]).includes(status)) {
+    if (deliveryFeePending(order)) blockers.push("The delivery fee has not been confirmed.");
     const left = balanceDue(order.total_amount, order.amount_paid);
     if (left > 0) blockers.push(`The balance of ${left.toLocaleString("en-US")} TSh has not been cleared.`);
   }

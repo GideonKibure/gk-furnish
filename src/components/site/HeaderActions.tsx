@@ -1,42 +1,52 @@
 import { Link } from "@tanstack/react-router";
-import { ShoppingBag, UserRound } from "lucide-react";
+import { ShoppingCart, UserRound } from "lucide-react";
 import { useAuthUser } from "@/hooks/use-auth";
+import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
-/** Cart (with item count) and account shortcuts for the site header. */
-export function HeaderActions({ dark = false }: { dark?: boolean }) {
+export function CartCountBadge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={cn(
+        "absolute -right-1 -top-1 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-gold px-1 text-[0.65rem] font-bold leading-none text-navy ring-2 ring-white",
+        className,
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+/** Account and cart shortcuts for the site header. */
+export function HeaderActions({ showAccount = true }: { showAccount?: boolean }) {
   const { t } = useLang();
   const { count } = useCart();
   const { user, ready } = useAuthUser();
   const signedOut = ready && !user;
-  const tone = dark
-    ? "text-white/85 hover:bg-white/10 hover:text-white"
-    : "text-navy hover:bg-secondary";
 
   return (
-    <div className="flex items-center gap-0.5 sm:gap-1">
-      <Link
-        to={signedOut ? "/account/login" : "/account"}
-        aria-label={signedOut ? t.nav.signIn : t.nav.account}
-        title={signedOut ? t.nav.signIn : t.nav.account}
-        className={cn("grid h-8 w-8 place-items-center rounded-full transition-colors sm:h-9 sm:w-9", tone)}
-      >
-        <UserRound className="h-[1.15rem] w-[1.15rem]" />
-      </Link>
+    <div className="flex items-center gap-0.5">
+      {showAccount && (
+        <Link
+          to={signedOut ? "/account/login" : "/account"}
+          aria-label={signedOut ? t.nav.signIn : t.nav.account}
+          title={signedOut ? t.nav.signIn : t.nav.account}
+          className="icon-btn"
+        >
+          <UserRound className="h-5 w-5" strokeWidth={1.8} />
+        </Link>
+      )}
       <Link
         to="/cart"
-        aria-label={`${t.nav.cart} (${count})`}
+        aria-label={fill(t.shell.cartCount, { count })}
         title={t.nav.cart}
-        className={cn("relative grid h-8 w-8 place-items-center rounded-full transition-colors sm:h-9 sm:w-9", tone)}
+        className="icon-btn relative"
       >
-        <ShoppingBag className="h-[1.15rem] w-[1.15rem]" />
-        {count > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full bg-gold px-1 text-[0.65rem] font-bold leading-none text-navy shadow-sm">
-            {count > 99 ? "99+" : count}
-          </span>
-        )}
+        <ShoppingCart className="h-5 w-5" strokeWidth={1.8} />
+        <CartCountBadge count={count} />
       </Link>
     </div>
   );

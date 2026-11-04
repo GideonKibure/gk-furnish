@@ -10,6 +10,8 @@ import { SiteFooter, WhatsAppFab } from "@/components/site/SiteFooter";
 import { OfferBanner } from "@/components/site/OfferBanner";
 import { CartProvider } from "@/lib/cart";
 import { NavigationProgress } from "@/components/site/NavigationProgress";
+import { SITE } from "@/config/site";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -32,14 +34,29 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+const ORGANIZATION_LD = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FurnitureStore",
+  name: SITE.name,
+  url: SITE.url,
+  logo: DEFAULT_OG_IMAGE,
+  telephone: SITE.phoneDial,
+  email: SITE.email,
+  address: { "@type": "PostalAddress", addressLocality: "Mbeya", addressCountry: "TZ" },
+  currenciesAccepted: "TZS",
+});
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GK furnish — Locally made furniture, Mbeya" },
-      { name: "description", content: "Durable, affordable furniture handmade in Mbeya, Tanzania." },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#14213D" },
+      { title: "GK furnish — Quality furniture for a better living, Mbeya" },
+      { name: "description", content: "Stylish, affordable furniture for study, work and home — made in Mbeya, Tanzania. Prices in TZS, delivery arranged." },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: SITE.name },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -48,10 +65,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap",
       },
       { rel: "icon", href: "/brand/gk-furnish-logo.svg", type: "image/svg+xml" },
+      { rel: "sitemap", type: "application/xml", href: "/sitemap.xml" },
     ],
+    scripts: [{ type: "application/ld+json", children: ORGANIZATION_LD }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -84,7 +103,9 @@ function RootComponent() {
           <CartProvider>
             <OfferBanner onVisibilityChange={setOfferVisible} />
             <SiteHeader offerVisible={offerVisible} />
-            <main><Outlet /></main>
+            <main id="main" className="min-h-[60vh] bg-white">
+              <Outlet />
+            </main>
             <SiteFooter />
             <WhatsAppFab />
           </CartProvider>

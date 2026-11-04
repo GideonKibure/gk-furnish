@@ -12,3 +12,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /cart
+Disallow: /pay/
+Disallow: /track/
+
+Sitemap: https://gkfurnish.co.tz/sitemap.xml

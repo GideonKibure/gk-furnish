@@ -33,6 +33,11 @@ export type QuoteLine = {
   unitPrice: number;
 };
 
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "changes_requested" | "expired" | "superseded";
+
+export const QUOTE_RESPONSES = ["accepted", "rejected", "changes_requested"] as const;
+export type QuoteResponse = (typeof QUOTE_RESPONSES)[number];
+
 export type SavedQuote = {
   id: string;
   number: string;
@@ -53,7 +58,23 @@ export type SavedQuote = {
   material: string;
   color: string;
   requirements: string;
+  /** 1-based version. Older saved quotes get their position in the list. */
+  version?: number | undefined;
+  status?: QuoteStatus | undefined;
+  inclusions?: string | undefined;
+  exclusions?: string | undefined;
+  estimatedCompletion?: string | null | undefined;
+  customerResponse?: string | undefined;
+  respondedAt?: string | null | undefined;
 };
+
+/** A quote the customer can still accept, reject or ask to change. */
+export function quoteIsOpen(quote: SavedQuote, today = new Date()) {
+  const status = quote.status ?? "sent";
+  if (status !== "sent") return false;
+  if (!quote.validUntil) return true;
+  return new Date(`${quote.validUntil}T23:59:59`).getTime() >= today.getTime();
+}
 
 function text(row: Record<string, unknown>, key: string) {
   const value = row[key];
@@ -101,6 +122,12 @@ function quoteOf(value: unknown): SavedQuote | null {
     material: text(row, "material"),
     color: text(row, "color"),
     requirements: text(row, "requirements"),
+    status: (text(row, "status") as QuoteStatus) || undefined,
+    inclusions: text(row, "inclusions") || undefined,
+    exclusions: text(row, "exclusions") || undefined,
+    estimatedCompletion: text(row, "estimatedCompletion") || null,
+    customerResponse: text(row, "customerResponse") || undefined,
+    respondedAt: text(row, "respondedAt") || null,
   };
 }
 
@@ -111,10 +138,15 @@ export function parseSavedQuotes(stored?: string | null): SavedQuote[] {
   try {
     const value = JSON.parse(raw) as unknown;
     if (!Array.isArray(value)) return [];
-    return value.flatMap((item) => {
+    const quotes = value.flatMap((item) => {
       const quote = quoteOf(item);
       return quote ? [quote] : [];
     });
+    return quotes.map((quote, index) => ({
+      ...quote,
+      version: index + 1,
+      status: quote.status ?? (index < quotes.length - 1 ? "superseded" : "sent"),
+    }));
   } catch {
     return [];
   }

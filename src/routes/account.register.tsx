@@ -84,7 +84,7 @@ function RegisterPage() {
       )}
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {t.auth.haveAccount}{" "}
-        <Link to="/account/login" search={{ next }} className="font-semibold text-gold hover:underline">
+        <Link to="/account/login" search={{ next }} className="font-semibold text-gold-ink hover:underline">
           {t.auth.signIn}
         </Link>
       </p>

@@ -1,19 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, ImagePlus, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Archive, ArchiveRestore, Download, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { toast } from "sonner";
-import { AdminBadge, AdminCard, AdminEmpty, AdminPageHeader } from "@/components/admin/admin-ui";
+import {
+  AdminCard,
+  AdminEmpty,
+  AdminLoading,
+  AdminNotice,
+  AdminPageHeader,
+  DataTable,
+  SearchInput,
+  StatusPill,
+  StatusTabs,
+  btn,
+  type Column,
+} from "@/components/admin/admin-ui";
 import { HexSwatch } from "@/components/site/SelectChoices";
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import {
   deleteAdminProduct,
   listAdminCategories,
   listAdminProducts,
+  setAdminProductStatus,
   signProductVideoUpload,
   updateProductStock,
   upsertAdminProduct,
 } from "@/lib/admin.functions";
+import { humanize, productStatusTone } from "@/lib/ops/status";
 import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
 import { downloadToDevice, photoFileName } from "@/lib/download-file";
@@ -208,9 +222,32 @@ function OptionNameList({
 }
 
 export const Route = createFileRoute("/admin/products")({
+  validateSearch: (s: Record<string, unknown>): { q?: string } =>
+    typeof s["q"] === "string" && s["q"].trim() ? { q: s["q"].trim().slice(0, 80) } : {},
   head: () => ({ meta: [{ title: "Products — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminProductsPage,
 });
+
+type StatusTab = "all" | "active" | "draft" | "archived";
+
+function productStatus(p: ProductRow) {
+  return p.status ?? "active";
+}
+
+/** Discount shown on the storefront: the set percent, or the saving against the old price. */
+function effectiveDiscount(p: ProductRow) {
+  if (p.discount_percent) return p.discount_percent;
+  const old = Number(p.compare_at_price ?? 0);
+  const price = Number(p.price);
+  return old > price && price > 0 ? Math.round(((old - price) / old) * 100) : null;
+}
+
+function numberOrNull(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 function AdminProductsPage() {
   const listProducts = useServerFn(listAdminProducts);
@@ -219,8 +256,13 @@ function AdminProductsPage() {
   const signVideo = useServerFn(signProductVideoUpload);
   const remove = useServerFn(deleteAdminProduct);
   const setStock = useServerFn(updateProductStock);
+  const setStatus = useServerFn(setAdminProductStatus);
+  const search = Route.useSearch();
 
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [q, setQ] = useState(search.q ?? "");
+  const [tab, setTab] = useState<StatusTab>("all");
   const [cats, setCats] = useState<Cat[]>([]);
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -243,11 +285,42 @@ function AdminProductsPage() {
     const [p, c] = await Promise.all([listProducts(), listCats()]);
     setProducts(p);
     setCats(c);
+    setLoaded(true);
   }
 
   useEffect(() => {
     refresh().catch((e) => toast.error(e instanceof Error ? e.message : "Load failed"));
   }, []);
+
+  useEffect(() => {
+    if (search.q) setQ(search.q);
+  }, [search.q]);
+
+  /** Migration 0007 adds `status`; before it, products can only be deleted. */
+  const extendedReady = !loaded || !products.length || products.some((p) => p.status !== undefined);
+  const searched = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((p) =>
+      [p.name, p.name_sw, p.slug, p.sku, p.categories?.name].some((v) => v?.toLowerCase().includes(term)),
+    );
+  }, [products, q]);
+  const tabs = (["all", "active", "draft", "archived"] as const).map((id) => ({
+    id,
+    label: id === "all" ? "All" : humanize(id),
+    count: id === "all" ? searched.length : searched.filter((p) => productStatus(p) === id).length,
+  }));
+  const shown = tab === "all" ? searched : searched.filter((p) => productStatus(p) === tab);
+
+  async function onStatus(p: ProductRow, status: "active" | "draft" | "archived") {
+    try {
+      await setStatus({ data: { id: p.id, status } });
+      toast.success(status === "archived" ? `${p.name} archived` : status === "active" ? `${p.name} is live` : `${p.name} moved to drafts`);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    }
+  }
 
   async function onStockBlur(id: string, stock: number, available: boolean) {
     try {
@@ -260,7 +333,7 @@ function AdminProductsPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this product?")) return;
+    if (!confirm("Delete this product permanently? Its photos are removed too. Archive it instead to keep order history tidy.")) return;
     try {
       await remove({ data: { id } });
       toast.success("Deleted");
@@ -338,6 +411,7 @@ function AdminProductsPage() {
     setEditing(p);
     setCreating(false);
     resetFormExtras(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function closeForm() {
@@ -436,6 +510,13 @@ function AdminProductsPage() {
     const colors = colorRows.map((color) => color.stored);
 
     try {
+      const discount = numberOrNull(fd.get("discount_percent"));
+      if (discount != null && (discount < 1 || discount > 90)) throw new Error("Discount must be between 1 and 90%");
+      const compareAt = numberOrNull(fd.get("compare_at_price"));
+      if (compareAt != null && compareAt > 0 && compareAt <= basePrice) {
+        throw new Error("The old price must be higher than the current price");
+      }
+
       const angle_uploads: { slot: number; file: Awaited<ReturnType<typeof fileToUpload>> }[] = [];
       for (let slot = 0; slot < angles.length; slot++) {
         const a = angles[slot];
@@ -461,8 +542,22 @@ function AdminProductsPage() {
       }
 
       setBusy(true);
-      await save({
+      const saved = await save({
         data: {
+          extended: {
+            sku: String(fd.get("sku") ?? ""),
+            status: String(fd.get("status") ?? "active") as "active" | "draft" | "archived",
+            source_type: String(fd.get("source_type") ?? "in_house") as "in_house" | "partner",
+            is_customisable: fd.get("is_customisable") === "on",
+            finish: String(fd.get("finish") ?? ""),
+            finish_sw: String(fd.get("finish_sw") ?? ""),
+            care_info: String(fd.get("care_info") ?? ""),
+            care_info_sw: String(fd.get("care_info_sw") ?? ""),
+            compare_at_price: compareAt && compareAt > 0 ? compareAt : null,
+            discount_percent: discount == null ? null : Math.round(discount),
+            free_delivery: fd.get("free_delivery") === "on",
+            stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
+          },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
           name: String(fd.get("name")),
@@ -487,6 +582,7 @@ function AdminProductsPage() {
         },
       });
       toast.success(editing ? "Product updated" : "Product created");
+      if (saved.notice) toast.info(`SKU, status, discount and delivery fields were not saved. ${saved.notice}`, { duration: 10000 });
       closeForm();
       await refresh();
     } catch (err) {
@@ -498,24 +594,74 @@ function AdminProductsPage() {
 
   const formOpen = creating || editing;
 
+  const productColumns: Column<ProductRow>[] = [
+    {
+      key: "product",
+      header: "Product",
+      cell: (p) => (
+        <div className="flex min-w-[14rem] items-center gap-3">
+          <img src={productImageSrc(p)} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-[#E5E5E5]" />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-navy">{p.name}</p>
+            <p className="truncate text-xs text-[#6B7280]">
+              {[p.sku, p.categories?.name].filter(Boolean).join(" · ") || p.slug}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "media",
+      header: "Media",
+      className: "hidden lg:table-cell",
+      cell: (p) => {
+        const rows = sortedProductImages(p.product_images);
+        const photos = rows.filter((r) => r.image_url && (r.sort_order ?? 0) <= 1).length;
+        const video = rows.some((r) => r.image_url && (r.sort_order ?? 0) === 2);
+        return (
+          <StatusPill tone={photos >= 2 ? "success" : photos > 0 ? "processing" : "neutral"}>
+            {photos}/2 photos{video ? " · video" : ""}
+          </StatusPill>
+        );
+      },
+    },
+    { key: "price", header: "Price", cell: (p) => productPrice(p) },
+    { key: "stock", header: "Stock", cell: (p) => stockInput(p) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (p) => (
+        <div className="flex flex-col items-start gap-1">
+          <StatusPill tone={productStatusTone(productStatus(p))}>{humanize(productStatus(p))}</StatusPill>
+          {!p.is_available && productStatus(p) === "active" && <StatusPill>Unavailable</StatusPill>}
+        </div>
+      ),
+    },
+    { key: "actions", header: <span className="sr-only">Actions</span>, align: "right", cell: (p) => productActions(p) },
+  ];
+
   return (
     <div>
       <AdminPageHeader
         title="Products"
-        description="Add, edit, stock and remove catalogue items — including three view-angle photos."
+        description="Catalogue items with prices per material and size, photos, video and stock."
         action={
-          <button type="button" className="btn-base btn-gold" onClick={openCreate}>
+          <button type="button" className={btn("gold")} onClick={openCreate}>
+            <Plus className="h-4 w-4" />
             Add product
           </button>
         }
       />
 
       {formOpen && (
-        <AdminCard hover={false} className="mb-6 grid gap-3 md:grid-cols-2">
-          <form onSubmit={onSave} className="contents">
-            <h2 className="font-display text-xl text-navy md:col-span-2">
-              {editing ? "Edit product" : "New product"}
-            </h2>
+        <AdminCard className="mb-6">
+          <form key={editing?.id ?? "new"} onSubmit={onSave} className="grid gap-3 md:grid-cols-2">
+            <div className="flex items-center justify-between gap-2 md:col-span-2">
+              <h2 className="text-base font-semibold text-navy">{editing ? `Edit ${editing.name}` : "New product"}</h2>
+              <button type="button" className={btn("ghost", "sm")} onClick={closeForm} aria-label="Close form">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <div>
               <label className="field-label">Name (EN) *</label>
               <input name="name" required className="field-input" defaultValue={editing?.name ?? ""} />
@@ -566,6 +712,110 @@ function AdminProductsPage() {
                 defaultValue={editing?.stock_quantity ?? 0}
               />
             </div>
+
+            <fieldset className="grid gap-3 rounded-xl border border-[#E5E5E5] bg-[#F9FAFB] p-4 md:col-span-2 md:grid-cols-2">
+              <legend className="px-1 text-sm font-semibold text-navy">Catalogue details</legend>
+              {!extendedReady && (
+                <div className="md:col-span-2">
+                  <AdminNotice tone="pending">
+                    These fields are saved once the 0007 database update has been run in Supabase.
+                  </AdminNotice>
+                </div>
+              )}
+              <div>
+                <label className="field-label">SKU</label>
+                <input name="sku" className="field-input font-mono" placeholder="e.g. GK-CHR-001" defaultValue={editing?.sku ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Status</label>
+                <select name="status" className="field-input" defaultValue={editing ? productStatus(editing) : "active"}>
+                  <option value="active">Active — shown in the shop</option>
+                  <option value="draft">Draft — hidden while you finish it</option>
+                  <option value="archived">Archived — no longer sold</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Made by</label>
+                <select name="source_type" className="field-input" defaultValue={editing?.source_type ?? "in_house"}>
+                  <option value="in_house">In-house workshop</option>
+                  <option value="partner">Partner maker</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm text-navy">
+                <input type="checkbox" name="is_customisable" defaultChecked={editing?.is_customisable ?? false} className="h-4 w-4 accent-[#14213D]" />
+                Customers can ask for changes (customisable)
+              </label>
+              <div>
+                <label className="field-label">Finish (EN)</label>
+                <input name="finish" className="field-input" placeholder="e.g. Matte walnut varnish" defaultValue={editing?.finish ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Finish (SW)</label>
+                <input name="finish_sw" className="field-input" placeholder="mf. Vanishi ya walnut" defaultValue={editing?.finish_sw ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Care info (EN)</label>
+                <textarea name="care_info" rows={2} className="field-input" defaultValue={editing?.care_info ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Care info (SW)</label>
+                <textarea name="care_info_sw" rows={2} className="field-input" defaultValue={editing?.care_info_sw ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Old price (TSh)</label>
+                <input
+                  name="compare_at_price"
+                  type="number"
+                  min={0}
+                  step={100}
+                  className="field-input"
+                  placeholder="Shown crossed out"
+                  defaultValue={editing?.compare_at_price ?? ""}
+                />
+                <p className="mt-1 text-xs text-[#6B7280]">Must be higher than the price above. Leave empty when there is no offer.</p>
+              </div>
+              <div>
+                <label className="field-label">Discount badge (%)</label>
+                <input
+                  name="discount_percent"
+                  type="number"
+                  min={1}
+                  max={90}
+                  className="field-input"
+                  placeholder="Optional, 1–90"
+                  defaultValue={editing?.discount_percent ?? ""}
+                />
+                <p className="mt-1 text-xs text-[#6B7280]">Leave empty to work it out from the old price.</p>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-navy">
+                <input type="checkbox" name="free_delivery" defaultChecked={editing?.free_delivery ?? false} className="h-4 w-4 accent-[#14213D]" />
+                Free delivery for this product
+              </label>
+              <div role="radiogroup" aria-label="Stock shown to customers" className="space-y-1.5">
+                <p className="field-label !mb-1">Stock shown to customers</p>
+                <label className="flex items-center gap-2 text-sm text-navy">
+                  <input
+                    type="radio"
+                    name="stock_display"
+                    value="label"
+                    defaultChecked={(editing?.stock_display ?? "label") !== "count"}
+                    className="accent-[#14213D]"
+                  />
+                  Show label: In stock / Made to order
+                </label>
+                <label className="flex items-center gap-2 text-sm text-navy">
+                  <input
+                    type="radio"
+                    name="stock_display"
+                    value="count"
+                    defaultChecked={editing?.stock_display === "count"}
+                    className="accent-[#14213D]"
+                  />
+                  Show exact quantity
+                </label>
+              </div>
+            </fieldset>
+
             <OptionNameList
               label="Materials customers can choose"
               hint="Add each material in English and Kiswahili. Prices for every size are set below."
@@ -974,121 +1224,141 @@ function AdminProductsPage() {
         </AdminCard>
       )}
 
-      {!products.length ? (
-        <AdminEmpty>No products yet. Add your first catalogue item.</AdminEmpty>
+      <div className="mb-4 space-y-3">
+        <StatusTabs tabs={extendedReady ? tabs : tabs.slice(0, 1)} value={tab} onChange={setTab} />
+        <SearchInput value={q} onChange={setQ} placeholder="Search name, SKU, slug or category" className="max-w-md" />
+      </div>
+
+      {!loaded ? (
+        <AdminLoading label="Loading products…" />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border/80 bg-background shadow-[var(--shadow-card)]">
-          <table className="w-full min-w-[800px] text-left text-sm">
-            <thead className="border-b border-border/80 bg-secondary/50 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              <tr>
-                <th className="p-4">Product</th>
-                <th className="p-4">Photos</th>
-                <th className="p-4">Price</th>
-                <th className="p-4">Stock</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => {
-                const angleCount = sortedProductImages(p.product_images).filter(
-                  (r) => r.image_url && (r.sort_order ?? 0) <= 1,
-                ).length;
-                const hasVideo = sortedProductImages(p.product_images).some(
-                  (r) => r.image_url && (r.sort_order ?? 0) === 2,
-                );
-                return (
-                  <tr key={p.id} className="border-b border-border/60 transition-colors hover:bg-secondary/35">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={productImageSrc(p)}
-                          alt=""
-                          className="h-12 w-12 rounded-xl object-cover ring-1 ring-border/60"
-                        />
-                        <div>
-                          <p className="font-medium text-navy">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{p.slug}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <AdminBadge tone={angleCount >= 2 ? "success" : angleCount > 0 ? "gold" : "neutral"}>
-                        {angleCount}/2 photos{hasVideo ? " · video" : ""}
-                      </AdminBadge>
-                    </td>
-                    <td className="p-4 font-medium text-navy">
-                      {formatPriceSpan(optionPriceRows(p).map((row) => row.price)) ?? formatPrice(p.price) ?? "—"}
-                    </td>
-                    <td className="p-4">
-                      <input
-                        type="number"
-                        min={0}
-                        className="field-input !h-9 w-24"
-                        defaultValue={p.stock_quantity}
-                        onBlur={(e) =>
-                          onStockBlur(p.id, Math.max(0, Number(e.target.value) || 0), p.is_available)
-                        }
-                      />
-                    </td>
-                    <td className="p-4">
-                      <AdminBadge tone={p.is_available ? "gold" : "neutral"}>
-                        {p.is_available ? "Available" : "Unavailable"}
-                      </AdminBadge>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-navy transition-colors hover:border-gold/40 hover:bg-gold-soft"
-                          onClick={() => openEdit(p)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-navy transition-colors hover:border-gold/40 hover:bg-gold-soft"
-                          onClick={() => {
-                            const photos = productGalleryItems(p);
-                            const videoSrc = productVideoSrc(p);
-                            if (!photos.length && !videoSrc) {
-                              toast.error("No photos or video to download");
-                              return;
-                            }
-                            void (async () => {
-                              try {
-                                for (const [index, photo] of photos.entries()) {
-                                  await downloadToDevice(photo.src, photoFileName(`${p.slug}-photo-${index + 1}`, photo.src));
-                                }
-                                if (videoSrc) {
-                                  await downloadToDevice(videoSrc, photoFileName(`${p.slug}-video`, videoSrc));
-                                }
-                                toast.success("Download started");
-                              } catch {
-                                toast.error("Could not download the files");
-                              }
-                            })();
-                          }}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Download
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-lg border border-destructive/30 px-3 py-1.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
-                          onClick={() => onDelete(p.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={shown}
+          columns={productColumns}
+          rowKey={(p) => p.id}
+          empty={
+            <AdminEmpty
+              title={products.length ? "No products match" : "No products yet"}
+              action={
+                !products.length && (
+                  <button type="button" className={btn("gold")} onClick={openCreate}>
+                    <Plus className="h-4 w-4" /> Add product
+                  </button>
+                )
+              }
+            >
+              {products.length ? "Try another tab or search." : "Add your first catalogue item."}
+            </AdminEmpty>
+          }
+          mobileCard={(p) => (
+            <div>
+              <div className="flex gap-3">
+                <img src={productImageSrc(p)} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-[#E5E5E5]" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate font-semibold text-navy">{p.name}</p>
+                    <StatusPill tone={productStatusTone(productStatus(p))}>{humanize(productStatus(p))}</StatusPill>
+                  </div>
+                  <p className="truncate text-xs text-[#6B7280]">{p.sku || p.categories?.name || p.slug}</p>
+                  {productPrice(p)}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2 border-t border-[#F0F0F0] pt-3">
+                {stockInput(p)}
+                {productActions(p)}
+              </div>
+            </div>
+          )}
+        />
       )}
     </div>
   );
+
+  function productPrice(p: ProductRow) {
+    const discount = effectiveDiscount(p);
+    const old = Number(p.compare_at_price ?? 0);
+    return (
+      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <span className="font-semibold text-navy">
+          {formatPriceSpan(optionPriceRows(p).map((row) => row.price)) ?? formatPrice(p.price) ?? "—"}
+        </span>
+        {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
+        {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
+        {p.free_delivery && <StatusPill tone="info">Free delivery</StatusPill>}
+      </p>
+    );
+  }
+
+  function stockInput(p: ProductRow) {
+    return (
+      <label className="flex items-center gap-2 text-xs text-[#6B7280]">
+        <span className="md:sr-only">Stock</span>
+        <input
+          type="number"
+          min={0}
+          className="h-9 w-20 rounded-lg border border-[#E5E5E5] bg-white px-2 text-sm text-navy focus:border-gold focus:outline-none"
+          defaultValue={p.stock_quantity}
+          aria-label={`Stock for ${p.name}`}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            const next = Math.max(0, Number(e.target.value) || 0);
+            if (next !== p.stock_quantity) void onStockBlur(p.id, next, p.is_available);
+          }}
+        />
+      </label>
+    );
+  }
+
+  function productActions(p: ProductRow) {
+    const status = productStatus(p);
+    return (
+      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+        <button type="button" className={btn("outline", "sm")} onClick={() => openEdit(p)}>
+          <Pencil className="h-3.5 w-3.5" /> Edit
+        </button>
+        <button
+          type="button"
+          className={btn("outline", "sm")}
+          aria-label={`Download photos of ${p.name}`}
+          onClick={() => {
+            const photos = productGalleryItems(p);
+            const videoSrc = productVideoSrc(p);
+            if (!photos.length && !videoSrc) {
+              toast.error("No photos or video to download");
+              return;
+            }
+            void (async () => {
+              try {
+                for (const [index, photo] of photos.entries()) {
+                  await downloadToDevice(photo.src, photoFileName(`${p.slug}-photo-${index + 1}`, photo.src));
+                }
+                if (videoSrc) await downloadToDevice(videoSrc, photoFileName(`${p.slug}-video`, videoSrc));
+                toast.success("Download started");
+              } catch {
+                toast.error("Could not download the files");
+              }
+            })();
+          }}
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">Download</span>
+        </button>
+        {extendedReady && status !== "archived" && (
+          <button type="button" className={btn("outline", "sm")} onClick={() => void onStatus(p, "archived")}>
+            <Archive className="h-3.5 w-3.5" /> Archive
+          </button>
+        )}
+        {extendedReady && status === "archived" && (
+          <button type="button" className={btn("outline", "sm")} onClick={() => void onStatus(p, "active")}>
+            <ArchiveRestore className="h-3.5 w-3.5" /> Restore
+          </button>
+        )}
+        {(!extendedReady || status === "archived") && (
+          <button type="button" className={btn("danger", "sm")} onClick={() => void onDelete(p.id)}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        )}
+      </div>
+    );
+  }
 }

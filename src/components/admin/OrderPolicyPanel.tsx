@@ -109,9 +109,9 @@ export function OrderPolicyPanel({ order, onChanged }: { order: PolicyOrder; onC
   }
 
   return (
-    <div className="mt-4 grid gap-3 lg:grid-cols-2">
-      <div className="rounded-2xl border border-gold/25 bg-gold-soft/40 px-4 py-3">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Payment</p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-xl border border-[#E5E5E5] bg-white p-4">
+        <p className="text-sm font-semibold text-navy">Payment</p>
         <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">Order total</dt>
           <dd className="text-right font-semibold text-navy">{formatPrice(total) ?? "—"}</dd>
@@ -133,7 +133,7 @@ export function OrderPolicyPanel({ order, onChanged }: { order: PolicyOrder; onC
         {completed.length + others.length > 0 && (
           <ul className="mt-3 space-y-1.5">
             {[...completed, ...others].map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background/80 px-2.5 py-2 text-xs">
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#F9FAFB] px-2.5 py-2 text-xs">
                 <span className="min-w-0">
                   <span className="font-semibold text-navy">{formatPrice(Number(p.amount))}</span>{" "}
                   <span className="text-muted-foreground">
@@ -228,8 +228,8 @@ export function OrderPolicyPanel({ order, onChanged }: { order: PolicyOrder; onC
         )}
       </div>
 
-      <div className="rounded-2xl border border-border/80 bg-background px-4 py-3">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Design and specifications</p>
+      <div className="rounded-xl border border-[#E5E5E5] bg-white p-4">
+        <p className="text-sm font-semibold text-navy">Design and specifications</p>
         {order.specs_agreed_at ? (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-800">

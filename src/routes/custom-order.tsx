@@ -13,22 +13,16 @@ import { STANDARD_COLORS } from "@/lib/color-swatches";
 import { pageSectionsQuery } from "@/lib/site-content";
 import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
 import { submitCustomOrder } from "@/lib/orders.functions";
+import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/custom-order")({
-  head: () => ({
-    meta: [
-      { title: "Custom Furniture Order — GK furnish" },
-      {
-        name: "description",
-        content: "Describe the furniture you need and get a quote before any work starts.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Custom Furniture Order — GK furnish" },
-      { property: "og:description", content: "Furniture built to your size, material and colour." },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Custom furniture order — GK furnish",
+      description: "Describe the furniture you need — size, material, finish and budget — and get a quote before any work starts.",
+      path: "/custom-order",
+    }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: Custom,
 });
@@ -77,7 +71,8 @@ function Custom() {
       preferred_material: packPreference(materials, materialNote),
       preferred_color: packPreference(colors, colorNote),
       needed_by: neededBy,
-      budget_range: "",
+      budget: v("budget"),
+      finish: v("finish"),
       delivery_location: v("delivery_location"),
       additional_requirements: v("additional_requirements"),
       quantity: Math.max(1, Number(v("quantity")) || 1),
@@ -130,6 +125,7 @@ function Custom() {
           material: formatPreference(f.preferred_material) || undefined,
           needed: f.needed_by,
           location: f.delivery_location,
+          track: r.trackingToken ?? undefined,
         },
       });
     } catch {
@@ -140,18 +136,29 @@ function Custom() {
   }
 
   const fieldErr = (n: string) =>
-    errs[n] ? <p className="mt-1 text-xs text-destructive">{errs[n]}</p> : null;
+    errs[n] ? <p className="field-error">{errs[n]}</p> : null;
+  const sectionLabel = (index: number, label: string) => (
+    <p className="mb-1 flex items-center gap-2 text-sm font-bold text-navy">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-gold text-xs text-navy">{index}</span>
+      {label}
+    </p>
+  );
 
   return (
     <>
-      <PageHeader title={t.custom.title} subtitle={t.custom.subtitle} image={image("header.custom-order", null)} />
+      <PageHeader
+        title={t.custom.title}
+        subtitle={t.custom.subtitle}
+        image={image("header.custom-order", null)}
+        crumbs={[{ label: t.nav.home, href: "/" }, { label: t.nav.custom }]}
+      />
 
-      <section className="container-page pb-16 md:pb-24">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-14">
-          <Reveal variant="left" className="space-y-6">
-            <div className="rounded-[1.75rem] bg-navy p-7 text-primary-foreground md:p-9">
+      <section className="container-page section-y">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:gap-10">
+          <Reveal variant="left" className="space-y-4 lg:sticky lg:top-24 lg:h-fit">
+            <div className="rounded-xl bg-navy p-6 text-white md:p-7">
               <p className="eyebrow !text-gold">{t.custom.howEyebrow}</p>
-              <h2 className="mt-2 font-display text-3xl leading-tight">{t.custom.howTitle}</h2>
+              <h2 className="mt-1 font-display text-2xl font-bold leading-tight !text-white">{t.custom.howTitle}</h2>
               <ol className="mt-6 space-y-4">
                 {[t.custom.step1, t.custom.step2, t.custom.step3].map((step, i) => (
                   <li key={step} className="flex gap-3 text-sm text-white/80">
@@ -164,7 +171,7 @@ function Custom() {
               </ol>
             </div>
 
-            <div className="rounded-[1.75rem] border border-border bg-sand/60 p-6 md:p-7">
+            <div className="panel p-5 md:p-6">
               <p className="text-sm font-semibold text-navy">{t.custom.preferContact}</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <a href={waLink(t.whatsapp.general)} target="_blank" rel="noreferrer" className="btn-base btn-gold flex-1">
@@ -189,22 +196,20 @@ function Custom() {
             <form
               onSubmit={onSubmit}
               noValidate
-              className="rounded-[1.75rem] border border-border bg-background p-6 shadow-[var(--shadow-card)] md:p-8"
+              className="kpi-card !p-5 md:!p-7"
             >
-              <div className="mb-6 flex items-start gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-gold text-navy">
+              <div className="mb-5 flex items-start gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-gold-tint text-navy">
                   <Sparkles className="h-5 w-5" />
                 </span>
                 <div>
-                  <h2 className="font-display text-2xl text-navy">{t.custom.formTitle}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{t.custom.formIntro}</p>
+                  <h2 className="font-display text-xl font-bold text-navy">{t.custom.formTitle}</h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{t.custom.formIntro}</p>
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">{t.custom.contactSection}</p>
-                </div>
+                <div className="sm:col-span-2">{sectionLabel(1, t.customExtra.steps[0] ?? t.custom.contactSection)}</div>
                 <div>
                   <label className="field-label" htmlFor="full_name">
                     {t.custom.fullName} *
@@ -234,9 +239,7 @@ function Custom() {
                   {fieldErr("delivery_location")}
                 </div>
 
-                <div className="sm:col-span-2 pt-2">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-gold">{t.custom.designSection}</p>
-                </div>
+                <div className="border-t border-border pt-4 sm:col-span-2">{sectionLabel(2, t.customExtra.steps[1] ?? t.custom.designSection)}</div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="furniture_type">
                     {t.custom.type} *
@@ -277,7 +280,7 @@ function Custom() {
                   <label
                     htmlFor="reference_image"
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border bg-sand/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold hover:bg-gold-soft/40",
+                      "flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input bg-sand px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold-ink hover:bg-gold-tint",
                     )}
                   >
                     <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
@@ -294,7 +297,7 @@ function Custom() {
                       setPreview(fl ? URL.createObjectURL(fl) : null);
                     }}
                   />
-                  {preview && <img src={preview} alt="" className="mt-3 h-28 w-28 rounded-xl object-cover" />}
+                  {preview && <img src={preview} alt="" className="mt-3 h-28 w-28 rounded-lg border border-border object-cover" />}
                   {fieldErr("reference_image")}
                 </div>
 
@@ -360,7 +363,7 @@ function Custom() {
                   </label>
                   <label
                     htmlFor="finish_image"
-                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border bg-sand/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold hover:bg-gold-soft/40"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input bg-sand px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold-ink hover:bg-gold-tint"
                   >
                     <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
                     <span className="truncate">{finishPreview ? t.custom.photoChosen : t.custom.finishPhotoHint}</span>
@@ -376,13 +379,26 @@ function Custom() {
                       setFinishPreview(fl ? URL.createObjectURL(fl) : null);
                     }}
                   />
-                  {finishPreview && <img src={finishPreview} alt="" className="mt-3 h-28 w-28 rounded-xl object-cover" />}
+                  {finishPreview && <img src={finishPreview} alt="" className="mt-3 h-28 w-28 rounded-lg border border-border object-cover" />}
                   <p className="mt-1.5 text-xs text-muted-foreground">{t.custom.attachHint}</p>
                   {fieldErr("finish_image")}
                 </div>
+                <div className="border-t border-border pt-4 sm:col-span-2">{sectionLabel(3, t.customExtra.steps[2] ?? "")}</div>
+                <div>
+                  <label className="field-label" htmlFor="finish">
+                    {t.customExtra.finish}
+                  </label>
+                  <input id="finish" name="finish" className="field-input" maxLength={120} placeholder={t.customExtra.finishPlaceholder} />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="budget">
+                    {t.custom.budget}
+                  </label>
+                  <input id="budget" name="budget" className="field-input" maxLength={80} placeholder={t.customExtra.budgetPlaceholder} />
+                </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="needed_by">
-                    {t.order.neededBy} *
+                    {t.customExtra.neededBy} *
                   </label>
                   <input
                     id="needed_by"

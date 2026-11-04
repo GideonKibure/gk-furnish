@@ -126,10 +126,10 @@ function PayPage() {
     <>
       <PageHeader title={title} subtitle={`${t.pay.order} ${o.number}`} />
       <div className="container-page section-y grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="rounded-3xl border border-border/80 bg-background p-6 shadow-[var(--shadow-card)] md:p-8">
+        <div className="rounded-xl border border-border/80 bg-background p-6 shadow-[var(--shadow-card)] md:p-8">
           {data.status === "pending" && (
             <div>
-              <Smartphone className="h-10 w-10 text-gold" />
+              <Smartphone className="h-10 w-10 text-gold-ink" />
               <p className="mt-4 text-lg text-navy">
                 {fill(t.pay.body, { phone: data.phone, amount: formatPrice(data.amount) ?? "" })}
               </p>
@@ -262,7 +262,7 @@ function PayPage() {
         </div>
 
         <aside className="h-fit space-y-4">
-          <div className="rounded-2xl border border-border/80 bg-background p-5">
+          <div className="rounded-xl border border-border/80 bg-background p-5">
             <ul className="space-y-2 text-sm">
               {o.items.map((i, k) => (
                 <li key={k} className="flex justify-between gap-3">

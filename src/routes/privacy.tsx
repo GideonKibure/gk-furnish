@@ -5,20 +5,15 @@ import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { useLang } from "@/i18n/LanguageProvider";
 import { settingsToSite, siteSettingsQuery } from "@/lib/site-content";
+import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: "Privacy policy — GK furnish" },
-      {
-        name: "description",
-        content: "How GK furnish collects, uses and protects the personal information of customers ordering furniture online.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:title", content: "Privacy policy — GK furnish" },
-      { property: "og:description", content: "How GK furnish handles your personal information." },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Privacy policy — GK furnish",
+      description: "How GK furnish collects, uses and protects the personal information of customers ordering furniture online.",
+      path: "/privacy",
+    }),
   component: PrivacyPage,
 });
 
@@ -31,7 +26,7 @@ function PrivacyPage() {
 
   return (
     <>
-      <PageHeader title={p.title} subtitle={p.subtitle}>
+      <PageHeader title={p.title} subtitle={p.subtitle} crumbs={[{ label: t.nav.home, href: "/" }, { label: p.title }]}>
         <p className="mt-4 text-sm text-muted-foreground">{p.updated}</p>
       </PageHeader>
       <div className="container-page section-y max-w-3xl">
@@ -45,19 +40,19 @@ function PrivacyPage() {
             </Reveal>
           ))}
           <Reveal>
-            <section className="rounded-2xl border border-gold/30 bg-gold-soft/40 p-5">
+            <section className="rounded-xl border border-gold/40 bg-gold-tint p-5">
               <h2 className="font-display text-2xl tracking-tight text-navy">{p.contactTitle}</h2>
               <p className="mt-2 text-muted-foreground">{p.contactBody}</p>
               <ul className="mt-4 space-y-2 text-sm font-semibold text-navy">
                 <li>
-                  <a href={`mailto:${site.email}`} className="inline-flex items-center gap-2 hover:text-gold">
-                    <Mail className="h-4 w-4 text-gold" />
+                  <a href={`mailto:${site.email}`} className="inline-flex items-center gap-2 hover:text-gold-ink">
+                    <Mail className="h-4 w-4 text-gold-ink" />
                     {site.email}
                   </a>
                 </li>
                 <li>
-                  <a href={`tel:${dial}`} className="inline-flex items-center gap-2 hover:text-gold">
-                    <Phone className="h-4 w-4 text-gold" />
+                  <a href={`tel:${dial}`} className="inline-flex items-center gap-2 hover:text-gold-ink">
+                    <Phone className="h-4 w-4 text-gold-ink" />
                     {site.phoneDisplay}
                   </a>
                 </li>
@@ -66,14 +61,14 @@ function PrivacyPage() {
                     href={`https://wa.me/${site.whatsappNumber}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 hover:text-gold"
+                    className="inline-flex items-center gap-2 hover:text-gold-ink"
                   >
-                    <MessageCircle className="h-4 w-4 text-gold" />
+                    <MessageCircle className="h-4 w-4 text-gold-ink" />
                     WhatsApp
                   </a>
                 </li>
                 <li className="inline-flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gold" />
+                  <MapPin className="h-4 w-4 text-gold-ink" />
                   {site.location}
                 </li>
               </ul>

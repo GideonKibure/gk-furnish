@@ -7,19 +7,12 @@ import { Lightbox } from "@/components/site/ZoomGallery";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/gallery")({
-  head: () => ({
-    meta: [
-      { title: "Gallery — GK furnish" },
-      { name: "description", content: "Finished furniture, rooms and workshop photos from GK furnish." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Gallery — GK furnish" },
-      { property: "og:description", content: "See GK furnish work." },
-    ],
-  }),
+  head: () =>
+    seo({ title: "Gallery — GK furnish", description: "Finished furniture, rooms and workshop photos from GK furnish.", path: "/gallery" }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: Gallery,
 });
@@ -42,10 +35,15 @@ function Gallery() {
 
   return (
     <>
-      <PageHeader title={t.gallery.title} subtitle={subtitle} image={image("header.gallery", null)} />
+      <PageHeader
+        title={t.gallery.title}
+        subtitle={subtitle}
+        image={image("header.gallery", null)}
+        crumbs={[{ label: t.nav.home, href: "/" }, { label: t.gallery.title }]}
+      />
       <div className="container-page section-y">
         <Reveal>
-          <div className="mb-8 flex flex-wrap gap-2">
+          <div className="mb-6 flex gap-2 overflow-x-auto no-scrollbar">
             {GROUPS.map((k) => (
               <button
                 key={k}
@@ -54,12 +52,9 @@ function Gallery() {
                   setG(k);
                   setI(null);
                 }}
-                className={cn(
-                  "rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200",
-                  g === k
-                    ? "bg-navy text-primary-foreground shadow-[var(--shadow-card)]"
-                    : "bg-secondary text-navy hover:bg-secondary/80",
-                )}
+                aria-pressed={g === k}
+                data-active={g === k}
+                className="chip shrink-0"
               >
                 {t.gallery[k]}
               </button>
@@ -73,7 +68,7 @@ function Gallery() {
               <button
                 type="button"
                 onClick={() => setI(k)}
-                className="group relative block w-full overflow-hidden rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="group relative block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 <img
                   src={x.url}

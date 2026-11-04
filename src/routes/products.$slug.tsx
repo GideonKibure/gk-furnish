@@ -1,68 +1,124 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Check, MessageCircle, Ruler, ShoppingCart, Sparkles, Trees } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute, notFound } from "@tanstack/react-router";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { Check, Factory, Handshake, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
+import { DiscountBadge } from "@/components/brand/DiscountBadge";
+import { QtyStepper } from "@/components/brand/QtyStepper";
+import { ShareButtons } from "@/components/brand/ShareButtons";
+import { StarRating } from "@/components/brand/StarRating";
+import { StockLabel } from "@/components/brand/StockLabel";
 import { missingChoices, OrderDialog, useAddToCart } from "@/components/site/OrderDialog";
 import { ProductEngagement } from "@/components/site/ProductEngagement";
 import { ProductGrid } from "@/components/site/ProductCard";
-import { Reveal } from "@/components/site/Reveal";
+import { ProductReviews } from "@/components/site/ProductReviews";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { ZoomGallery } from "@/components/site/ZoomGallery";
-import { formatPrice, formatPriceSpan, waLink } from "@/config/site";
+import { formatPrice, formatPriceSpan, SITE, waLink } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
-import { productsQuery } from "@/lib/catalog";
-import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
+import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
+import {
+  lowestOptionPrice,
+  optionLabel,
+  optionPriceRows,
+  parseCatalogColor,
+  parseOptionList,
+  publicFeatures,
+  selectedOptionPrice,
+} from "@/lib/order-options";
+import { compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
-import { ProductVideo } from "@/components/site/ProductVideo";
+import { absoluteUrl, seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const all = await context.queryClient.ensureQueryData(productsQuery);
+    void context.queryClient.prefetchQuery(ratingSummaryQuery);
     const p = all.find((x) => x.slug === params.slug);
     if (!p) throw notFound();
-    return { name: p.name, desc: p.short_description ?? p.description };
+    const image = productGalleryItems(p)[0]?.src ?? null;
+    return {
+      name: p.name,
+      desc: p.short_description ?? p.description,
+      slug: p.slug,
+      image,
+      price: lowestOptionPrice(p),
+      sku: p.sku ?? null,
+      inStock: isPurchasable(p),
+      category: p.categories?.name ?? null,
+    };
   },
-  head: ({ loaderData }) =>
-    loaderData
-      ? {
-          meta: [
-            { title: `${loaderData.name} — GK furnish` },
-            { name: "description", content: loaderData.desc },
-            { property: "og:type", content: "website" },
-            { name: "twitter:card", content: "summary_large_image" },
-            { property: "og:title", content: `${loaderData.name} — GK furnish` },
-            { property: "og:description", content: loaderData.desc },
-          ],
-        }
-      : { meta: [{ title: "Not found" }, { name: "robots", content: "noindex" }] },
+  head: ({ loaderData }) => {
+    if (!loaderData) return { meta: [{ title: "Not found" }, { name: "robots", content: "noindex" }] };
+    const path = `/products/${loaderData.slug}`;
+    const base = seo({
+      title: `${loaderData.name} — GK furnish`,
+      description: loaderData.desc,
+      path,
+      image: loaderData.image,
+      type: "product",
+    });
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: loaderData.name,
+      description: loaderData.desc,
+      ...(loaderData.image ? { image: [absoluteUrl(loaderData.image)] } : {}),
+      ...(loaderData.sku ? { sku: loaderData.sku } : {}),
+      ...(loaderData.category ? { category: loaderData.category } : {}),
+      brand: { "@type": "Brand", name: SITE.name },
+      offers: {
+        "@type": "Offer",
+        url: absoluteUrl(path),
+        priceCurrency: "TZS",
+        price: Math.round(loaderData.price),
+        availability: loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        seller: { "@type": "Organization", name: SITE.name },
+      },
+    };
+    return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(ld) }] };
+  },
   component: Detail,
 });
+
+type Tab = "description" | "specs" | "care" | "reviews";
 
 function Detail() {
   const { slug } = Route.useParams();
   const { t, lang } = useLang();
   const { data } = useSuspenseQuery(productsQuery);
+  const { data: ratings = {} } = useQuery(ratingSummaryQuery);
   const p = data.find((x) => x.slug === slug);
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
   const [material, setMaterial] = useState("");
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("description");
+  const [shareUrl, setShareUrl] = useState("");
   const addToCart = useAddToCart();
+
+  useEffect(() => {
+    setShareUrl(window.location.href);
+  }, [slug]);
 
   if (!p) return null;
 
   const name = localized(lang, p.name, p.name_sw);
+  const description = localized(lang, p.description, p.description_sw);
   const materials = parseOptionList(p.material);
   const dimensions = parseOptionList(p.dimensions);
   const features = publicFeatures(p.features);
   const chosenPrice = selectedOptionPrice(p, material, size);
   const choiceRows = optionPriceRows(p);
   const pricesVary = new Set(choiceRows.map((row) => row.price)).size > 1;
+  const shownPrice = chosenPrice ?? (choiceRows.length ? lowestOptionPrice(p) : p.price);
   const price = chosenPrice != null
     ? formatPrice(chosenPrice)
     : formatPriceSpan(choiceRows.map((row) => row.price)) ?? formatPrice(p.price);
+  const oldPrice = choiceRows.length && chosenPrice == null ? null : compareAtPrice(p, shownPrice);
+  const percent = discountPercent(p, shownPrice);
   const priceHint = materials.length && dimensions.length
     ? t.products.priceHintBoth
     : materials.length
@@ -78,6 +134,11 @@ function Detail() {
   const selectedColor = colors.some((item) => item.stored === color) ? color : "";
   const msg = `${t.whatsapp.productPrefix} ${p.name}${price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
   const related = data.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
+  const rating = ratings[p.id];
+  const canBuy = isPurchasable(p);
+  const finish = localized(lang, p.finish ?? "", p.finish_sw);
+  const care = localized(lang, p.care_info ?? "", p.care_info_sw) || t.pdp.careDefault;
+  const catName = p.categories ? localized(lang, p.categories.name, p.categories.name_sw) : "";
 
   async function onAdd(buyNow: boolean) {
     if (!p) return;
@@ -93,92 +154,72 @@ function Detail() {
     await addToCart(p, { ...choice, quantity: qty }, buyNow);
   }
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "description", label: t.pdp.tabDescription },
+    { id: "specs", label: t.pdp.tabSpecs },
+    { id: "care", label: t.pdp.tabCare },
+    { id: "reviews", label: `${t.pdp.tabReviews}${rating?.rating_count ? ` (${rating.rating_count})` : ""}` },
+  ];
+
   return (
-    <div className="pb-16 md:pb-24">
-      <div className="page-hero-glass relative overflow-hidden lg:-mt-[5rem]">
-        <div aria-hidden className="page-hero-glass-orbs pointer-events-none absolute inset-0" />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/35 to-transparent backdrop-blur-[2px]"
+    <div className="pb-10 md:pb-16">
+      <div className="container-page pt-4 md:pt-6">
+        <Breadcrumbs
+          items={[
+            { label: t.nav.home, href: "/" },
+            { label: t.shell.shop, href: "/products" },
+            ...(p.categories ? [{ label: catName, href: `/categories/${p.categories.slug}` }] : []),
+            { label: name },
+          ]}
         />
-      <div className="container-page relative pb-10 pt-6 md:pt-8 lg:pt-[calc(5rem+1.5rem)]">
-        <Reveal>
-          <nav className="mb-6 text-sm text-muted-foreground">
-            <Link to="/products" className="transition-colors hover:text-navy">
-              {t.nav.products}
-            </Link>
-            {p.categories && (
-              <>
-                <span className="mx-2 opacity-40">/</span>
-                <Link
-                  to="/categories/$slug"
-                  params={{ slug: p.categories.slug }}
-                  className="transition-colors hover:text-navy"
-                >
-                  {localized(lang, p.categories.name, p.categories.name_sw)}
-                </Link>
-              </>
+
+        <div className="mt-4 grid gap-6 lg:grid-cols-2 lg:gap-10">
+          <ZoomGallery images={gallery} alt={name} hint={t.detail.zoomHint} video={videoSrc} videoLabel={t.pdp.video} />
+
+          <div className="flex min-w-0 flex-col">
+            {catName && <p className="eyebrow">{catName}</p>}
+            <h1 className="display-lg mt-1">{name}</h1>
+            {rating && rating.rating_count > 0 && (
+              <button type="button" onClick={() => setTab("reviews")} className="mt-2 w-fit">
+                <StarRating value={rating.rating_avg} count={rating.rating_count} />
+              </button>
             )}
-            <span className="mx-2 opacity-40">/</span>
-            <span className="text-navy">{name}</span>
-          </nav>
-        </Reveal>
 
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
-          <Reveal variant="left">
-            {videoSrc && (
-              <div className="mb-4 aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-muted shadow-[var(--shadow-card)]">
-                <ProductVideo src={videoSrc} poster={gallery[0]?.src} />
-              </div>
-            )}
-            <ZoomGallery
-              images={gallery}
-              alt={name}
-              hint={t.detail.zoomHint}
-              viewsTitle={t.detail.views}
-              viewsHint={t.detail.viewsHint}
-            />
-          </Reveal>
-
-          <Reveal variant="right" className="flex flex-col">
-            <p className="eyebrow">
-              {p.categories && localized(lang, p.categories.name, p.categories.name_sw)}
-            </p>
-            <h1 className="display-lg mt-2 text-navy">{name}</h1>
-
-            <div className="mt-4 rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-soft to-background px-4 py-3">
-              <p className="font-sans text-3xl font-bold tracking-tight text-navy tabular-nums">
-                {price ?? t.common.priceOnRequest}
-              </p>
-              {chosenPrice == null && pricesVary && priceHint && (
-                <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>
-              )}
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="price-text text-2xl md:text-[1.75rem]">{price ?? t.common.priceOnRequest}</span>
+              {oldPrice && <span className="text-base text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
+              <DiscountBadge percent={percent} />
             </div>
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              <span
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-semibold",
-                  p.is_available ? "bg-gold-soft text-navy" : "bg-secondary text-muted-foreground",
-                )}
-              >
-                {p.is_available ? t.common.available : t.common.madeToOrder}
+            {chosenPrice == null && pricesVary && priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
+
+            {p.short_description && lang === "en" && (
+              <p className="mt-3 text-[0.95rem] leading-relaxed text-navy/80">{p.short_description}</p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <StockLabel product={p} />
+              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                {p.source_type === "partner" ? <Handshake className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
+                {p.source_type === "partner" ? t.pdp.partner : t.pdp.inHouse}
               </span>
             </div>
 
-            <div className="mt-4">
-              <ProductEngagement product={p} trackView />
-            </div>
-
-            <p className="mt-5 text-base leading-relaxed text-muted-foreground md:text-lg">
-              {localized(lang, p.description, p.description_sw)}
-            </p>
+            {features.length > 0 && (
+              <ul className="mt-4 space-y-1.5">
+                {features.slice(0, 6).map((f, i) => (
+                  <li key={`${f}-${i}`} className="flex items-start gap-2 text-sm text-navy">
+                    <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-success text-white">
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    </span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {materials.length > 0 && (
-              <div className="mt-6">
-                <p className="field-label flex items-center gap-1.5">
-                  <Trees className="h-3.5 w-3.5 text-gold" />
-                  {t.detail.material}
-                </p>
+              <div className="mt-5">
+                <p className="field-label">{t.detail.material}</p>
                 <TextChoices
                   name="material"
                   value={selectedMaterial}
@@ -189,11 +230,8 @@ function Detail() {
             )}
 
             {dimensions.length > 0 && (
-              <div className="mt-5">
-                <p className="field-label flex items-center gap-1.5">
-                  <Ruler className="h-3.5 w-3.5 text-gold" />
-                  {t.detail.dimensions}
-                </p>
+              <div className="mt-4">
+                <p className="field-label">{t.detail.dimensions}</p>
                 <TextChoices
                   name="dimensions"
                   value={selectedSize}
@@ -203,96 +241,131 @@ function Detail() {
               </div>
             )}
 
-            {features.length > 0 && (
-              <div className="mt-8">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-gold" />
-                  <h2 className="text-lg font-semibold text-navy">{t.detail.features}</h2>
-                </div>
-                <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {features.map((f, i) => (
-                    <li
-                      key={`${f}-${i}`}
-                      className="group flex gap-3 rounded-2xl border border-border bg-background p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[var(--shadow-card)]"
-                    >
-                      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-navy text-gold transition-transform group-hover:scale-105">
-                        <Check className="h-4 w-4" strokeWidth={2.6} />
-                      </span>
-                      <span className="pt-1 text-sm font-medium leading-snug text-navy">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             {colors.length > 0 && (
-              <div className="mt-8">
+              <div className="mt-4">
                 <p className="field-label">{t.detail.colors}</p>
                 <ColorImageChoices name="color" value={selectedColor} onChange={setColor} options={colors} />
               </div>
             )}
 
-            <div className="mt-8 flex items-center gap-3">
-              <span className="field-label !mb-0">{t.detail.quantity}</span>
-              <div className="inline-flex items-center rounded-full border border-border bg-background p-1">
-                <button
-                  type="button"
-                  className="grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-secondary"
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </button>
-                <span className="w-10 text-center font-semibold tabular-nums">{qty}</span>
-                <button
-                  type="button"
-                  className="grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-secondary"
-                  onClick={() => setQty(qty + 1)}
-                  aria-label="Increase quantity"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <button type="button" className="btn-base btn-outline-navy" onClick={() => void onAdd(false)}>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <QtyStepper value={qty} onChange={setQty} label={t.detail.quantity} />
+              <button type="button" className="btn-base btn-gold btn-lg min-w-[9.5rem] flex-1" disabled={!canBuy} onClick={() => void onAdd(false)}>
                 <ShoppingCart className="h-4 w-4" />
                 {t.cart.add}
               </button>
-              <button type="button" className="btn-base btn-gold" onClick={() => void onAdd(true)}>
-                {t.cart.buyNow}
-              </button>
-              <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-outline-navy sm:col-span-2">
-                <MessageCircle className="h-4 w-4" />
-                {t.detail.askWhatsapp}
-              </a>
             </div>
-          </Reveal>
+            <button type="button" className="btn-base btn-navy btn-lg mt-3 w-full" disabled={!canBuy} onClick={() => void onAdd(true)}>
+              {t.cart.buyNow}
+            </button>
+            <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-ghost mt-2 w-full">
+              <MessageCircle className="h-4 w-4" />
+              {t.detail.askWhatsapp}
+            </a>
+
+            <div className="mt-4 space-y-2 rounded-xl bg-sand p-3.5 text-sm text-navy/80">
+              <p className="flex items-start gap-2">
+                <Truck className="mt-0.5 h-4 w-4 shrink-0 text-navy" />
+                {p.free_delivery ? t.pdp.freeDelivery : t.pdp.deliveryNote}
+              </p>
+              {p.is_customisable && (
+                <p className="flex items-start gap-2">
+                  <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-navy" />
+                  {t.pdp.customisable}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              {shareUrl && (
+                <ShareButtons url={shareUrl} title={name} label={t.pdp.share} copyLabel={t.pdp.copyLink} copiedLabel={t.pdp.linkCopied} />
+              )}
+              <ProductEngagement product={p} trackView />
+            </div>
+          </div>
         </div>
-      </div>
+
+        <section className="mt-10">
+          <div role="tablist" aria-label={name} className="flex gap-1 overflow-x-auto border-b border-border no-scrollbar">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                id={`tab-${item.id}`}
+                aria-selected={tab === item.id}
+                aria-controls={`panel-${item.id}`}
+                onClick={() => setTab(item.id)}
+                className={cn(
+                  "relative shrink-0 whitespace-nowrap px-4 py-3 text-sm font-semibold transition-colors",
+                  tab === item.id ? "text-navy" : "text-muted-foreground hover:text-navy",
+                )}
+              >
+                {item.label}
+                {tab === item.id && <span aria-hidden className="absolute inset-x-3 -bottom-px h-[3px] rounded-t-full bg-gold" />}
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="max-w-3xl py-5">
+            {tab === "description" && (
+              <div className="space-y-4">
+                <p className="whitespace-pre-line text-[0.95rem] leading-relaxed text-navy/85">{description}</p>
+                {features.length > 6 && (
+                  <ul className="grid gap-1.5 sm:grid-cols-2">
+                    {features.slice(6).map((f, i) => (
+                      <li key={`${f}-${i}`} className="flex items-start gap-2 text-sm text-navy">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {tab === "specs" && (
+              <dl className="divide-y divide-border rounded-xl border border-border text-sm">
+                {[
+                  { label: t.detail.dimensions, value: dimensions.map((d) => optionLabel(d, p.dimensions, lang)).join(", ") },
+                  { label: t.detail.material, value: materials.map((m) => optionLabel(m, p.material, lang)).join(", ") },
+                  { label: t.pdp.finish, value: finish },
+                  { label: t.detail.colors, value: colors.map((c) => c.label).join(", ") },
+                  { label: t.pdp.sku, value: p.sku ?? "" },
+                ]
+                  .filter((row) => row.value)
+                  .map((row) => (
+                    <div key={row.label} className="grid grid-cols-[9rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[12rem_1fr]">
+                      <dt className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                        {row.label === t.detail.dimensions && <Ruler className="h-3.5 w-3.5" />}
+                        {row.label}
+                      </dt>
+                      <dd className="text-navy">{row.value}</dd>
+                    </div>
+                  ))}
+              </dl>
+            )}
+            {tab === "care" && <p className="whitespace-pre-line text-[0.95rem] leading-relaxed text-navy/85">{care}</p>}
+            {tab === "reviews" && <ProductReviews productId={p.id} />}
+          </div>
+        </section>
       </div>
 
-      <OrderDialog
-        key={`${qty}-${selectedColor}-${selectedSize}-${selectedMaterial}-${open}`}
-        product={p}
-        open={open}
-        onOpenChange={setOpen}
-        initialQty={qty}
-        initialColor={selectedColor}
-        initialSize={selectedSize}
-        initialMaterial={selectedMaterial}
-      />
+      {open && (
+        <OrderDialog
+          product={p}
+          open={open}
+          onOpenChange={setOpen}
+          initialQty={qty}
+          initialColor={selectedColor}
+          initialSize={selectedSize}
+          initialMaterial={selectedMaterial}
+        />
+      )}
 
       {related.length > 0 && (
-        <section className="border-t border-border bg-sand/50">
+        <section className="border-t border-border bg-sand">
           <div className="container-page section-y">
-            <Reveal>
-              <h2 className="display-lg text-navy">{t.detail.related}</h2>
-            </Reveal>
-            <div className="mt-8">
-              <ProductGrid products={related} />
-            </div>
+            <h2 className="section-title mb-5">{t.detail.related}</h2>
+            <ProductGrid products={related} />
           </div>
         </section>
       )}

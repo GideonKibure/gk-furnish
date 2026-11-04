@@ -1,15 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
-import {
-  parseSavedQuotes,
-  QUOTE_VALID_DAYS,
-  quoteDateAfter,
-  serializeSavedQuotes,
-  withQuoteAdvanceNote,
-  type QuoteLine,
-  type SavedQuote,
-} from "@/lib/custom-quotes";
+import { QUOTE_VALID_DAYS, quoteDateAfter, withQuoteAdvanceNote, type QuoteLine, type SavedQuote } from "@/lib/custom-quotes";
+import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
+import { orderTotal } from "@/lib/delivery";
+import { DATE_RANGES, darDayKey, darMonthKey, inRange, rangeBounds, trendPercent } from "@/lib/ops/date-range";
+import { CUSTOM_NEEDS_QUOTE, CUSTOM_STATUSES, orderStatusLabel } from "@/lib/ops/status";
 import { formatPreference, unpackReferenceImages } from "@/lib/order-options";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, statusBlockers } from "@/lib/payment-policy";
 
@@ -25,72 +21,132 @@ export const checkAdminSession = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async ({ context }) => ({ userId: context.userId, isAdmin: true as const }));
 
+/** Columns that only exist once migration 0007 has run; read them defensively. */
+type OrderExtras = {
+  archived_at?: string | null;
+  fulfilment_method?: string | null;
+  delivery_fee?: number | null;
+  delivery_fee_status?: string | null;
+  subtotal_amount?: number | null;
+};
+
 export const getAdminDashboard = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
-  .handler(async () => {
+  .inputValidator((d) => z.object({ range: z.enum(DATE_RANGES).default("30d") }).parse(d ?? {}))
+  .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const bounds = rangeBounds(data.range);
     const [orders, products, custom, payments] = await Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select("id,order_number,customer_name,status,payment_status,payment_kind,amount_paid,created_at")
-        .order("created_at", { ascending: false }),
+      supabaseAdmin.from("orders").select("*").order("created_at", { ascending: false }),
       supabaseAdmin.from("products").select("id,stock_quantity,is_available,name").order("stock_quantity", { ascending: true }),
       supabaseAdmin
         .from("custom_orders")
         .select("id,request_number,full_name,furniture_type,status,created_at")
         .order("created_at", { ascending: false }),
-      supabaseAdmin.from("payments").select("id,status,payment_kind,amount").eq("status", "completed"),
+      supabaseAdmin
+        .from("payments")
+        .select("id,amount,updated_at")
+        .eq("status", "completed")
+        .gte("updated_at", bounds.prevFrom.toISOString()),
     ]);
+    if (orders.error) throw new Error(orders.error.message);
 
-    const orderRows = orders.data ?? [];
+    const orderRows = (orders.data ?? []).map((o) => o as typeof o & OrderExtras).filter((o) => !o.archived_at);
     const productRows = products.data ?? [];
     const customRows = custom.data ?? [];
     const paidRows = payments.data ?? [];
 
-    const notDone = ["pending", "confirmed"];
-    const inProgress = ["in_production", "ready", "out_for_delivery"];
-    const paidAdvanceSum = paidRows
-      .filter((p) => p.payment_kind === "advance")
-      .reduce((s, p) => s + Number(p.amount), 0);
-    const paidFullSum = paidRows.filter((p) => p.payment_kind === "full").reduce((s, p) => s + Number(p.amount), 0);
+    const inCurrent = (iso: string) => inRange(iso, bounds.from, bounds.to);
+    const inPrevious = (iso: string) => {
+      const t = new Date(iso).getTime();
+      return t >= bounds.prevFrom.getTime() && t < bounds.prevTo.getTime();
+    };
+
+    const ordersNow = orderRows.filter((o) => inCurrent(o.created_at) && o.status !== "cancelled").length;
+    const ordersPrev = orderRows.filter((o) => inPrevious(o.created_at) && o.status !== "cancelled").length;
+    const salesNow = paidRows.filter((p) => inCurrent(p.updated_at)).reduce((s, p) => s + Number(p.amount), 0);
+    const salesPrev = paidRows.filter((p) => inPrevious(p.updated_at)).reduce((s, p) => s + Number(p.amount), 0);
+
+    const open = orderRows.filter((o) => o.status !== "cancelled");
+    const owing = open.filter((o) => Number(o.amount_due) > 0 && Number(o.total_amount) > 0);
+    const outstanding = owing.reduce((s, o) => s + Number(o.amount_due), 0);
+
+    const series = new Map(bounds.keys.map((k) => [k, 0]));
+    for (const p of paidRows) {
+      if (!inCurrent(p.updated_at)) continue;
+      const key = bounds.bucket === "month" ? darMonthKey(p.updated_at) : darDayKey(p.updated_at);
+      if (series.has(key)) series.set(key, (series.get(key) ?? 0) + Number(p.amount));
+    }
+
+    const awaitingAdvance = open
+      .filter(
+        (o) =>
+          ["pending", "confirmed"].includes(o.status) &&
+          Number(o.advance_required) > 0 &&
+          Math.round(Number(o.amount_paid)) < Math.round(Number(o.advance_required)),
+      )
+      .slice(0, 6);
+    const feeToConfirm = open
+      .filter((o) => o.status !== "completed" && o.fulfilment_method === "delivery" && o.delivery_fee_status === "pending")
+      .slice(0, 6);
+    const customAwaiting = customRows.filter((c) => CUSTOM_NEEDS_QUOTE.includes(c.status));
+    const customAccepted = customRows.filter((c) => c.status === "accepted");
 
     return {
-      ordersTotal: orderRows.length,
-      ordersNotDone: orderRows.filter((o) => notDone.includes(o.status)).length,
-      ordersInProgress: orderRows.filter((o) => inProgress.includes(o.status)).length,
-      ordersDone: orderRows.filter((o) => o.status === "completed").length,
-      paidAdvance: paidRows.filter((p) => p.payment_kind === "advance").length,
-      paidFull: paidRows.filter((p) => p.payment_kind === "full").length,
-      paidAdvanceSum,
-      paidFullSum,
-      revenueTotal: paidAdvanceSum + paidFullSum,
-      lowStock: productRows.filter((p) => p.is_available && p.stock_quantity > 0 && p.stock_quantity <= 3).length,
-      outOfStock: productRows.filter((p) => p.stock_quantity <= 0).length,
-      customOpen: customRows.filter((c) => c.status !== "completed" && c.status !== "cancelled").length,
-      productsTotal: productRows.length,
-      recentOrders: orderRows.slice(0, 5).map((o) => ({
+      range: data.range,
+      bucket: bounds.bucket,
+      kpis: {
+        orders: ordersNow,
+        ordersTrend: trendPercent(ordersNow, ordersPrev),
+        sales: salesNow,
+        salesTrend: trendPercent(salesNow, salesPrev),
+        outstanding,
+        outstandingOrders: owing.length,
+      },
+      series: bounds.keys.map((key) => ({ key, sales: series.get(key) ?? 0 })),
+      recentOrders: orderRows.slice(0, 6).map((o) => ({
         id: o.id,
         order_number: o.order_number,
         customer_name: o.customer_name,
         status: o.status,
         payment_status: o.payment_status,
+        payment_kind: o.payment_kind,
+        total_amount: Number(o.total_amount),
         created_at: o.created_at,
       })),
+      awaitingAdvance: awaitingAdvance.map((o) => ({
+        id: o.id,
+        order_number: o.order_number,
+        customer_name: o.customer_name,
+        advance_left: Math.max(0, Math.round(Number(o.advance_required)) - Math.round(Number(o.amount_paid))),
+      })),
+      feeToConfirm: feeToConfirm.map((o) => ({
+        id: o.id,
+        order_number: o.order_number,
+        customer_name: o.customer_name,
+        delivery_location: o.delivery_location,
+      })),
+      customAwaiting: customAwaiting.slice(0, 6).map((c) => ({
+        id: c.id,
+        request_number: c.request_number,
+        full_name: c.full_name,
+        furniture_type: c.furniture_type,
+        status: c.status,
+        created_at: c.created_at,
+      })),
+      customAwaitingCount: customAwaiting.length,
+      customAccepted: customAccepted.slice(0, 6).map((c) => ({
+        id: c.id,
+        request_number: c.request_number,
+        full_name: c.full_name,
+        furniture_type: c.furniture_type,
+        created_at: c.created_at,
+      })),
+      customAcceptedCount: customAccepted.length,
       lowStockItems: productRows
-        .filter((p) => p.stock_quantity <= 3)
+        .filter((p) => p.is_available && p.stock_quantity <= 3)
         .slice(0, 5)
-        .map((p) => ({ id: p.id, name: p.name, stock_quantity: p.stock_quantity, is_available: p.is_available })),
-      recentCustom: customRows
-        .filter((c) => c.status !== "completed" && c.status !== "cancelled")
-        .slice(0, 4)
-        .map((c) => ({
-          id: c.id,
-          request_number: c.request_number,
-          full_name: c.full_name,
-          furniture_type: c.furniture_type,
-          status: c.status,
-          created_at: c.created_at,
-        })),
+        .map((p) => ({ id: p.id, name: p.name, stock_quantity: p.stock_quantity })),
     };
   });
 
@@ -157,6 +213,23 @@ const ProductInput = z.object({
   /** Public URL of a video already uploaded for this product. */
   video_url: z.string().trim().max(800).optional().or(z.literal("")),
   clear_video: z.boolean().optional(),
+  /** Catalogue fields added by migration 0007. Ignored until it has run. */
+  extended: z
+    .object({
+      sku: z.string().trim().max(60).optional().or(z.literal("")),
+      status: z.enum(["active", "draft", "archived"]),
+      source_type: z.enum(["in_house", "partner"]),
+      is_customisable: z.boolean(),
+      finish: z.string().trim().max(300).optional().or(z.literal("")),
+      finish_sw: z.string().trim().max(300).optional().or(z.literal("")),
+      care_info: z.string().trim().max(2000).optional().or(z.literal("")),
+      care_info_sw: z.string().trim().max(2000).optional().or(z.literal("")),
+      compare_at_price: z.number().min(0).max(1_000_000_000).nullable(),
+      discount_percent: z.number().int().min(1).max(90).nullable(),
+      free_delivery: z.boolean(),
+      stock_display: z.enum(["label", "count"]),
+    })
+    .optional(),
 });
 
 async function uploadProductStorage(
@@ -352,34 +425,70 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       is_demo: false,
       updated_at: new Date().toISOString(),
     };
+    const ext = data.extended;
+    const extended = ext
+      ? {
+          sku: ext.sku?.trim() || null,
+          status: ext.status,
+          source_type: ext.source_type,
+          is_customisable: ext.is_customisable,
+          finish: ext.finish || null,
+          finish_sw: ext.finish_sw || null,
+          care_info: ext.care_info || null,
+          care_info_sw: ext.care_info_sw || null,
+          compare_at_price: ext.compare_at_price && ext.compare_at_price > data.price ? ext.compare_at_price : null,
+          discount_percent: ext.discount_percent,
+          free_delivery: ext.free_delivery,
+          stock_display: ext.stock_display,
+        }
+      : {};
 
-    let productId = data.id;
-    let slug = payload.slug;
-
-    if (productId) {
-      const { data: row, error } = await supabaseAdmin
-        .from("products")
-        .update(payload)
-        .eq("id", productId)
-        .select("id,slug")
-        .single();
-      if (error || !row) throw new Error(error?.message ?? "Update failed");
-      slug = row.slug;
-    } else {
-      const { data: row, error } = await supabaseAdmin
-        .from("products")
-        .insert(payload)
-        .select("id,slug")
-        .single();
-      if (error || !row) throw new Error(error?.message ?? "Create failed");
-      productId = row.id;
-      slug = row.slug;
+    async function write(withExtended: boolean) {
+      const body = withExtended ? { ...payload, ...extended } : payload;
+      if (data.id) {
+        return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
+      }
+      return supabaseAdmin.from("products").insert(body).select("id,slug").single();
     }
+
+    let result = await write(Boolean(ext));
+    let extendedSaved = Boolean(ext);
+    if (result.error && ext && isMissingSchema(result.error)) {
+      result = await write(false);
+      extendedSaved = false;
+    }
+    if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
+      throw new Error("Another product already uses this SKU");
+    }
+    if (result.error || !result.data) throw new Error(result.error?.message ?? (data.id ? "Update failed" : "Create failed"));
+    const productId = result.data.id;
+    const slug = result.data.slug;
 
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
     await syncProductVideo(supabaseAdmin, productId, data.video_url, data.clear_video);
 
-    return { id: productId, slug };
+    return { id: productId, slug, extendedSaved, notice: ext && !extendedSaved ? migrationNeeded("0007_storefront_prd_gaps.sql") : null };
+  });
+
+/** Draft, publish or archive a product instead of deleting it (needs migration 0007). */
+export const setAdminProductStatus = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid(), status: z.enum(["active", "draft", "archived"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("products")
+      .update({
+        status: data.status,
+        ...(data.status === "active" ? {} : { is_featured: false }),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.id);
+    if (error) {
+      if (isMissingSchema(error)) throw new Error(migrationNeeded("0007_storefront_prd_gaps.sql"));
+      throw new Error(error.message);
+    }
+    return { ok: true };
   });
 
 export const deleteAdminProduct = createServerFn({ method: "POST" })
@@ -459,32 +568,130 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: order, error: loadErr } = await supabaseAdmin
-      .from("orders")
-      .select("total_amount,amount_paid,advance_required,specs_agreed_at")
-      .eq("id", data.id)
-      .single();
-    if (loadErr || !order) throw new Error(loadErr?.message ?? "Order not found");
+    const { data: loaded, error: loadErr } = await supabaseAdmin.from("orders").select("*").eq("id", data.id).single();
+    if (loadErr || !loaded) throw new Error(loadErr?.message ?? "Order not found");
+    const order = loaded as typeof loaded & OrderExtras;
     const blockers = statusBlockers(
       {
         total_amount: Number(order.total_amount),
         amount_paid: Number(order.amount_paid),
         advance_required: Number(order.advance_required),
         specs_agreed_at: order.specs_agreed_at,
+        fulfilment_method: order.fulfilment_method,
+        delivery_fee_status: order.delivery_fee_status,
       },
       data.status,
     );
     if (blockers.length) throw new Error(blockers.join(" "));
 
+    if (order.status === data.status) return { ok: true };
     const { error } = await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.id);
     if (error) throw new Error(error.message);
-    if (data.note) {
-      await supabaseAdmin.from("order_status_history").insert({
-        order_id: data.id,
-        status: data.status,
-        note: data.note,
-      });
+    await supabaseAdmin.from("order_status_history").insert({
+      order_id: data.id,
+      status: data.status,
+      note: data.note || `Status changed to ${orderStatusLabel(data.status)}.`,
+    });
+    const { notify } = await import("@/lib/notify.server");
+    await notify({
+      audience: "customer",
+      userId: order.user_id,
+      type: "order_status",
+      title: `Order ${order.order_number}: ${orderStatusLabel(data.status)}`,
+      body: data.note ?? null,
+      link: `/account/orders/${order.order_number}`,
+      entity: "order",
+      entityId: order.id,
+    });
+    return { ok: true };
+  });
+
+/**
+ * Confirm the delivery fee for an order. The order total becomes subtotal + fee, and the
+ * paid / balance figures are recalculated from the recorded payments.
+ */
+export const setOrderDeliveryFee = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z.object({ id: z.string().uuid(), fee: z.number().min(0).max(50_000_000), free: z.boolean().optional() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { refreshOrderPayments } = await import("@/lib/order-payments.server");
+    const { data: loaded, error: loadErr } = await supabaseAdmin
+      .from("orders")
+      .select("*, order_items(quantity,unit_price)")
+      .eq("id", data.id)
+      .single();
+    if (loadErr || !loaded) throw new Error(loadErr?.message ?? "Order not found");
+    const order = loaded as typeof loaded & OrderExtras;
+    if (order.delivery_fee_status === undefined) throw new Error(migrationNeeded("0007_storefront_prd_gaps.sql"));
+    if (order.status === "cancelled") throw new Error("This order is cancelled");
+
+    const itemsTotal = (order.order_items ?? []).reduce((s, i) => s + Number(i.unit_price) * i.quantity, 0);
+    const subtotal = order.subtotal_amount != null ? Number(order.subtotal_amount) : itemsTotal;
+    const fee = data.free ? 0 : Math.round(data.fee);
+    const feeStatus = data.free ? "free" : "confirmed";
+    const total = orderTotal(subtotal, fee);
+    const paid = Number(order.amount_paid);
+    if (Math.round(paid) > total) {
+      throw new Error(`More than ${total.toLocaleString("en-US")} TSh has already been paid; check the fee`);
     }
+
+    // The advance stays as agreed on the goods; the delivery fee is added to the balance.
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({
+        subtotal_amount: subtotal,
+        delivery_fee: fee,
+        delivery_fee_status: feeStatus,
+        total_amount: total,
+        amount_due: Math.max(0, total - Math.round(paid)),
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+
+    const feeText = feeStatus === "free" ? "free delivery" : `${fee.toLocaleString("en-US")} TSh`;
+    await refreshOrderPayments(
+      supabaseAdmin,
+      data.id,
+      `Delivery fee confirmed: ${feeText}. Order total is now ${total.toLocaleString("en-US")} TSh.`,
+    );
+    const { notify } = await import("@/lib/notify.server");
+    await notify({
+      audience: "customer",
+      userId: order.user_id,
+      type: "delivery_fee",
+      title: `Delivery fee confirmed for ${order.order_number}`,
+      body: `Delivery: ${feeText}. New total: ${total.toLocaleString("en-US")} TSh.`,
+      link: `/account/orders/${order.order_number}`,
+      entity: "order",
+      entityId: order.id,
+    });
+    return { ok: true, total, fee, delivery_fee_status: feeStatus };
+  });
+
+/** Hide an order from the default list, or bring it back (needs migration 0007). */
+export const setOrderArchived = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid(), archived: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("orders")
+      .update({ archived_at: data.archived ? new Date().toISOString() : null })
+      .eq("id", data.id)
+      .select("status")
+      .single();
+    if (error) {
+      if (isMissingSchema(error)) throw new Error(migrationNeeded("0007_storefront_prd_gaps.sql"));
+      throw new Error(error.message);
+    }
+    await supabaseAdmin.from("order_status_history").insert({
+      order_id: data.id,
+      status: row.status,
+      note: data.archived ? "Archived by admin." : "Restored from the archive.",
+    });
     return { ok: true };
   });
 
@@ -639,13 +846,11 @@ export const setOrderAdvancePercent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { refreshOrderPayments } = await import("@/lib/order-payments.server");
-    const { data: order } = await supabaseAdmin
-      .from("orders")
-      .select("total_amount,advance_percent")
-      .eq("id", data.id)
-      .single();
-    if (!order) throw new Error("Order not found");
-    const required = advanceAmount(Number(order.total_amount), data.percent);
+    const { data: loaded } = await supabaseAdmin.from("orders").select("*").eq("id", data.id).single();
+    if (!loaded) throw new Error("Order not found");
+    const order = loaded as typeof loaded & OrderExtras;
+    const goods = order.subtotal_amount != null ? Number(order.subtotal_amount) : Number(order.total_amount);
+    const required = advanceAmount(goods, data.percent);
     const { error } = await supabaseAdmin
       .from("orders")
       .update({ advance_percent: data.percent, advance_required: required })
@@ -683,6 +888,9 @@ const AdminOrderInput = z.object({
   payment_kind: z.enum(["advance", "full"]).default("full"),
   payment_status: z.enum(["unpaid", "pending", "paid", "failed"]).default("unpaid"),
   amount_paid: z.number().min(0).optional(),
+  fulfilment_method: z.enum(["delivery", "collection"]).default("delivery"),
+  /** Empty while the delivery fee is still to be confirmed. */
+  delivery_fee: z.number().min(0).max(50_000_000).nullable().optional(),
 });
 
 /** Create an order from the admin portal. Reference number is generated by the database. */
@@ -735,6 +943,22 @@ export const createAdminOrder = createServerFn({ method: "POST" })
       .select("id,order_number")
       .single();
     if (error || !order) throw new Error(error?.message ?? "Could not create order");
+
+    const collection = data.fulfilment_method === "collection";
+    const fee = collection ? 0 : data.delivery_fee ?? null;
+    const withFee = orderTotal(lineTotal, fee);
+    const { error: extErr } = await supabaseAdmin
+      .from("orders")
+      .update({
+        fulfilment_method: data.fulfilment_method,
+        subtotal_amount: lineTotal,
+        delivery_fee: fee,
+        delivery_fee_status: collection ? "free" : fee == null ? "pending" : "confirmed",
+        total_amount: withFee,
+        amount_due: withFee,
+      })
+      .eq("id", order.id);
+    if (extErr && !isMissingSchema(extErr)) throw new Error(extErr.message);
 
     const { error: iErr } = await supabaseAdmin.from("order_items").insert({
       order_id: order.id,
@@ -796,6 +1020,8 @@ export const listAdminCustomOrders = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const rows = data ?? [];
+    const { listQuotesFor } = await import("@/lib/quotations.server");
+    const quotesById = await listQuotesFor(supabaseAdmin, rows);
     const withUrls = await Promise.all(
       rows.map(async (row) => {
         const { design, finish } = unpackReferenceImages(row.reference_image_url);
@@ -807,7 +1033,7 @@ export const listAdminCustomOrders = createServerFn({ method: "GET" })
           return signed?.signedUrl ?? null;
         }
         const [signed_url, finish_signed_url] = await Promise.all([sign(design), sign(finish)]);
-        return { ...row, signed_url, finish_signed_url, quotes: parseSavedQuotes(row.budget_range) };
+        return { ...row, signed_url, finish_signed_url, quotes: quotesById.get(row.id) ?? [] };
       }),
     );
     return withUrls;
@@ -829,10 +1055,13 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
         valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
         advance_percent: z.number().int().min(10).max(100).optional(),
         lines: z.array(QuoteLineInput).min(1).max(12),
+        inclusions: z.string().trim().max(2000).optional().or(z.literal("")),
+        exclusions: z.string().trim().max(2000).optional().or(z.literal("")),
+        estimated_completion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
       })
       .parse(d),
   )
-  .handler(async ({ data }): Promise<SavedQuote> => {
+  .handler(async ({ data, context }): Promise<SavedQuote> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin.from("custom_orders").select("*").eq("id", data.id).single();
     if (error || !row) throw new Error(error?.message ?? "Custom order not found");
@@ -850,16 +1079,16 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
     const tier = advanceTierFor({ total, itemCount, isCustom: true }, advanceSettingsFrom(settingsRow));
     const advancePercent = data.advance_percent ?? row.advance_percent ?? tier.percent;
 
-    const existing = parseSavedQuotes(row.budget_range);
-    const quote: SavedQuote = {
-      id: crypto.randomUUID(),
-      number: `${row.request_number}-Q${existing.length + 1}`,
-      createdAt: new Date().toISOString(),
+    const { saveQuoteVersion } = await import("@/lib/quotations.server");
+    const { quote } = await saveQuoteVersion(supabaseAdmin, row, {
       validUntil: data.valid_until || quoteDateAfter(QUOTE_VALID_DAYS),
       notes: withQuoteAdvanceNote(data.notes ?? "", advancePercent),
       lines,
-      total,
       advancePercent,
+      inclusions: data.inclusions || undefined,
+      exclusions: data.exclusions || undefined,
+      estimatedCompletion: data.estimated_completion || null,
+      createdBy: context.userId,
       customerName: row.full_name,
       phone: row.phone,
       email: row.email ?? "",
@@ -871,17 +1100,28 @@ export const saveCustomOrderQuote = createServerFn({ method: "POST" })
       material: formatPreference(row.preferred_material),
       color: formatPreference(row.preferred_color),
       requirements: row.additional_requirements ?? "",
-    };
+    });
 
     const { error: saveErr } = await supabaseAdmin
       .from("custom_orders")
       .update({
-        budget_range: serializeSavedQuotes([...existing, quote]),
         advance_percent: advancePercent,
-        status: row.status === "pending" ? "quoted" : row.status,
+        status: ["pending", "changes_requested", "rejected"].includes(row.status) ? "quoted" : row.status,
       })
       .eq("id", row.id);
     if (saveErr) throw new Error(saveErr.message);
+
+    const { notify } = await import("@/lib/notify.server");
+    await notify({
+      audience: "customer",
+      userId: row.user_id ?? null,
+      type: "quote_sent",
+      title: `Your quote ${quote.number} is ready`,
+      body: `Total ${Math.round(total).toLocaleString("en-US")} TSh. Advance ${advancePercent}% to start production.`,
+      link: "/account",
+      entity: "custom_order",
+      entityId: row.id,
+    });
     return quote;
   });
 
@@ -891,7 +1131,7 @@ export const updateCustomOrderStatus = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        status: z.enum(["pending", "quoted", "in_progress", "completed", "cancelled"]),
+        status: z.enum(CUSTOM_STATUSES),
       })
       .parse(d),
   )

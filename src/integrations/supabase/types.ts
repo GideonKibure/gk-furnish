@@ -21,6 +21,7 @@ export type Database = {
           description_sw: string | null
           id: string
           image_key: string | null
+          is_active: boolean
           name: string
           name_sw: string | null
           slug: string
@@ -32,6 +33,7 @@ export type Database = {
           description_sw?: string | null
           id?: string
           image_key?: string | null
+          is_active?: boolean
           name: string
           name_sw?: string | null
           slug: string
@@ -43,6 +45,7 @@ export type Database = {
           description_sw?: string | null
           id?: string
           image_key?: string | null
+          is_active?: boolean
           name?: string
           name_sw?: string | null
           slug?: string
@@ -162,14 +165,19 @@ export type Database = {
         Row: {
           additional_requirements: string | null
           advance_percent: number | null
+          budget: string | null
           budget_range: string | null
+          cancel_reason: string | null
           created_at: string
           delivery_location: string
           design_description: string
           email: string | null
+          exception_note: string | null
+          finish: string | null
           full_name: string
           furniture_type: string
           id: string
+          needed_by: string | null
           phone: string
           preferred_color: string | null
           preferred_dimensions: string | null
@@ -178,18 +186,26 @@ export type Database = {
           reference_image_url: string | null
           request_number: string
           status: string
+          tracking_token: string
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
           additional_requirements?: string | null
           advance_percent?: number | null
+          budget?: string | null
           budget_range?: string | null
+          cancel_reason?: string | null
           created_at?: string
           delivery_location: string
           design_description: string
           email?: string | null
+          exception_note?: string | null
+          finish?: string | null
           full_name: string
           furniture_type: string
           id?: string
+          needed_by?: string | null
           phone: string
           preferred_color?: string | null
           preferred_dimensions?: string | null
@@ -198,18 +214,26 @@ export type Database = {
           reference_image_url?: string | null
           request_number?: string
           status?: string
+          tracking_token?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
           additional_requirements?: string | null
           advance_percent?: number | null
+          budget?: string | null
           budget_range?: string | null
+          cancel_reason?: string | null
           created_at?: string
           delivery_location?: string
           design_description?: string
           email?: string | null
+          exception_note?: string | null
+          finish?: string | null
           full_name?: string
           furniture_type?: string
           id?: string
+          needed_by?: string | null
           phone?: string
           preferred_color?: string | null
           preferred_dimensions?: string | null
@@ -218,8 +242,219 @@ export type Database = {
           reference_image_url?: string | null
           request_number?: string
           status?: string
+          tracking_token?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
+      }
+      customer_addresses: {
+        Row: {
+          address_line: string | null
+          area: string | null
+          created_at: string
+          district: string | null
+          full_name: string | null
+          id: string
+          is_default: boolean
+          label: string | null
+          phone: string | null
+          region: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_line?: string | null
+          area?: string | null
+          created_at?: string
+          district?: string | null
+          full_name?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          phone?: string | null
+          region: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_line?: string | null
+          area?: string | null
+          created_at?: string
+          district?: string | null
+          full_name?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          phone?: string | null
+          region?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          audience: string
+          body: string | null
+          created_at: string
+          entity: string | null
+          entity_id: string | null
+          id: string
+          link: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          audience: string
+          body?: string | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          audience?: string
+          body?: string | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      product_reviews: {
+        Row: {
+          author_name: string
+          body: string | null
+          created_at: string
+          id: string
+          order_id: string | null
+          product_id: string
+          rating: number
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          author_name: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          product_id: string
+          rating: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          author_name?: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          product_id?: string
+          rating?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          advance_percent: number
+          created_at: string
+          created_by: string | null
+          custom_order_id: string
+          customer_response: string | null
+          details: Json
+          estimated_completion: string | null
+          exclusions: string | null
+          id: string
+          inclusions: string | null
+          lines: Json
+          notes: string | null
+          quote_number: string
+          responded_at: string | null
+          status: string
+          total: number
+          valid_until: string | null
+          version: number
+        }
+        Insert: {
+          advance_percent?: number
+          created_at?: string
+          created_by?: string | null
+          custom_order_id: string
+          customer_response?: string | null
+          details?: Json
+          estimated_completion?: string | null
+          exclusions?: string | null
+          id?: string
+          inclusions?: string | null
+          lines?: Json
+          notes?: string | null
+          quote_number: string
+          responded_at?: string | null
+          status?: string
+          total?: number
+          valid_until?: string | null
+          version: number
+        }
+        Update: {
+          advance_percent?: number
+          created_at?: string
+          created_by?: string | null
+          custom_order_id?: string
+          customer_response?: string | null
+          details?: Json
+          estimated_completion?: string | null
+          exclusions?: string | null
+          id?: string
+          inclusions?: string | null
+          lines?: Json
+          notes?: string | null
+          quote_number?: string
+          responded_at?: string | null
+          status?: string
+          total?: number
+          valid_until?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_custom_order_id_fkey"
+            columns: ["custom_order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -232,6 +467,8 @@ export type Database = {
           product_name: string
           quantity: number
           size: string | null
+          sku: string | null
+          snapshot: Json
           unit_price: number
         }
         Insert: {
@@ -244,6 +481,8 @@ export type Database = {
           product_name: string
           quantity: number
           size?: string | null
+          sku?: string | null
+          snapshot?: Json
           unit_price: number
         }
         Update: {
@@ -256,6 +495,8 @@ export type Database = {
           product_name?: string
           quantity?: number
           size?: string | null
+          sku?: string | null
+          snapshot?: Json
           unit_price?: number
         }
         Relationships: [
@@ -346,10 +587,16 @@ export type Database = {
           advance_required: number
           amount_due: number
           amount_paid: number
+          address_line: string | null
+          archived_at: string | null
           created_at: string
           customer_name: string
+          delivery_fee: number | null
+          delivery_fee_status: string
           delivery_location: string
+          district: string | null
           email: string | null
+          fulfilment_method: string
           id: string
           needed_by: string | null
           notes: string | null
@@ -360,12 +607,15 @@ export type Database = {
           phone: string
           preferred_color: string | null
           preferred_size: string | null
+          region: string | null
           snippe_reference: string | null
           specs_agreed_at: string | null
           specs_agreed_by: string | null
           status: string
           stock_applied: boolean
+          subtotal_amount: number | null
           total_amount: number
+          tracking_token: string
           user_id: string | null
         }
         Insert: {
@@ -373,10 +623,16 @@ export type Database = {
           advance_required?: number
           amount_due?: number
           amount_paid?: number
+          address_line?: string | null
+          archived_at?: string | null
           created_at?: string
           customer_name: string
+          delivery_fee?: number | null
+          delivery_fee_status?: string
           delivery_location: string
+          district?: string | null
           email?: string | null
+          fulfilment_method?: string
           id?: string
           needed_by?: string | null
           notes?: string | null
@@ -387,12 +643,15 @@ export type Database = {
           phone: string
           preferred_color?: string | null
           preferred_size?: string | null
+          region?: string | null
           snippe_reference?: string | null
           specs_agreed_at?: string | null
           specs_agreed_by?: string | null
           status?: string
           stock_applied?: boolean
+          subtotal_amount?: number | null
           total_amount?: number
+          tracking_token?: string
           user_id?: string | null
         }
         Update: {
@@ -400,10 +659,16 @@ export type Database = {
           advance_required?: number
           amount_due?: number
           amount_paid?: number
+          address_line?: string | null
+          archived_at?: string | null
           created_at?: string
           customer_name?: string
+          delivery_fee?: number | null
+          delivery_fee_status?: string
           delivery_location?: string
+          district?: string | null
           email?: string | null
+          fulfilment_method?: string
           id?: string
           needed_by?: string | null
           notes?: string | null
@@ -414,12 +679,15 @@ export type Database = {
           phone?: string
           preferred_color?: string | null
           preferred_size?: string | null
+          region?: string | null
           snippe_reference?: string | null
           specs_agreed_at?: string | null
           specs_agreed_by?: string | null
           status?: string
           stock_applied?: boolean
+          subtotal_amount?: number | null
           total_amount?: number
+          tracking_token?: string
           user_id?: string | null
         }
         Relationships: []
@@ -518,6 +786,7 @@ export type Database = {
           advance_large_items: number
           advance_large_percent: number
           advance_standard_percent: number
+          collection_address: string | null
           email: string | null
           facebook_url: string | null
           id: number
@@ -537,6 +806,7 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          collection_address?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: number
@@ -556,6 +826,7 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          collection_address?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: number
@@ -640,16 +911,24 @@ export type Database = {
       products: {
         Row: {
           available_colors: string[]
+          care_info: string | null
+          care_info_sw: string | null
           category_id: string
+          compare_at_price: number | null
           created_at: string
           description: string
           description_sw: string | null
           dimensions: string | null
+          discount_percent: number | null
           features: string[]
+          finish: string | null
+          finish_sw: string | null
+          free_delivery: boolean
           id: string
           image_key: string | null
           image_url: string | null
           is_available: boolean
+          is_customisable: boolean
           is_demo: boolean
           is_featured: boolean
           like_count: number
@@ -658,23 +937,35 @@ export type Database = {
           name_sw: string | null
           price: number
           short_description: string | null
+          sku: string | null
           slug: string
+          source_type: string
+          status: string
+          stock_display: string
           stock_quantity: number
           updated_at: string
           view_count: number
         }
         Insert: {
           available_colors?: string[]
+          care_info?: string | null
+          care_info_sw?: string | null
           category_id: string
+          compare_at_price?: number | null
           created_at?: string
           description?: string
           description_sw?: string | null
           dimensions?: string | null
+          discount_percent?: number | null
           features?: string[]
+          finish?: string | null
+          finish_sw?: string | null
+          free_delivery?: boolean
           id?: string
           image_key?: string | null
           image_url?: string | null
           is_available?: boolean
+          is_customisable?: boolean
           is_demo?: boolean
           is_featured?: boolean
           like_count?: number
@@ -683,23 +974,35 @@ export type Database = {
           name_sw?: string | null
           price: number
           short_description?: string | null
+          sku?: string | null
           slug: string
+          source_type?: string
+          status?: string
+          stock_display?: string
           stock_quantity?: number
           updated_at?: string
           view_count?: number
         }
         Update: {
           available_colors?: string[]
+          care_info?: string | null
+          care_info_sw?: string | null
           category_id?: string
+          compare_at_price?: number | null
           created_at?: string
           description?: string
           description_sw?: string | null
           dimensions?: string | null
+          discount_percent?: number | null
           features?: string[]
+          finish?: string | null
+          finish_sw?: string | null
+          free_delivery?: boolean
           id?: string
           image_key?: string | null
           image_url?: string | null
           is_available?: boolean
+          is_customisable?: boolean
           is_demo?: boolean
           is_featured?: boolean
           like_count?: number
@@ -708,7 +1011,11 @@ export type Database = {
           name_sw?: string | null
           price?: number
           short_description?: string | null
+          sku?: string | null
           slug?: string
+          source_type?: string
+          status?: string
+          stock_display?: string
           stock_quantity?: number
           updated_at?: string
           view_count?: number
@@ -725,7 +1032,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      product_rating_summary: {
+        Row: {
+          product_id: string
+          rating_avg: number
+          rating_count: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_order_number: { Args: never; Returns: string }

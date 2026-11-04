@@ -26,9 +26,9 @@ function SettingsGroup({
   return (
     <AdminCard hover={false} className="space-y-4">
       <div className="flex items-start gap-3 border-b border-border/70 pb-4">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-navy">{icon}</span>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gold-soft text-[#B86A00]">{icon}</span>
         <div>
-          <h2 className="font-display text-xl text-navy">{title}</h2>
+          <h2 className="text-base font-semibold text-navy">{title}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
@@ -88,6 +88,7 @@ function AdminSettingsPage() {
           instagram_url: String(fd.get("instagram_url") ?? ""),
           facebook_url: String(fd.get("facebook_url") ?? ""),
           tiktok_url: String(fd.get("tiktok_url") ?? ""),
+          ...(fd.has("collection_address") ? { collection_address: String(fd.get("collection_address") ?? "") } : {}),
         },
       });
       setRow(updated);
@@ -149,6 +150,9 @@ function AdminSettingsPage() {
         >
           <Field name="location" label="Location" value={row.location} span />
           <Field name="tagline" label="Tagline" value={row.tagline} span />
+          {row.collection_address !== undefined && (
+            <Field name="collection_address" label="Collection address (shown for collection orders)" value={row.collection_address} span />
+          )}
         </SettingsGroup>
 
         <SettingsGroup

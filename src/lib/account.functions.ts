@@ -50,13 +50,33 @@ export const updateMyProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const ORDER_FIELDS =
-  "id,order_number,status,created_at,needed_by,delivery_location,total_amount,amount_paid,advance_percent,advance_required,specs_agreed_at,payment_status,order_items(product_name,quantity,unit_price,material,size,color)";
+/** `*` keeps working before and after migration 0007 adds the delivery columns. */
+const ORDER_FIELDS = "*,order_items(product_name,quantity,unit_price,material,size,color)";
 
-function shape<T extends { total_amount: number; amount_paid: number; advance_required: number }>(row: T) {
+function shape<
+  T extends {
+    total_amount: number;
+    amount_paid: number;
+    advance_required: number;
+    subtotal_amount?: number | null;
+    delivery_fee?: number | null;
+    delivery_fee_status?: string | null;
+    fulfilment_method?: string | null;
+  },
+>(row: T) {
   const total = Number(row.total_amount);
   const paid = Number(row.amount_paid);
-  return { ...row, total_amount: total, amount_paid: paid, advance_required: Number(row.advance_required), balance: balanceDue(total, paid) };
+  return {
+    ...row,
+    total_amount: total,
+    amount_paid: paid,
+    advance_required: Number(row.advance_required),
+    subtotal_amount: Number(row.subtotal_amount ?? row.total_amount),
+    delivery_fee: row.delivery_fee == null ? null : Number(row.delivery_fee),
+    delivery_fee_status: row.delivery_fee_status ?? "confirmed",
+    fulfilment_method: row.fulfilment_method ?? "delivery",
+    balance: balanceDue(total, paid),
+  };
 }
 
 export const listMyOrders = createServerFn({ method: "GET" })
@@ -70,7 +90,55 @@ export const listMyOrders = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
-    return (data ?? []).map(shape);
+    return (data ?? []).filter((row) => !row.archived_at).map(shape);
+  });
+
+export type MyNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+/** In-app notifications for the signed-in customer. `available` is false before migration 0007. */
+export const listMyNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ available: boolean; unread: number; items: MyNotification[] }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { isMissingSchema } = await import("@/lib/db-compat");
+    const { data, error } = await supabaseAdmin
+      .from("notifications")
+      .select("id,type,title,body,link,read_at,created_at")
+      .eq("audience", "customer")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      if (isMissingSchema(error)) return { available: false, unread: 0, items: [] };
+      throw new Error(error.message);
+    }
+    const items = data ?? [];
+    return { available: true, unread: items.filter((n) => !n.read_at).length, items };
+  });
+
+export const markMyNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ ids: z.array(z.string().uuid()).max(100).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let query = supabaseAdmin
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("audience", "customer")
+      .eq("user_id", context.userId)
+      .is("read_at", null);
+    if (data.ids?.length) query = query.in("id", data.ids);
+    const { error } = await query;
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const getMyOrder = createServerFn({ method: "GET" })
@@ -81,7 +149,7 @@ export const getMyOrder = createServerFn({ method: "GET" })
     const { data: order, error } = await supabaseAdmin
       .from("orders")
       .select(
-        `${ORDER_FIELDS},customer_name,phone,email,notes,payments(id,amount,status,purpose,provider,receipt_number,created_at,updated_at),order_status_history(status,note,created_at)`,
+        `${ORDER_FIELDS},payments(id,amount,status,purpose,provider,receipt_number,created_at,updated_at),order_status_history(status,note,created_at)`,
       )
       .eq("order_number", data.number)
       .eq("user_id", context.userId)

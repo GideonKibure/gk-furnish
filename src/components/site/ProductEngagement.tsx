@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, Heart } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
-import type { Product } from "@/lib/catalog";
+import { productsQuery, type Product } from "@/lib/catalog";
+import { cn } from "@/lib/utils";
 
 const VISITOR_KEY = "gk-product-visitor";
 
@@ -21,8 +21,7 @@ function visitorId() {
   }
 }
 
-export function ProductEngagement({ product, trackView = false, compact = false }: { product: Product; trackView?: boolean; compact?: boolean }) {
-  const { lang } = useLang();
+function useEngagement(product: Product, trackView: boolean) {
   const queryClient = useQueryClient();
   const [liked, setLiked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,7 +42,7 @@ export function ProductEngagement({ product, trackView = false, compact = false 
     setLiked(isLiked);
     try { window.localStorage.setItem(`gk-liked-${product.id}`, String(isLiked)); }
     catch { /* Storage unavailable */ }
-    queryClient.setQueryData<Product[]>(["products"], (list) =>
+    queryClient.setQueryData<Product[]>(productsQuery.queryKey, (list) =>
       list?.map((item) => item.id === product.id ? { ...item, view_count: views, like_count: likes } : item));
   };
 
@@ -73,19 +72,49 @@ export function ProductEngagement({ product, trackView = false, compact = false 
     finally { setBusy(false); }
   };
 
+  return { liked, busy, error, counts, toggleLike };
+}
+
+/** Round heart on product images. */
+export function LikeButton({ product }: { product: Product }) {
+  const { lang } = useLang();
+  const { liked, busy, counts, toggleLike } = useEngagement(product, false);
   return (
-    <div className={`flex items-center gap-x-3 text-sm text-muted-foreground ${compact ? "h-9 overflow-hidden" : "flex-wrap gap-y-1"}`}>
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void toggleLike()}
+      aria-pressed={liked}
+      aria-label={lang === "sw" ? (liked ? "Ondoa kupenda" : "Penda bidhaa") : (liked ? "Unlike product" : "Like product")}
+      title={`${counts.likes.toLocaleString()} ${lang === "sw" ? "waliopenda" : "likes"}`}
+      className={cn(
+        "grid h-9 w-9 place-items-center rounded-full bg-white/95 shadow-sm transition-colors hover:bg-white",
+        liked ? "text-danger" : "text-navy",
+      )}
+    >
+      <Heart className={cn("h-4 w-4", liked && "fill-current")} />
+    </button>
+  );
+}
+
+export function ProductEngagement({ product, trackView = false, compact = false }: { product: Product; trackView?: boolean; compact?: boolean }) {
+  const { lang } = useLang();
+  const { liked, busy, error, counts, toggleLike } = useEngagement(product, trackView);
+
+  return (
+    <div className={cn("flex items-center gap-x-3 text-sm text-muted-foreground", compact ? "h-9 overflow-hidden" : "flex-wrap gap-y-1")}>
       <span className="inline-flex min-w-0 items-center gap-1.5" aria-label={`${counts.views} ${lang === "sw" ? "waliotazama" : "views"}`}>
         <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{counts.views.toLocaleString()} {lang === "sw" ? "waliotazama" : "views"}</span>
       </span>
-      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={toggleLike}
+      <button type="button" disabled={busy} onClick={() => void toggleLike()}
         aria-label={lang === "sw" ? (liked ? "Ondoa kupenda" : "Penda bidhaa") : (liked ? "Unlike product" : "Like product")}
-        aria-pressed={liked} className={`h-9 gap-1.5 px-2 text-sm ${liked ? "text-destructive" : "text-muted-foreground"}`}>
-        <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} aria-hidden="true" />
+        aria-pressed={liked}
+        className={cn("inline-flex h-9 items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-muted", liked ? "text-danger" : "text-muted-foreground")}>
+        <Heart className={cn("h-4 w-4", liked && "fill-current")} aria-hidden="true" />
         {counts.likes.toLocaleString()} {lang === "sw" ? "waliopenda" : "likes"}
-      </Button>
-      {error && <span role="status" className="text-destructive">{lang === "sw" ? "Jaribu tena" : "Please try again"}</span>}
+      </button>
+      {error && <span role="status" className="text-danger">{lang === "sw" ? "Jaribu tena" : "Please try again"}</span>}
     </div>
   );
 }

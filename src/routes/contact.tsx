@@ -8,19 +8,12 @@ import { Reveal } from "@/components/site/Reveal";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
+import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({
-    meta: [
-      { title: "Contact — GK furnish" },
-      { name: "description", content: "Call, WhatsApp or message GK furnish in Mbeya." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Contact — GK furnish" },
-      { property: "og:description", content: "Get in touch with GK furnish." },
-    ],
-  }),
+  head: () =>
+    seo({ title: "Contact — GK furnish", description: "Call, WhatsApp or message GK furnish in Mbeya, Tanzania.", path: "/contact" }),
   component: Contact,
 });
 
@@ -73,7 +66,7 @@ function Contact() {
 
   return (
     <>
-      <PageHeader title={c.title} subtitle={subtitle} />
+      <PageHeader title={c.title} subtitle={subtitle} crumbs={[{ label: t.nav.home, href: "/" }, { label: t.nav.contact }]} />
       <div className="container-page section-y grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
         <Reveal variant="left" className="space-y-3">
           {channels.map(({ href, Icon, label, value, ...rest }) => (
@@ -81,7 +74,7 @@ function Contact() {
               key={label}
               href={href}
               {...("external" in rest && rest.external ? { target: "_blank", rel: "noreferrer" } : {})}
-              className="group flex items-center gap-4 rounded-2xl border border-border bg-background p-4 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
+              className="group flex items-center gap-4 rounded-xl border border-border bg-background p-4 shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[var(--shadow-lift)]"
             >
               <span className="grid h-12 w-12 place-items-center rounded-full bg-gold text-navy transition-transform duration-300 group-hover:scale-105">
                 <Icon className="h-5 w-5" />
@@ -92,7 +85,7 @@ function Contact() {
               </span>
             </a>
           ))}
-          <div className="flex items-center gap-4 rounded-2xl border border-border bg-sand/50 p-4">
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-sand/50 p-4">
             <span className="grid h-12 w-12 place-items-center rounded-full bg-navy text-gold">
               <MapPin className="h-5 w-5" />
             </span>
@@ -106,7 +99,7 @@ function Contact() {
         <Reveal variant="right">
           <form
             onSubmit={onSubmit}
-            className="rounded-[1.75rem] border border-border bg-background p-6 shadow-[var(--shadow-card)] md:p-8"
+            className="rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)] md:p-8"
           >
             <h2 className="font-display text-2xl text-navy md:text-3xl">{c.formTitle}</h2>
             <p className="mt-2 text-sm text-muted-foreground">{c.subtitle}</p>
