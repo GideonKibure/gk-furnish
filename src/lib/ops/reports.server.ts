@@ -10,8 +10,10 @@
  *                    pro rata by line value)
  *   gross profit = revenue − COGS
  *   opex         = non-archived expenses dated in the period, by category (payment fees included)
+ *                  + loan interest paid in the period (category `loan_interest`)
  *   net profit   = gross profit − opex
  * Capital contributions and loans are never revenue (BR-13/14); they only appear in the cashbook.
+ * Loan principal repaid is cash out only, never an expense.
  */
 import { isMissingSchema } from "@/lib/db-compat";
 import { darDayKey } from "@/lib/ops/date-range";
@@ -87,7 +89,7 @@ export async function computeProfitAndLoss(supabaseAdmin: SupabaseAdmin, period:
   const toIso = period.to.toISOString();
   const { fromDay, toDay } = periodDays(period);
 
-  const [payments, refunds, jobs, pos, expenses] = await Promise.all([
+  const [payments, refunds, jobs, pos, expenses, loanInterest] = await Promise.all([
     supabaseAdmin.from("payments").select("amount").eq("status", "completed").gte("updated_at", fromIso).lt("updated_at", toIso),
     supabaseAdmin.from("refunds").select("amount").gte("created_at", fromIso).lt("created_at", toIso),
     supabaseAdmin
@@ -108,6 +110,7 @@ export async function computeProfitAndLoss(supabaseAdmin: SupabaseAdmin, period:
       .is("archived_at", null)
       .gte("expense_date", fromDay)
       .lte("expense_date", toDay),
+    supabaseAdmin.from("loan_repayments").select("interest").gte("paid_on", fromDay).lte("paid_on", toDay),
   ]);
   if (payments.error) throw new Error(payments.error.message);
 
@@ -129,6 +132,8 @@ export async function computeProfitAndLoss(supabaseAdmin: SupabaseAdmin, period:
   const grossProfit = revenue - cogs;
   const opexByCategory: Record<string, number> = {};
   for (const e of expenseRows ?? []) opexByCategory[e.category] = (opexByCategory[e.category] ?? 0) + Number(e.amount);
+  const interestPaid = (optionalRows(loanInterest) ?? []).reduce((s, r) => s + Number(r.interest), 0);
+  if (interestPaid > 0) opexByCategory["loan_interest"] = (opexByCategory["loan_interest"] ?? 0) + interestPaid;
   const opex = Object.values(opexByCategory).reduce((s, v) => s + v, 0);
 
   const gaps: string[] = [];

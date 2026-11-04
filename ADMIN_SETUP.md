@@ -12,7 +12,9 @@ Run these in the Supabase SQL Editor, in order, if they have not been run yet:
    The admin portal keeps working before 0007 is run. Until then: products can only be deleted (not archived), the new product fields are not saved, orders cannot be archived and have no delivery fee step, the Reviews page and the notification bell stay hidden, and quotes are kept in the old format.
 5. [`drizzle/migrations/0008_business_operations.sql`](drizzle/migrations/0008_business_operations.sql) — business operations: audit log, more order statuses, refunds, delivery records, product costs, inventory and stock movements, suppliers, purchase orders, production jobs, quality checks, expenses, capital and assets, and a private `business-receipts` storage bucket. **Run it after 0007.**
 
-   The run order is **0006 → 0007 → 0008**. Each file is safe to run more than once. Before 0008 is run, the Operations and Finance pages say "Run migration 0008", the dashboard's net profit stays empty, and orders cannot use the new statuses, refunds or delivery records. Every new table has row-level security switched on with no browser access: the portal reads and writes them through admin-only server functions.
+6. [`drizzle/migrations/0009_loan_repayments.sql`](drizzle/migrations/0009_loan_repayments.sql) — loan repayments (principal and interest) and a "repay by" date on loans, so each loan shows what is still owed. **Run it after 0008.**
+
+   The run order is **0006 → 0007 → 0008 → 0009**. Each file is safe to run more than once. Before 0009 is run, loans show the full amount borrowed and repayments can't be recorded. Before 0008 is run, the Operations and Finance pages say "Run migration 0008", the dashboard's net profit stays empty, and orders cannot use the new statuses, refunds or delivery records. Every new table has row-level security switched on with no browser access: the portal reads and writes them through admin-only server functions.
 
 ## 2. Create an admin user
 
@@ -103,7 +105,7 @@ Staff notifications (the bell) cover new orders, new custom requests and quote r
 - **Suppliers**: contact details, payment terms, active or inactive, a 1–5 rating, and what you still owe each supplier.
 - **Purchases**: purchase orders (`PO-2026-0001`) with lines, created standalone or from an order line (**Order from partner** on the order). Receiving records accepted and rejected quantities and defects; accepted quantities go into stock. Supplier payments and the balance due are shown, with balance = goods + transport + inspection − payments.
 - **Expenses**: rent, utilities, transport, materials, wages, marketing, payment fees, maintenance and other. Receipts upload to the private `business-receipts` bucket and open through short-lived links. Expenses can be filtered, exported to CSV and archived.
-- **Capital & assets**: owner funds, gifts and loans (with terms), and a register of business assets (cost, purchase date, useful life, disposal).
+- **Capital & assets**: owner funds, gifts and loans (with terms and a repay-by date), and a register of business assets (cost, purchase date, useful life, disposal). Each loan has a **Repayments** button: record the principal and interest paid, and the page shows borrowed, repaid and still owed. Principal repaid can't exceed what was borrowed. Reports list "We owe lenders" (today's balances, with overdue loans flagged), and the cashbook shows principal and interest as cash out.
 - **Reports**: for any period, sales by period, product and category, plus a profit and loss statement. Revenue is counted on a **cash basis**: customer payments completed in the period minus refunds in the period. The cost of goods is the actual costs of production jobs completed in the period plus the landed cost of partner goods bought for customer orders on purchase orders received in the period, with transport and inspection shared by line value. Gross profit is revenue minus that cost; net profit is gross profit minus operating expenses. The page also shows a cashbook by payment method, what customers owe, what is owed to suppliers and stock value, each with CSV export. Warnings flag records that may be incomplete.
 
 ### Business rules
@@ -113,6 +115,6 @@ Staff notifications (the bell) cover new orders, new custom requests and quote r
 - **BR-10** Stock cannot go below zero unless the movement is explicitly authorised.
 - **BR-11** Every purchase order must have a supplier.
 - **BR-12** Every refund needs a reason and cannot exceed what is left of the payment.
-- **BR-13 / BR-14** Owner funds, gifts and loans are cash in, never revenue.
+- **BR-13 / BR-14** Owner funds, gifts and loans are cash in, never revenue. Repaying loan principal is cash out, never an expense; loan interest paid is an expense ("Loan interest") and lowers profit.
 - **BR-15** Payment fees are recorded as expenses.
 - There are no staff roles yet: every admin user has full access.

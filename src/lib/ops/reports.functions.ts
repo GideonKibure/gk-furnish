@@ -81,6 +81,19 @@ export const getReports = createServerFn({ method: "GET" })
         supabaseAdmin.from("products").select("id,name").eq("is_available", true),
         supabaseAdmin.from("product_costs").select("product_id"),
       ]);
+    const [loanRepaymentsInPeriod, allLoans, allRepayments] = await Promise.all([
+      supabaseAdmin
+        .from("loan_repayments")
+        .select("principal,interest,method")
+        .gte("paid_on", fromDay)
+        .lte("paid_on", toDay),
+      supabaseAdmin
+        .from("capital_contributions")
+        .select("*")
+        .eq("source", "loan")
+        .order("date", { ascending: true }),
+      supabaseAdmin.from("loan_repayments").select("loan_id,principal,paid_on"),
+    ]);
     if (payments.error) throw new Error(payments.error.message);
     if (openOrders.error) throw new Error(openOrders.error.message);
 
@@ -136,6 +149,15 @@ export const getReports = createServerFn({ method: "GET" })
     const supplierRows = optionalRows(supplierPayments);
     for (const s of supplierRows ?? []) cash.push({ direction: "out", kind: "Supplier payments", method: s.method ?? "Other", amount: Number(s.amount) });
     for (const r of refundRows ?? []) cash.push({ direction: "out", kind: "Customer refunds", method: r.method ?? "Other", amount: Number(r.amount) });
+    const repaymentRows = optionalRows(loanRepaymentsInPeriod);
+    for (const r of repaymentRows ?? []) {
+      if (Number(r.principal) > 0) {
+        cash.push({ direction: "out", kind: "Loan repayments (principal)", method: r.method ?? "Other", amount: Number(r.principal) });
+      }
+      if (Number(r.interest) > 0) {
+        cash.push({ direction: "out", kind: "Loan interest", method: r.method ?? "Other", amount: Number(r.interest) });
+      }
+    }
     const cashGroups = new Map<string, CashLine>();
     for (const line of cash) {
       const key = `${line.direction}|${line.kind}|${line.method}`;
@@ -185,6 +207,37 @@ export const getReports = createServerFn({ method: "GET" })
       .filter((p) => p.balance > 0)
       .sort((a, b) => b.balance - a.balance);
 
+    // Loans still owed today (not limited to the period).
+    const loanRows = optionalRows(allLoans);
+    const paidByLoan = new Map<string, { repaid: number; last: string | null }>();
+    const allRepaymentRows = optionalRows(allRepayments);
+    for (const r of allRepaymentRows ?? []) {
+      const entry = paidByLoan.get(r.loan_id) ?? { repaid: 0, last: null };
+      entry.repaid += Number(r.principal);
+      if (!entry.last || r.paid_on > entry.last) entry.last = r.paid_on;
+      paidByLoan.set(r.loan_id, entry);
+    }
+    const loansOwed = (loanRows ?? [])
+      .map((l) => {
+        const borrowed = Number(l.amount);
+        const paid = paidByLoan.get(l.id);
+        const dueDate = (l as { due_date?: string | null }).due_date ?? null;
+        return {
+          id: l.id,
+          lender: l.contributor ?? "Loan",
+          date: l.date,
+          due_date: dueDate,
+          borrowed,
+          repaid: paid?.repaid ?? 0,
+          outstanding: Math.max(0, borrowed - (paid?.repaid ?? 0)),
+          last_paid_on: paid?.last ?? null,
+          overdue: Boolean(dueDate && dueDate < today && borrowed - (paid?.repaid ?? 0) > 0),
+        };
+      })
+      .filter((l) => l.outstanding > 0)
+      .sort((a, b) => b.outstanding - a.outstanding);
+    const overdueLoans = loansOwed.filter((l) => l.overdue);
+
     // Inventory value at average cost.
     const itemRows = optionalRows(items);
     const inventoryByKind = new Map<string, number>();
@@ -196,6 +249,12 @@ export const getReports = createServerFn({ method: "GET" })
 
     // Records-incomplete warnings.
     const warnings: string[] = [...pnl.gaps];
+    if (overdueLoans.length) {
+      warnings.push(`${overdueLoans.length} loan(s) are past their due date with a balance still owed.`);
+    }
+    if (loanRows !== null && allRepaymentRows === null && loanRows.length) {
+      warnings.push("Loan repayments need migration 0009, so loans show the full amount borrowed.");
+    }
     const jobRows = optionalRows(completedJobs);
     const zeroCostJobs = (jobRows ?? []).filter(
       (j) => Number(j.act_material_cost) + Number(j.act_labour_cost) + Number(j.act_overhead_cost) === 0,
@@ -240,7 +299,7 @@ export const getReports = createServerFn({ method: "GET" })
       to: darDayKey(bounds.to),
       today,
       basis:
-        "Cash basis: revenue is customer payments completed in the period minus refunds made in the period. Capital and loans are not revenue.",
+        "Cash basis: revenue is customer payments completed in the period minus refunds made in the period. Capital and loans are not revenue; loan interest is an expense and loan principal repaid is cash out only.",
       pnl,
       trends: {
         revenue: trendPercent(pnl.revenue, pnlPrev.revenue),
@@ -258,6 +317,12 @@ export const getReports = createServerFn({ method: "GET" })
       },
       receivables: { total: receivables.reduce((s, r) => s + r.amount_due, 0), rows: receivables },
       payables: { available: poRows !== null, total: payables.reduce((s, p) => s + p.balance, 0), rows: payables },
+      loans: {
+        available: loanRows !== null,
+        repaymentsAvailable: allRepaymentRows !== null,
+        total: loansOwed.reduce((s, l) => s + l.outstanding, 0),
+        rows: loansOwed,
+      },
       inventory: {
         available: itemRows !== null,
         total: inventoryValue,

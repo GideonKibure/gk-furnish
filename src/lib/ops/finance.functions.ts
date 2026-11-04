@@ -6,6 +6,8 @@ import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
 import { CAPITAL_SOURCES, darToday } from "@/lib/ops/business";
 import { MIGRATION_0008 } from "@/lib/ops/inventory.server";
 
+export const MIGRATION_0009 = "0009_loan_repayments.sql";
+
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -48,12 +50,47 @@ export function assetBookValue(
   };
 }
 
+export type LoanRepayment = {
+  id: string;
+  loan_id: string;
+  paid_on: string;
+  principal: number;
+  interest: number;
+  method: string | null;
+  reference: string | null;
+  notes: string | null;
+};
+
+/** Borrowed, repaid and still-owed figures for one loan. */
+export function loanBalance(amount: number, repayments: LoanRepayment[]) {
+  const repaid = repayments.reduce((s, r) => s + r.principal, 0);
+  const interestPaid = repayments.reduce((s, r) => s + r.interest, 0);
+  const last = repayments.reduce<string | null>((d, r) => (d && d > r.paid_on ? d : r.paid_on), null);
+  return { repaid, interestPaid, outstanding: Math.max(0, amount - repaid), lastPaidOn: last };
+}
+
+/** All repayments, or `null` when migration 0009 has not been run. */
+export async function loadLoanRepayments(
+  supabaseAdmin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+): Promise<LoanRepayment[] | null> {
+  const { data, error } = await supabaseAdmin
+    .from("loan_repayments")
+    .select("id,loan_id,paid_on,principal,interest,method,reference,notes")
+    .order("paid_on", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (isMissingSchema(error)) return null;
+    throw new Error(error.message);
+  }
+  return (data ?? []).map((r) => ({ ...r, principal: Number(r.principal), interest: Number(r.interest) }));
+}
+
 /** Capital contributions and assets in one call for the Capital & assets page. */
 export const listFinanceRegisters = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [capital, assets] = await Promise.all([
+    const [capital, assets, repayments] = await Promise.all([
       supabaseAdmin
         .from("capital_contributions")
         .select("*")
@@ -63,6 +100,7 @@ export const listFinanceRegisters = createServerFn({ method: "GET" })
         .from("assets")
         .select("*")
         .order("purchase_date", { ascending: false, nullsFirst: false }),
+      loadLoanRepayments(supabaseAdmin),
     ]);
     const missing = capital.error ?? assets.error;
     if (missing) {
@@ -70,6 +108,7 @@ export const listFinanceRegisters = createServerFn({ method: "GET" })
         return {
           available: false as const,
           reason: migrationNeeded(MIGRATION_0008),
+          repaymentsAvailable: false,
           capital: [],
           assets: [],
           totals: null,
@@ -78,7 +117,20 @@ export const listFinanceRegisters = createServerFn({ method: "GET" })
       throw new Error(missing.message);
     }
 
-    const capitalRows = (capital.data ?? []).map((c) => ({ ...c, amount: Number(c.amount) }));
+    const byLoan = new Map<string, LoanRepayment[]>();
+    for (const r of repayments ?? []) byLoan.set(r.loan_id, [...(byLoan.get(r.loan_id) ?? []), r]);
+    const capitalRows = (capital.data ?? []).map((c) => {
+      const amount = Number(c.amount);
+      const loanRepayments = c.source === "loan" ? (byLoan.get(c.id) ?? []) : [];
+      return {
+        ...c,
+        amount,
+        due_date: (c as { due_date?: string | null }).due_date ?? null,
+        repayments: loanRepayments,
+        loan: c.source === "loan" ? loanBalance(amount, loanRepayments) : null,
+      };
+    });
+    const loans = capitalRows.filter((c) => c.loan);
     const today = darToday();
     const assetRows = (assets.data ?? []).map((a) => {
       const row = { ...a, cost: Number(a.cost) };
@@ -96,11 +148,16 @@ export const listFinanceRegisters = createServerFn({ method: "GET" })
     return {
       available: true as const,
       reason: null,
+      repaymentsAvailable: repayments !== null,
       capital: capitalRows,
       assets: assetRows,
       totals: {
         capital: capitalRows.reduce((s, c) => s + c.amount, 0),
         bySource,
+        loansOutstanding: loans.reduce((s, c) => s + (c.loan?.outstanding ?? 0), 0),
+        loansRepaid: loans.reduce((s, c) => s + (c.loan?.repaid ?? 0), 0),
+        loanInterestPaid: loans.reduce((s, c) => s + (c.loan?.interestPaid ?? 0), 0),
+        openLoans: loans.filter((c) => (c.loan?.outstanding ?? 0) > 0).length,
         assetCost: inUse.reduce((s, a) => s + a.cost, 0),
         bookValue: inUse.reduce((s, a) => s + a.bookValue, 0),
         monthlyDepreciation: inUse.reduce(
@@ -119,6 +176,7 @@ const CapitalInput = z.object({
   amount: z.number().positive().max(10_000_000_000),
   terms: optionalText(1000),
   notes: optionalText(1000),
+  due_date: DATE.optional().or(z.literal("")),
 });
 
 export const upsertCapitalContribution = createServerFn({ method: "POST" })
@@ -126,13 +184,40 @@ export const upsertCapitalContribution = createServerFn({ method: "POST" })
   .inputValidator((d) => CapitalInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const body = {
+    const body: {
+      date: string;
+      source: string;
+      contributor: string | null;
+      amount: number;
+      terms: string | null;
+      notes: string | null;
+      due_date?: string | null;
+    } = {
       date: data.date,
       source: data.source,
       contributor: data.contributor || null,
       amount: data.amount,
       terms: data.terms || null,
       notes: data.notes || null,
+    };
+    if (data.source === "loan" && data.due_date) body.due_date = data.due_date;
+    else if (data.source !== "loan") body.due_date = null;
+
+    if (data.id) {
+      const repayments = await loadLoanRepayments(supabaseAdmin);
+      const repaid = (repayments ?? [])
+        .filter((r) => r.loan_id === data.id)
+        .reduce((s, r) => s + r.principal, 0);
+      if (repaid > 0 && data.source !== "loan") {
+        throw new Error("This loan has repayments recorded. Delete them before changing the source.");
+      }
+      if (repaid > data.amount) {
+        throw new Error(`The amount can't be lower than the ${Math.round(repaid).toLocaleString("en-US")} TZS already repaid.`);
+      }
+    }
+    const withoutDueDate = () => {
+      const { due_date: _ignored, ...rest } = body;
+      return rest;
     };
     if (data.id) {
       const { data: before, error: loadErr } = await supabaseAdmin
@@ -142,10 +227,16 @@ export const upsertCapitalContribution = createServerFn({ method: "POST" })
         .maybeSingle();
       if (loadErr) fail(loadErr);
       if (!before) throw new Error("Contribution not found");
-      const { error } = await supabaseAdmin
+      let { error } = await supabaseAdmin
         .from("capital_contributions")
         .update(body)
         .eq("id", data.id);
+      if (error && isMissingSchema(error) && "due_date" in body) {
+        ({ error } = await supabaseAdmin
+          .from("capital_contributions")
+          .update(withoutDueDate())
+          .eq("id", data.id));
+      }
       if (error) fail(error);
       if (Number(before.amount) !== data.amount || before.source !== data.source) {
         await writeAudit(supabaseAdmin, {
@@ -159,13 +250,107 @@ export const upsertCapitalContribution = createServerFn({ method: "POST" })
       }
       return { id: data.id };
     }
-    const { data: row, error } = await supabaseAdmin
+    let inserted = await supabaseAdmin.from("capital_contributions").insert(body).select("id").single();
+    if (inserted.error && isMissingSchema(inserted.error) && "due_date" in body) {
+      inserted = await supabaseAdmin
+        .from("capital_contributions")
+        .insert(withoutDueDate())
+        .select("id")
+        .single();
+    }
+    if (inserted.error) fail(inserted.error);
+    return { id: inserted.data.id };
+  });
+
+const RepaymentInput = z
+  .object({
+    loanId: z.string().uuid(),
+    paid_on: DATE,
+    principal: z.number().min(0).max(10_000_000_000),
+    interest: z.number().min(0).max(10_000_000_000),
+    method: optionalText(60),
+    reference: optionalText(120),
+    notes: optionalText(500),
+  })
+  .refine((d) => d.principal + d.interest > 0, { message: "Enter the principal and/or interest paid" });
+
+/** Record a repayment on a loan. Principal reduces what is owed; interest is an expense. */
+export const addLoanRepayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => RepaymentInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: loan, error: loanErr } = await supabaseAdmin
       .from("capital_contributions")
-      .insert(body)
+      .select("id,source,amount,contributor")
+      .eq("id", data.loanId)
+      .maybeSingle();
+    if (loanErr) fail(loanErr);
+    if (!loan || loan.source !== "loan") throw new Error("Repayments can only be recorded against a loan");
+
+    const repayments = await loadLoanRepayments(supabaseAdmin);
+    if (repayments === null) throw new Error(migrationNeeded(MIGRATION_0009));
+    const { outstanding } = loanBalance(
+      Number(loan.amount),
+      repayments.filter((r) => r.loan_id === loan.id),
+    );
+    if (Math.round(data.principal) > Math.round(outstanding)) {
+      throw new Error(`Principal is more than the ${Math.round(outstanding).toLocaleString("en-US")} TZS still owed`);
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from("loan_repayments")
+      .insert({
+        loan_id: loan.id,
+        paid_on: data.paid_on,
+        principal: data.principal,
+        interest: data.interest,
+        method: data.method || null,
+        reference: data.reference || null,
+        notes: data.notes || null,
+        created_by: context.userId,
+      })
       .select("id")
       .single();
-    if (error) fail(error);
-    return { id: row.id };
+    if (error) {
+      if (isMissingSchema(error)) throw new Error(migrationNeeded(MIGRATION_0009));
+      throw new Error(error.message);
+    }
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: "loan_repayment",
+      entity: "capital_contribution",
+      entityId: loan.id,
+      after: { principal: data.principal, interest: data.interest, paid_on: data.paid_on, lender: loan.contributor },
+    });
+    return { id: row.id, outstanding: Math.max(0, outstanding - data.principal) };
+  });
+
+export const deleteLoanRepayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("loan_repayments")
+      .delete()
+      .eq("id", data.id)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      if (isMissingSchema(error)) throw new Error(migrationNeeded(MIGRATION_0009));
+      throw new Error(error.message);
+    }
+    if (row) {
+      await writeAudit(supabaseAdmin, {
+        actor: context.userId,
+        action: "loan_repayment_delete",
+        entity: "capital_contribution",
+        entityId: row.loan_id,
+        before: { principal: Number(row.principal), interest: Number(row.interest), paid_on: row.paid_on },
+      });
+    }
+    return { ok: true };
   });
 
 export const deleteCapitalContribution = createServerFn({ method: "POST" })

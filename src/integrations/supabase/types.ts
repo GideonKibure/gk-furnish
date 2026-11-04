@@ -1120,6 +1120,7 @@ export type Database = {
           contributor: string | null
           created_at: string
           date: string
+          due_date: string | null
           id: string
           notes: string | null
           source: string
@@ -1130,6 +1131,7 @@ export type Database = {
           contributor?: string | null
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
           notes?: string | null
           source: string
@@ -1140,12 +1142,60 @@ export type Database = {
           contributor?: string | null
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
           notes?: string | null
           source?: string
           terms?: string | null
         }
         Relationships: []
+      }
+      loan_repayments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          interest: number
+          loan_id: string
+          method: string | null
+          notes: string | null
+          paid_on: string
+          principal: number
+          reference: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interest?: number
+          loan_id: string
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          principal?: number
+          reference?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interest?: number
+          loan_id?: string
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          principal?: number
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "capital_contributions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_records: {
         Row: {

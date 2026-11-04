@@ -325,6 +325,8 @@ function AdminReportsPage() {
             <Payables data={data} file={file} />
           </section>
 
+          <LoansOwed data={data} file={file} />
+
           <ChartCard
             title="Inventory value"
             description="Quantity × average unit cost of items in stock"
@@ -461,6 +463,74 @@ function Receivables({ data, file }: { data: Report; file: (name: string) => str
         )}
         empty={<p className="py-4 text-sm text-[#6B7280]">Nothing owed.</p>}
       />
+    </ChartCard>
+  );
+}
+
+function LoansOwed({ data, file }: { data: Report; file: (name: string) => string }) {
+  const rows = data.loans.rows;
+  return (
+    <ChartCard
+      title={`We owe lenders ${tzs(data.loans.total)}`}
+      description="Amount borrowed minus principal repaid, today (not limited to the period). Interest is shown under expenses."
+      action={
+        <CsvButton
+          disabled={!rows.length}
+          onClick={() =>
+            downloadCsv(
+              file("loans-owed"),
+              ["Lender", "Borrowed on", "Due", "Borrowed (TSh)", "Repaid (TSh)", "Still owed (TSh)", "Last repayment"],
+              rows.map((l) => [l.lender, l.date, l.due_date, Math.round(l.borrowed), Math.round(l.repaid), Math.round(l.outstanding), l.last_paid_on]),
+            )
+          }
+        />
+      }
+    >
+      {!data.loans.available ? (
+        <p className="text-sm text-[#6B7280]">Needs migration 0008.</p>
+      ) : (
+        <>
+          {!data.loans.repaymentsAvailable && (
+            <p className="mb-2 text-xs text-[#6B7280]">Run migration 0009 to record repayments. Until then each loan shows the full amount borrowed.</p>
+          )}
+          <DataTable
+            rows={rows.slice(0, 12)}
+            rowKey={(l) => l.id}
+            columns={[
+              {
+                key: "lender",
+                header: "Lender",
+                cell: (l) => (
+                  <a href="/admin/finance" className="font-semibold text-navy hover:underline">
+                    {l.lender}
+                  </a>
+                ),
+              },
+              { key: "borrowed", header: "Borrowed", align: "right", className: "hidden md:table-cell", cell: (l) => tzs(l.borrowed) },
+              { key: "repaid", header: "Repaid", align: "right", className: "hidden md:table-cell", cell: (l) => tzs(l.repaid) },
+              {
+                key: "due",
+                header: "Due",
+                cell: (l) =>
+                  l.due_date ? <StatusPill tone={l.overdue ? "danger" : "neutral"}>{l.overdue ? `Overdue · ${l.due_date}` : l.due_date}</StatusPill> : "—",
+              },
+              { key: "owed", header: "Still owed", align: "right", cell: (l) => <span className="font-semibold text-navy">{tzs(l.outstanding)}</span> },
+            ]}
+            mobileCard={(l) => (
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold text-navy">{l.lender}</span>{" "}
+                  <span className={`text-xs ${l.overdue ? "text-[#DC2626]" : "text-[#6B7280]"}`}>
+                    {l.overdue ? "Overdue" : l.due_date ? `Due ${l.due_date}` : `Repaid ${tzs(l.repaid)}`}
+                  </span>
+                </span>
+                <span className="font-semibold text-navy">{tzs(l.outstanding)}</span>
+              </div>
+            )}
+            empty={<p className="py-4 text-sm text-[#6B7280]">No loan balances.</p>}
+          />
+        </>
+      )}
     </ChartCard>
   );
 }
