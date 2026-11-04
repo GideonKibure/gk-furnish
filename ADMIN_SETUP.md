@@ -115,6 +115,6 @@ Staff notifications (the bell) cover new orders, new custom requests and quote r
 - **BR-10** Stock cannot go below zero unless the movement is explicitly authorised.
 - **BR-11** Every purchase order must have a supplier.
 - **BR-12** Every refund needs a reason and cannot exceed what is left of the payment.
-- **BR-13 / BR-14** Owner funds, gifts and loans are cash in, never revenue. Repaying loan principal is cash out, never an expense; loan interest paid is an expense ("Loan interest") and lowers profit.
+- **BR-13 / BR-14** Owner funds, gifts and loans are cash in, never revenue. Repaying loan principal is cash out, never an expense; loan interest paid is an expense ("Loan interest") and lowers profit. Repaying loan principal is cash out, never an expense; loan interest paid is an expense ("Loan interest") and lowers profit.
 - **BR-15** Payment fees are recorded as expenses.
 - There are no staff roles yet: every admin user has full access.
