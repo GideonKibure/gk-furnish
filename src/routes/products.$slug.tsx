@@ -128,7 +128,7 @@ function Detail() {
           <Reveal variant="left">
             {videoSrc && (
               <div className="mb-4 aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-muted shadow-[var(--shadow-card)]">
-                <ProductVideo src={videoSrc} />
+                <ProductVideo src={videoSrc} poster={gallery[0]?.src} />
               </div>
             )}
             <ZoomGallery

@@ -35,7 +35,7 @@ function PhotoThumb({
         selected ? "border-gold shadow-[0_0_0_2px_color-mix(in_oklab,var(--gold)_35%,transparent)]" : "border-white/25 hover:border-white/70",
       )}
     >
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
     </button>
   );
 }
@@ -81,12 +81,13 @@ export function ProductCard({ product }: { product: Product }) {
             className="absolute inset-0 block"
           >
             {playingVideo && videoSrc ? (
-              <ProductVideo src={videoSrc} className="absolute inset-0" />
+              <ProductVideo src={videoSrc} poster={angles[0]?.src} className="absolute inset-0" />
             ) : (
               <img
                 src={active?.src}
                 alt={name}
                 loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
               />
             )}

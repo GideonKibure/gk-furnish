@@ -1,15 +1,39 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-/** Muted looping video that plays only while its card is on screen. */
-export function ProductVideo({ src, active = true, className }: { src: string; active?: boolean; className?: string }) {
+/** Muted looping video that loads when its card nears the screen and plays only while visible. */
+export function ProductVideo({
+  src,
+  poster,
+  active = true,
+  className,
+}: {
+  src: string;
+  poster?: string | undefined;
+  active?: boolean;
+  className?: string;
+}) {
   const frameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || near) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setNear(true);
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [near]);
 
   useEffect(() => {
     const frame = frameRef.current;
     const video = videoRef.current;
-    if (!frame || !video) return;
+    if (!frame || !video || !near) return;
     if (!active) {
       video.pause();
       return;
@@ -23,19 +47,24 @@ export function ProductVideo({ src, active = true, className }: { src: string; a
     );
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [src, active]);
+  }, [src, active, near]);
 
   return (
     <div ref={frameRef} className={cn("h-full w-full", className)}>
-      <video
-        ref={videoRef}
-        src={src}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        className="pointer-events-none h-full w-full object-cover"
-      />
+      {near ? (
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="pointer-events-none h-full w-full object-cover"
+        />
+      ) : poster ? (
+        <img src={poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+      ) : null}
     </div>
   );
 }

@@ -53,6 +53,8 @@ function Cats() {
                     <img
                       src={src}
                       alt=""
+                      loading={i < 3 ? "eager" : "lazy"}
+                      decoding="async"
                       className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                     />
                   )}

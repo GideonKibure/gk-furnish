@@ -2,15 +2,15 @@
  * Central image registry.
  * Swap demo photography for GK furnish's real photos by changing only this file.
  */
-import heroStudy from "@/assets/hero-study.jpg";
-import catChairs from "@/assets/cat-chairs.jpg";
-import catTables from "@/assets/cat-tables.jpg";
-import catBeds from "@/assets/bed-double.jpg";
-import catLamps from "@/assets/cat-lamps.jpg";
-import workshop1 from "@/assets/workshop-1.jpg";
-import workshop2 from "@/assets/workshop-2.jpg";
-import lifestyleRoom from "@/assets/lifestyle-room.jpg";
-import customSketch from "@/assets/custom-sketch.jpg";
+import heroStudy from "@/assets/hero-study.webp";
+import catChairs from "@/assets/cat-chairs.webp";
+import catTables from "@/assets/cat-tables.webp";
+import catBeds from "@/assets/bed-double.webp";
+import catLamps from "@/assets/cat-lamps.webp";
+import workshop1 from "@/assets/workshop-1.webp";
+import workshop2 from "@/assets/workshop-2.webp";
+import lifestyleRoom from "@/assets/lifestyle-room.webp";
+import customSketch from "@/assets/custom-sketch.webp";
 import heroVideo from "@/data/videos/gk-furniture-hero.mp4";
 
 export const IMAGES = {

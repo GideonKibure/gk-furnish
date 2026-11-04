@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowRight, BadgeDollarSign, Hammer, Ruler, Users } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
@@ -67,8 +67,14 @@ function Home() {
     { k: "student", I: Users },
   ] as const;
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const [heroVideoOn, setHeroVideoOn] = useState(true);
 
   useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "")) {
+      setHeroVideoOn(false);
+      return;
+    }
     const video = heroVideoRef.current;
     if (!video) return;
     video.muted = true;
@@ -78,17 +84,28 @@ function Home() {
   return (
     <>
       <section className="home-hero relative isolate flex min-h-svh items-end overflow-hidden bg-navy">
-        <video
-          ref={heroVideoRef}
-          className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover home-hero-video"
-          src={HERO_VIDEO_SRC}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          poster={heroPoster ?? undefined}
-        />
+        {heroVideoOn ? (
+          <video
+            ref={heroVideoRef}
+            className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover home-hero-video"
+            src={HERO_VIDEO_SRC}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            poster={heroPoster ?? undefined}
+          />
+        ) : (
+          heroPoster && (
+            <img
+              src={heroPoster}
+              alt=""
+              fetchPriority="high"
+              className="absolute inset-0 -z-10 h-full w-full scale-105 object-cover"
+            />
+          )
+        )}
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-navy via-navy/55 to-navy/15" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklab,var(--gold)_18%,transparent),transparent_55%)]" />
 

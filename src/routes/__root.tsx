@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter, WhatsAppFab } from "@/components/site/SiteFooter";
 import { OfferBanner } from "@/components/site/OfferBanner";
 import { CartProvider } from "@/lib/cart";
+import { NavigationProgress } from "@/components/site/NavigationProgress";
 
 function NotFoundComponent() {
   return (
@@ -76,6 +77,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
+        <NavigationProgress />
         {isAdmin ? (
           <Outlet />
         ) : (
