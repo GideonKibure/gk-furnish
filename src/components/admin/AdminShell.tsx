@@ -11,6 +11,7 @@ import {
   FolderTree,
   Images,
   KeyRound,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -74,12 +75,18 @@ const NAV: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { to: "#inventory", label: "Inventory", icon: Boxes, soon: true },
-      { to: "#production", label: "Production", icon: Factory, soon: true },
-      { to: "#suppliers", label: "Suppliers", icon: Truck, soon: true },
-      { to: "#purchases", label: "Purchases", icon: ShoppingCart, soon: true },
-      { to: "#expenses", label: "Expenses", icon: Receipt, soon: true },
-      { to: "#reports", label: "Reports", icon: PieChart, soon: true },
+      { to: "/admin/inventory", label: "Inventory", icon: Boxes },
+      { to: "/admin/production", label: "Production", icon: Factory },
+      { to: "/admin/suppliers", label: "Suppliers", icon: Truck },
+      { to: "/admin/purchases", label: "Purchases", icon: ShoppingCart },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { to: "/admin/expenses", label: "Expenses", icon: Receipt },
+      { to: "/admin/finance", label: "Capital & assets", icon: Landmark },
+      { to: "/admin/reports", label: "Reports", icon: PieChart },
     ],
   },
   {

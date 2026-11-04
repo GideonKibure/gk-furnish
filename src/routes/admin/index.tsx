@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, PieChart, ShoppingCart, Sparkles, Truck, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Factory, PieChart, ShoppingCart, Sparkles, Truck, Wallet } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/admin-ui";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { getAdminDashboard } from "@/lib/admin.functions";
+import { JOB_STATUS_LABELS, type JobStatus } from "@/lib/ops/business";
 import { bucketLabel, DATE_RANGE_LABELS, type DateRange } from "@/lib/ops/date-range";
 import { orderStatusLabel, orderStatusTone } from "@/lib/ops/status";
 
@@ -110,7 +111,8 @@ function ActionList({
 }: {
   title: string;
   icon: ReactNode;
-  to: "/admin/orders" | "/admin/custom-orders" | "/admin/products";
+  /** Phase 2 module routes are typed loosely (they live in their own route files). */
+  to: string;
   count: number;
   empty: string;
   children: ReactNode;
@@ -125,7 +127,7 @@ function ActionList({
         </span>
       }
       action={
-        <Link to={to} className="text-xs font-semibold text-[#B86A00] hover:underline">
+        <Link to={to as "/admin"} className="text-xs font-semibold text-[#B86A00] hover:underline">
           Open
         </Link>
       }
@@ -221,13 +223,26 @@ function AdminDashboard() {
               tone="pending"
               hint={`${data.kpis.outstandingOrders} open order${data.kpis.outstandingOrders === 1 ? "" : "s"} with a balance`}
             />
-            <KpiCard
-              label="Net profit"
-              value={<span className="text-[#9CA3AF]">—</span>}
-              icon={<PieChart className="h-5 w-5" />}
-              tone="navy"
-              hint="Switches on in phase 2, once expenses and purchases are recorded."
-            />
+            {data.netProfit.available ? (
+              <Link to={"/admin/reports" as "/admin"} className="block">
+                <KpiCard
+                  label={data.netProfit.incomplete ? "Net profit (records incomplete)" : "Net profit"}
+                  value={tzs(data.netProfit.value)}
+                  icon={<PieChart className="h-5 w-5" />}
+                  tone={data.netProfit.value < 0 ? "danger" : "navy"}
+                  trend={data.netProfit.trend}
+                  className="h-full"
+                />
+              </Link>
+            ) : (
+              <KpiCard
+                label="Net profit"
+                value={<span className="text-[#9CA3AF]">—</span>}
+                icon={<PieChart className="h-5 w-5" />}
+                tone="navy"
+                hint="Run migration 0008 to switch on costs, expenses and profit."
+              />
+            )}
           </section>
 
           <section className="grid gap-4 xl:grid-cols-3">
@@ -345,19 +360,59 @@ function AdminDashboard() {
             <ActionList
               title="Low stock"
               icon={<AlertTriangle className="h-4 w-4" />}
-              to="/admin/products"
-              count={data.lowStockItems.length}
-              empty="Stock levels look healthy."
+              to={data.lowStockSource === "inventory" ? "/admin/inventory" : "/admin/products"}
+              count={data.lowStockCount}
+              empty={data.lowStockSource === "inventory" ? "Nothing is at or below its reorder level." : "Stock levels look healthy."}
             >
               {data.lowStockItems.map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 md:px-5">
                   <span className="truncate text-sm font-medium text-navy">{p.name}</span>
-                  <StatusPill tone={p.stock_quantity <= 0 ? "danger" : "pending"}>
-                    {p.stock_quantity <= 0 ? "Out" : `${p.stock_quantity} left`}
-                  </StatusPill>
+                  <StatusPill tone={p.out ? "danger" : "pending"}>{p.label}</StatusPill>
                 </li>
               ))}
             </ActionList>
+            {data.overdueJobs.available && (
+              <ActionList
+                title="Overdue production"
+                icon={<Factory className="h-4 w-4" />}
+                to="/admin/production"
+                count={data.overdueJobs.count}
+                empty="No production jobs are past their target date."
+              >
+                {data.overdueJobs.rows.map((j) => (
+                  <li key={j.id}>
+                    <a href={`/admin/production?job=${j.id}`} className="block px-4 py-2.5 hover:bg-[#F9FAFB] md:px-5">
+                      <p className="truncate text-sm font-semibold text-navy">
+                        {j.job_number} · {j.description}
+                      </p>
+                      <p className="truncate text-xs text-[#DC2626]">
+                        Due {j.target_date ? formatDate(j.target_date) : "—"} · {JOB_STATUS_LABELS[j.status as JobStatus] ?? j.status}
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ActionList>
+            )}
+            {data.overduePos.available && (
+              <ActionList
+                title="Overdue purchase orders"
+                icon={<ShoppingCart className="h-4 w-4" />}
+                to="/admin/purchases"
+                count={data.overduePos.count}
+                empty="No supplier deliveries are late."
+              >
+                {data.overduePos.rows.map((p) => (
+                  <li key={p.id}>
+                    <a href={`/admin/purchases?po=${p.id}`} className="block px-4 py-2.5 hover:bg-[#F9FAFB] md:px-5">
+                      <p className="truncate text-sm font-semibold text-navy">
+                        {p.po_number} · {p.supplier ?? "Supplier"}
+                      </p>
+                      <p className="truncate text-xs text-[#DC2626]">Expected {p.expected_date ? formatDate(p.expected_date) : "—"}</p>
+                    </a>
+                  </li>
+                ))}
+              </ActionList>
+            )}
           </section>
         </div>
       )}

@@ -5,7 +5,9 @@ import { QUOTE_VALID_DAYS, quoteDateAfter, withQuoteAdvanceNote, type QuoteLine,
 import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
 import { orderTotal } from "@/lib/delivery";
 import { DATE_RANGES, darDayKey, darMonthKey, inRange, rangeBounds, trendPercent } from "@/lib/ops/date-range";
-import { CUSTOM_NEEDS_QUOTE, CUSTOM_STATUSES, orderStatusLabel } from "@/lib/ops/status";
+import { actorLabel, writeAudit } from "@/lib/audit.server";
+import { noteOrderHistory, statusRejected, writeOrderStatus } from "@/lib/ops/order-history.server";
+import { CUSTOM_NEEDS_QUOTE, CUSTOM_STATUSES, ORDER_STATUSES, orderStatusLabel } from "@/lib/ops/status";
 import { formatPreference, unpackReferenceImages } from "@/lib/order-options";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, statusBlockers } from "@/lib/payment-policy";
 
@@ -62,12 +64,13 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       return t >= bounds.prevFrom.getTime() && t < bounds.prevTo.getTime();
     };
 
-    const ordersNow = orderRows.filter((o) => inCurrent(o.created_at) && o.status !== "cancelled").length;
-    const ordersPrev = orderRows.filter((o) => inPrevious(o.created_at) && o.status !== "cancelled").length;
+    const closed = ["cancelled", "refunded"];
+    const ordersNow = orderRows.filter((o) => inCurrent(o.created_at) && !closed.includes(o.status)).length;
+    const ordersPrev = orderRows.filter((o) => inPrevious(o.created_at) && !closed.includes(o.status)).length;
     const salesNow = paidRows.filter((p) => inCurrent(p.updated_at)).reduce((s, p) => s + Number(p.amount), 0);
     const salesPrev = paidRows.filter((p) => inPrevious(p.updated_at)).reduce((s, p) => s + Number(p.amount), 0);
 
-    const open = orderRows.filter((o) => o.status !== "cancelled");
+    const open = orderRows.filter((o) => !closed.includes(o.status));
     const owing = open.filter((o) => Number(o.amount_due) > 0 && Number(o.total_amount) > 0);
     const outstanding = owing.reduce((s, o) => s + Number(o.amount_due), 0);
 
@@ -81,18 +84,22 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
     const awaitingAdvance = open
       .filter(
         (o) =>
-          ["pending", "confirmed"].includes(o.status) &&
+          ["pending", "awaiting_payment", "confirmed", "processing"].includes(o.status) &&
           Number(o.advance_required) > 0 &&
           Math.round(Number(o.amount_paid)) < Math.round(Number(o.advance_required)),
       )
       .slice(0, 6);
     const feeToConfirm = open
-      .filter((o) => o.status !== "completed" && o.fulfilment_method === "delivery" && o.delivery_fee_status === "pending")
+      .filter(
+        (o) => !["delivered", "completed"].includes(o.status) && o.fulfilment_method === "delivery" && o.delivery_fee_status === "pending",
+      )
       .slice(0, 6);
     const customAwaiting = customRows.filter((c) => CUSTOM_NEEDS_QUOTE.includes(c.status));
     const customAccepted = customRows.filter((c) => c.status === "accepted");
+    const ops = await dashboardOperations(supabaseAdmin, bounds, productRows);
 
     return {
+      ...ops,
       range: data.range,
       bucket: bounds.bucket,
       kpis: {
@@ -143,12 +150,119 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
         created_at: c.created_at,
       })),
       customAcceptedCount: customAccepted.length,
-      lowStockItems: productRows
-        .filter((p) => p.is_available && p.stock_quantity <= 3)
-        .slice(0, 5)
-        .map((p) => ({ id: p.id, name: p.name, stock_quantity: p.stock_quantity })),
     };
   });
+
+type SupabaseAdminClient = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
+
+/**
+ * Phase 2 parts of the dashboard: net profit for the range, low stock, overdue production and
+ * purchase orders. Before migration 0008 these fall back (low stock from product stock) or report
+ * `available: false`. Overdue items notify staff at most once a day each.
+ */
+async function dashboardOperations(
+  supabaseAdmin: SupabaseAdminClient,
+  bounds: { from: Date; to: Date; prevFrom: Date; prevTo: Date },
+  productRows: { id: string; name: string; stock_quantity: number; is_available: boolean }[],
+) {
+  const { computeProfitAndLoss, optionalRows } = await import("@/lib/ops/reports.server");
+  const { darToday, PO_OPEN_STATUSES } = await import("@/lib/ops/business");
+  const today = darToday();
+  const [pnl, pnlPrev, items, jobs, pos] = await Promise.all([
+    computeProfitAndLoss(supabaseAdmin, { from: bounds.from, to: new Date(bounds.to.getTime() + 1) }),
+    computeProfitAndLoss(supabaseAdmin, { from: bounds.prevFrom, to: bounds.prevTo }),
+    supabaseAdmin.from("inventory_items").select("id,name,unit,quantity,reorder_level").is("archived_at", null).gt("reorder_level", 0),
+    supabaseAdmin
+      .from("production_jobs")
+      .select("id,job_number,description,target_date,status")
+      .neq("status", "completed")
+      .lt("target_date", today)
+      .order("target_date", { ascending: true }),
+    supabaseAdmin
+      .from("purchase_orders")
+      .select("id,po_number,expected_date,status,suppliers(name)")
+      .in("status", [...PO_OPEN_STATUSES])
+      .lt("expected_date", today)
+      .order("expected_date", { ascending: true }),
+  ]);
+
+  const itemRows = optionalRows(items);
+  const lowStock =
+    itemRows === null
+      ? productRows
+          .filter((p) => p.is_available && p.stock_quantity <= 3)
+          .map((p) => ({ id: p.id, name: p.name, label: p.stock_quantity <= 0 ? "Out" : `${p.stock_quantity} left`, out: p.stock_quantity <= 0 }))
+      : itemRows
+          .filter((i) => Number(i.quantity) <= Number(i.reorder_level))
+          .sort((a, b) => Number(a.quantity) - Number(b.quantity))
+          .map((i) => ({
+            id: i.id,
+            name: i.name,
+            label: Number(i.quantity) <= 0 ? "Out" : `${Number(i.quantity)} ${i.unit} left`,
+            out: Number(i.quantity) <= 0,
+          }));
+
+  const jobRows = optionalRows(jobs) ?? [];
+  const poRows = (optionalRows(pos) ?? []).map((p) => ({
+    id: p.id,
+    po_number: p.po_number,
+    expected_date: p.expected_date,
+    status: p.status,
+    supplier: (p.suppliers as { name: string } | null)?.name ?? null,
+  }));
+
+  if (jobRows.length || poRows.length) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: sent } = await supabaseAdmin
+      .from("notifications")
+      .select("entity_id")
+      .eq("audience", "staff")
+      .in("type", ["job_overdue", "po_overdue"])
+      .gte("created_at", since);
+    const done = new Set((sent ?? []).map((n) => n.entity_id));
+    const { notifyAll } = await import("@/lib/notify.server");
+    await notifyAll([
+      ...jobRows
+        .filter((j) => !done.has(j.id))
+        .slice(0, 10)
+        .map((j) => ({
+          audience: "staff" as const,
+          type: "job_overdue",
+          title: `Production overdue: ${j.job_number}`,
+          body: `${j.description} was due ${j.target_date}.`,
+          link: "/admin/production",
+          entity: "production_job",
+          entityId: j.id,
+        })),
+      ...poRows
+        .filter((p) => !done.has(p.id))
+        .slice(0, 10)
+        .map((p) => ({
+          audience: "staff" as const,
+          type: "po_overdue",
+          title: `Purchase order overdue: ${p.po_number}`,
+          body: `${p.supplier ?? "Supplier"} goods were expected ${p.expected_date}.`,
+          link: "/admin/purchases",
+          entity: "purchase_order",
+          entityId: p.id,
+        })),
+    ]);
+  }
+
+  return {
+    netProfit: {
+      available: pnl.available,
+      value: pnl.netProfit,
+      trend: pnl.available && pnlPrev.available ? trendPercent(pnl.netProfit, pnlPrev.netProfit) : null,
+      incomplete: pnl.gaps.length > 0,
+    },
+    lowStockSource: itemRows === null ? ("products" as const) : ("inventory" as const),
+    lowStockItems: lowStock.slice(0, 6),
+    lowStockCount: lowStock.length,
+    overdueJobs: { available: optionalRows(jobs) !== null, count: jobRows.length, rows: jobRows.slice(0, 6) },
+    overduePos: { available: optionalRows(pos) !== null, count: poRows.length, rows: poRows.slice(0, 6) },
+  };
+}
 
 export const listAdminProducts = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
@@ -402,8 +516,11 @@ export const signProductVideoUpload = createServerFn({ method: "POST" })
 export const upsertAdminProduct = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => ProductInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: previous } = data.id
+      ? await supabaseAdmin.from("products").select("price,stock_quantity").eq("id", data.id).maybeSingle()
+      : { data: null };
 
     const payload = {
       category_id: data.category_id,
@@ -464,6 +581,17 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     const productId = result.data.id;
     const slug = result.data.slug;
 
+    if (previous && Number(previous.price) !== data.price) {
+      await writeAudit(supabaseAdmin, {
+        actor: context.userId,
+        action: "price_change",
+        entity: "product",
+        entityId: productId,
+        before: { price: Number(previous.price) },
+        after: { price: data.price },
+      });
+    }
+
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
     await syncProductVideo(supabaseAdmin, productId, data.video_url, data.clear_video);
 
@@ -474,7 +602,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
 export const setAdminProductStatus = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ id: z.string().uuid(), status: z.enum(["active", "draft", "archived"]) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("products")
@@ -488,14 +616,23 @@ export const setAdminProductStatus = createServerFn({ method: "POST" })
       if (isMissingSchema(error)) throw new Error(migrationNeeded("0007_storefront_prd_gaps.sql"));
       throw new Error(error.message);
     }
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: `product_${data.status === "archived" ? "archive" : "status"}`,
+      entity: "product",
+      entityId: data.id,
+      after: { status: data.status },
+    });
     return { ok: true };
   });
 
 export const deleteAdminProduct = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: snapshot } = await supabaseAdmin.from("products").select("name,slug,price,stock_quantity").eq("id", data.id).maybeSingle();
+    await writeAudit(supabaseAdmin, { actor: context.userId, action: "product_delete", entity: "product", entityId: data.id, before: snapshot });
     const { data: imgs } = await supabaseAdmin
       .from("product_images")
       .select("image_url")
@@ -521,18 +658,53 @@ export const updateProductStock = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({ id: z.string().uuid(), stock_quantity: z.number().int().min(0), is_available: z.boolean().optional() }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const updated_at = new Date().toISOString();
-    const { error } = await supabaseAdmin
-      .from("products")
-      .update(
-        typeof data.is_available === "boolean"
-          ? { stock_quantity: data.stock_quantity, is_available: data.is_available, updated_at }
-          : { stock_quantity: data.stock_quantity, updated_at },
-      )
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    const { data: product } = await supabaseAdmin.from("products").select("stock_quantity").eq("id", data.id).maybeSingle();
+    const before = product?.stock_quantity ?? null;
+
+    // When a finished-goods inventory item tracks this product, stock changes go through it.
+    const { finishedItemFor, recordMovement } = await import("@/lib/ops/inventory.server");
+    const item = await finishedItemFor(supabaseAdmin, data.id);
+    if (item) {
+      const diff = data.stock_quantity - Math.floor(Number(item.quantity));
+      if (diff) {
+        await recordMovement(supabaseAdmin, {
+          itemId: item.id,
+          type: "adjustment",
+          quantityChange: diff,
+          refEntity: "product",
+          refId: data.id,
+          note: "Edited on products page",
+          actor: await actorLabel(supabaseAdmin, context.userId),
+        });
+      }
+      if (typeof data.is_available === "boolean") {
+        const { error } = await supabaseAdmin.from("products").update({ is_available: data.is_available, updated_at }).eq("id", data.id);
+        if (error) throw new Error(error.message);
+      }
+    } else {
+      const { error } = await supabaseAdmin
+        .from("products")
+        .update(
+          typeof data.is_available === "boolean"
+            ? { stock_quantity: data.stock_quantity, is_available: data.is_available, updated_at }
+            : { stock_quantity: data.stock_quantity, updated_at },
+        )
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    }
+    if (before !== data.stock_quantity) {
+      await writeAudit(supabaseAdmin, {
+        actor: context.userId,
+        action: "stock_adjustment",
+        entity: "product",
+        entityId: data.id,
+        before: { stock_quantity: before },
+        after: { stock_quantity: data.stock_quantity, via: item ? "inventory_movement" : "direct" },
+      });
+    }
     return { ok: true };
   });
 
@@ -551,22 +723,12 @@ export const listAdminOrders = createServerFn({ method: "GET" })
     }));
   });
 
-const ORDER_STATUSES = [
-  "pending",
-  "confirmed",
-  "in_production",
-  "ready",
-  "out_for_delivery",
-  "completed",
-  "cancelled",
-] as const;
-
 export const updateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) =>
     z.object({ id: z.string().uuid(), status: z.enum(ORDER_STATUSES), note: z.string().max(500).optional() }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: loaded, error: loadErr } = await supabaseAdmin.from("orders").select("*").eq("id", data.id).single();
     if (loadErr || !loaded) throw new Error(loadErr?.message ?? "Order not found");
@@ -585,12 +747,17 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
     if (blockers.length) throw new Error(blockers.join(" "));
 
     if (order.status === data.status) return { ok: true };
-    const { error } = await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    await supabaseAdmin.from("order_status_history").insert({
-      order_id: data.id,
-      status: data.status,
-      note: data.note || `Status changed to ${orderStatusLabel(data.status)}.`,
+    const note = data.note || `Status changed to ${orderStatusLabel(data.status)}.`;
+    await writeOrderStatus(supabaseAdmin, data.id, data.status, { status_reason: note });
+    const actor = await actorLabel(supabaseAdmin, context.userId);
+    await noteOrderHistory(supabaseAdmin, { orderId: data.id, status: data.status, note, actor, statusChanged: true });
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: "order_status_override",
+      entity: "order",
+      entityId: data.id,
+      before: { status: order.status },
+      after: { status: data.status, note },
     });
     const { notify } = await import("@/lib/notify.server");
     await notify({
@@ -675,7 +842,7 @@ export const setOrderDeliveryFee = createServerFn({ method: "POST" })
 export const setOrderArchived = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ id: z.string().uuid(), archived: z.boolean() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin
       .from("orders")
@@ -687,10 +854,18 @@ export const setOrderArchived = createServerFn({ method: "POST" })
       if (isMissingSchema(error)) throw new Error(migrationNeeded("0007_storefront_prd_gaps.sql"));
       throw new Error(error.message);
     }
-    await supabaseAdmin.from("order_status_history").insert({
-      order_id: data.id,
+    await noteOrderHistory(supabaseAdmin, {
+      orderId: data.id,
       status: row.status,
       note: data.archived ? "Archived by admin." : "Restored from the archive.",
+      actor: await actorLabel(supabaseAdmin, context.userId),
+      statusChanged: false,
+    });
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: data.archived ? "order_archive" : "order_restore",
+      entity: "order",
+      entityId: data.id,
     });
     return { ok: true };
   });
@@ -708,7 +883,7 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { completePayment } = await import("@/lib/order-payments.server");
     const { data: order, error: loadErr } = await supabaseAdmin
@@ -749,6 +924,13 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
       provider: data.method,
       metadata: { source: "admin", method: data.method, note: data.note || null },
     });
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: "payment_record",
+      entity: "payment",
+      entityId: payment.id,
+      after: { order_id: data.id, amount: data.amount, method: data.method, purpose },
+    });
 
     const { data: updated } = await supabaseAdmin
       .from("orders")
@@ -762,18 +944,30 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
 export const removeAdminPayment = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ paymentId: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { refreshOrderPayments } = await import("@/lib/order-payments.server");
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("id,order_id,amount,receipt_number,snippe_reference")
+      .select("id,order_id,amount,receipt_number,snippe_reference,status,purpose,provider")
       .eq("id", data.paymentId)
       .single();
     if (!payment) throw new Error("Payment not found");
     if (payment.snippe_reference) throw new Error("Online payments cannot be removed");
+    const { count: refunded } = await supabaseAdmin
+      .from("refunds")
+      .select("id", { count: "exact", head: true })
+      .eq("payment_id", payment.id);
+    if (refunded) throw new Error("This payment has refunds recorded against it and cannot be removed");
     const { error } = await supabaseAdmin.from("payments").delete().eq("id", payment.id);
     if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor: context.userId,
+      action: "payment_remove",
+      entity: "payment",
+      entityId: payment.id,
+      before: payment,
+    });
     await refreshOrderPayments(
       supabaseAdmin,
       payment.order_id,
@@ -867,10 +1061,16 @@ export const setOrderAdvancePercent = createServerFn({ method: "POST" })
 export const deleteAdminOrder = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: before } = await supabaseAdmin
+      .from("orders")
+      .select("order_number,customer_name,status,total_amount,amount_paid")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await supabaseAdmin.from("orders").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, { actor: context.userId, action: "order_delete", entity: "order", entityId: data.id, before });
     return { ok: true };
   });
 
@@ -897,7 +1097,7 @@ const AdminOrderInput = z.object({
 export const createAdminOrder = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => AdminOrderInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: product, error: pErr } = await supabaseAdmin
       .from("products")
@@ -942,7 +1142,12 @@ export const createAdminOrder = createServerFn({ method: "POST" })
       })
       .select("id,order_number")
       .single();
+    if (error && statusRejected(error)) {
+      throw new Error(`“${orderStatusLabel(data.status)}” needs the 0008 database update. ${migrationNeeded("0008_business_operations.sql")}`);
+    }
     if (error || !order) throw new Error(error?.message ?? "Could not create order");
+    const actor = await actorLabel(supabaseAdmin, context.userId);
+    await noteOrderHistory(supabaseAdmin, { orderId: order.id, status: data.status, note: "Created by admin", actor, statusChanged: true });
 
     const collection = data.fulfilment_method === "collection";
     const fee = collection ? 0 : data.delivery_fee ?? null;
@@ -987,24 +1192,15 @@ export const createAdminOrder = createServerFn({ method: "POST" })
         .select("id")
         .single();
       if (payment) await completePayment(supabaseAdmin, payment.id, { amount: amountPaid, provider: "Recorded at order" });
-      await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", order.id);
+      const { data: now } = await supabaseAdmin.from("orders").select("status").eq("id", order.id).single();
+      if (now && now.status !== data.status) {
+        await writeOrderStatus(supabaseAdmin, order.id, data.status, { status_reason: "Created by admin" });
+        await noteOrderHistory(supabaseAdmin, { orderId: order.id, status: data.status, note: "Status set when the order was created.", actor, statusChanged: true });
+      }
     }
 
-    if (product.stock_quantity > 0) {
-      await supabaseAdmin
-        .from("products")
-        .update({
-          stock_quantity: Math.max(0, product.stock_quantity - data.quantity),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", product.id);
-    }
-
-    await supabaseAdmin.from("order_status_history").insert({
-      order_id: order.id,
-      status: data.status,
-      note: "Created by admin",
-    });
+    const { deductStockForSale } = await import("@/lib/order-payments.server");
+    await deductStockForSale(supabaseAdmin, { productId: product.id, quantity: data.quantity, orderId: order.id, orderNumber: order.order_number });
 
     return { id: order.id, orderNumber: order.order_number };
   });

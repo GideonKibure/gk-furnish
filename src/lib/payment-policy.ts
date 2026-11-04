@@ -88,11 +88,20 @@ export function deliveryFeePending(order: Pick<PolicyOrder, "fulfilment_method" 
 /** Statuses that mean production has started or finished. */
 export const PRODUCTION_STATUSES = ["in_production", "ready"] as const;
 /** Statuses that hand the furniture over to the customer. */
-export const DELIVERY_STATUSES = ["out_for_delivery", "completed"] as const;
+export const DELIVERY_STATUSES = ["out_for_delivery", "delivered", "completed"] as const;
+/** Statuses set only through their own flow: cancel with a reason, or a full refund. */
+export const ACTION_ONLY_STATUSES = ["cancelled", "refunded"] as const;
 
-/** Reasons the order cannot move to `status` yet; empty when it can. */
+/**
+ * Reasons the order cannot move to `status` yet; empty when it can.
+ * `awaiting_payment` and `processing` are not gated (they behave like pending / confirmed).
+ */
 export function statusBlockers(order: PolicyOrder, status: string): string[] {
   const blockers: string[] = [];
+  if ((ACTION_ONLY_STATUSES as readonly string[]).includes(status)) {
+    blockers.push(status === "refunded" ? "Use Refund on a payment to refund an order." : "Use Cancel order and give a reason.");
+    return blockers;
+  }
   const needsProduction =
     (PRODUCTION_STATUSES as readonly string[]).includes(status) ||
     (DELIVERY_STATUSES as readonly string[]).includes(status);

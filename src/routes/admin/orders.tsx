@@ -21,6 +21,7 @@ import {
   type Column,
 } from "@/components/admin/admin-ui";
 import { DeliveryFeePanel } from "@/components/admin/DeliveryFeePanel";
+import { CancelOrderButton, OrderOpsPanel } from "@/components/admin/OrderOpsPanel";
 import { OrderPolicyPanel } from "@/components/admin/OrderPolicyPanel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { formatPrice } from "@/config/site";
@@ -29,6 +30,8 @@ import { csvDate, downloadCsv } from "@/lib/ops/csv";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import {
   ORDER_STATUSES,
+  ORDER_STATUSES_0008,
+  ORDER_STATUSES_BY_ACTION,
   ORDER_TABS,
   PAYMENT_STATE_LABELS,
   PAYMENT_STATE_TONES,
@@ -106,6 +109,13 @@ function matches(o: OrderRow, q: string) {
     o.customer_name.toLowerCase().includes(term) ||
     (o.email ?? "").toLowerCase().includes(term) ||
     (digits.length >= 3 && o.phone.replace(/\D/g, "").includes(digits))
+  );
+}
+
+/** Statuses offered in the select: no action-only ones, and 0008 statuses only once it has run. */
+function selectableStatuses(o: { status: string }, has0008: boolean) {
+  return ORDER_STATUSES.filter(
+    (s) => s === o.status || (!ORDER_STATUSES_BY_ACTION.includes(s) && (has0008 || !ORDER_STATUSES_0008.includes(s))),
   );
 }
 
@@ -365,6 +375,7 @@ function OrderDetail({
   const remove = useServerFn(deleteAdminOrder);
   const [busy, setBusy] = useState<string | null>(null);
   const items = o.order_items ?? [];
+  const has0008 = o.cancel_reason !== undefined;
 
   async function run(key: string, task: () => Promise<unknown>, success: string) {
     setBusy(key);
@@ -407,7 +418,7 @@ function OrderDetail({
                 void run("status", () => update({ data: { id: o.id, status } }), `Status changed to ${orderStatusLabel(status)}`);
               }}
             >
-              {ORDER_STATUSES.map((s) => (
+              {selectableStatuses(o, has0008).map((s) => (
                 <option key={s} value={s}>
                   {orderStatusLabel(s)}
                 </option>
@@ -415,8 +426,10 @@ function OrderDetail({
             </select>
           </label>
           <p className="w-full text-xs text-[#6B7280]">
-            Production needs the advance and agreed specifications. Out for delivery needs the delivery fee confirmed and the balance cleared.
+            Production needs the advance and agreed specifications. Out for delivery, delivered and completed need the delivery fee
+            confirmed and the balance cleared. Cancel with a reason below; refunds are recorded per payment.
           </p>
+          {o.cancel_reason && <p className="w-full text-xs font-medium text-[#991B1B]">Cancelled: {o.cancel_reason}</p>}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -486,7 +499,27 @@ function OrderDetail({
           onChanged={onChanged}
         />
 
+        <OrderOpsPanel
+          order={{
+            id: o.id,
+            order_number: o.order_number,
+            status: o.status,
+            fulfilment_method: o.fulfilment_method,
+            payments: o.payments.map((p) => ({
+              id: p.id,
+              amount: Number(p.amount),
+              status: p.status,
+              receipt_number: p.receipt_number,
+              provider: p.provider,
+              updated_at: p.updated_at,
+            })),
+            order_items: items.map((it) => ({ id: it.id, product_name: it.product_name, quantity: it.quantity })),
+          }}
+          onChanged={onChanged}
+        />
+
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#E5E5E5] pt-4">
+          <CancelOrderButton order={{ id: o.id, status: o.status, amount_paid: Number(o.amount_paid) }} onDone={onChanged} />
           {canArchive ? (
             <button
               type="button"
@@ -645,7 +678,7 @@ function NewOrderForm({
         <div>
           <label className="field-label">Order status</label>
           <select name="status" className="field-input" defaultValue="confirmed">
-            {ORDER_STATUSES.map((s) => (
+            {selectableStatuses({ status: "confirmed" }, false).map((s) => (
               <option key={s} value={s}>
                 {orderStatusLabel(s)}
               </option>

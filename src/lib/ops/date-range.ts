@@ -28,8 +28,36 @@ export function darMonthKey(value: string | number | Date) {
 }
 
 /** UTC instant of local midnight for a `YYYY-MM-DD` Dar es Salaam day. */
-function darMidnight(dayKey: string) {
+export function darMidnight(dayKey: string) {
   return new Date(`${dayKey}T00:00:00.000Z`).getTime() - TZ_OFFSET_MS;
+}
+
+/** Bounds for a custom `from`–`to` (inclusive Dar es Salaam days); day buckets up to 92 days, else months. */
+export function customBounds(fromKey: string, toKey: string): RangeBounds {
+  const [a, b] = fromKey <= toKey ? [fromKey, toKey] : [toKey, fromKey];
+  const fromMs = darMidnight(a);
+  const toMs = darMidnight(b) + DAY_MS;
+  const days = Math.round((toMs - fromMs) / DAY_MS);
+  const keys: string[] = [];
+  let bucket: "day" | "month" = "day";
+  if (days <= 92) {
+    for (let i = 0; i < days; i++) keys.push(darDayKey(fromMs + i * DAY_MS + 1));
+  } else {
+    bucket = "month";
+    for (let m = a.slice(0, 7); m <= b.slice(0, 7); ) {
+      keys.push(m);
+      const [y, mo] = m.split("-").map(Number) as [number, number];
+      m = new Date(Date.UTC(y, mo, 1)).toISOString().slice(0, 7);
+    }
+  }
+  return {
+    from: new Date(fromMs),
+    to: new Date(toMs - 1),
+    prevFrom: new Date(fromMs - days * DAY_MS),
+    prevTo: new Date(fromMs),
+    bucket,
+    keys,
+  };
 }
 
 export type RangeBounds = {

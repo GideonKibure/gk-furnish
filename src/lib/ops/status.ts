@@ -2,35 +2,54 @@
 
 export type PillTone = "success" | "processing" | "pending" | "info" | "danger" | "neutral";
 
+/** Every order status, in the order an order moves through them. */
 export const ORDER_STATUSES = [
   "pending",
+  "awaiting_payment",
   "confirmed",
+  "processing",
   "in_production",
   "ready",
   "out_for_delivery",
+  "delivered",
   "completed",
   "cancelled",
+  "refunded",
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** Statuses added by migration 0008; the database rejects them before it has run. */
+export const ORDER_STATUSES_0008: readonly string[] = ["awaiting_payment", "processing", "delivered", "refunded"];
+
+/** Statuses only reachable through their own action (cancel with a reason, refund flow). */
+export const ORDER_STATUSES_BY_ACTION: readonly string[] = ["cancelled", "refunded"];
+
 const ORDER_LABELS: Record<string, string> = {
   pending: "Pending",
+  awaiting_payment: "Awaiting payment",
   confirmed: "Confirmed",
+  processing: "Processing",
   in_production: "In production",
   ready: "Ready",
   out_for_delivery: "Out for delivery",
+  delivered: "Delivered",
   completed: "Completed",
   cancelled: "Cancelled",
+  refunded: "Refunded",
 };
 
 const ORDER_TONES: Record<string, PillTone> = {
   pending: "pending",
+  awaiting_payment: "pending",
   confirmed: "info",
+  processing: "processing",
   in_production: "processing",
   ready: "processing",
   out_for_delivery: "info",
+  delivered: "success",
   completed: "success",
   cancelled: "danger",
+  refunded: "neutral",
 };
 
 export function humanize(value: string) {
@@ -49,11 +68,11 @@ export function orderStatusTone(status: string): PillTone {
 /** Status tabs on the orders list, grouping the order statuses. */
 export const ORDER_TABS = [
   { id: "all", label: "All", statuses: null },
-  { id: "pending", label: "Pending", statuses: ["pending", "confirmed"] },
-  { id: "processing", label: "Processing", statuses: ["in_production", "ready"] },
+  { id: "pending", label: "Pending", statuses: ["pending", "awaiting_payment", "confirmed"] },
+  { id: "processing", label: "Processing", statuses: ["processing", "in_production", "ready"] },
   { id: "delivery", label: "Out for delivery", statuses: ["out_for_delivery"] },
-  { id: "completed", label: "Completed", statuses: ["completed"] },
-  { id: "cancelled", label: "Cancelled", statuses: ["cancelled"] },
+  { id: "completed", label: "Completed", statuses: ["delivered", "completed"] },
+  { id: "cancelled", label: "Cancelled", statuses: ["cancelled", "refunded"] },
 ] as const;
 export type OrderTab = (typeof ORDER_TABS)[number]["id"];
 

@@ -459,6 +459,16 @@ export function AdminEmpty({
   );
 }
 
+/** Shown by phase 2 pages until migration 0008 has been run. */
+export function MigrationNeeded({ reason, title = "This module is not switched on yet" }: { reason: string; title?: string }) {
+  return (
+    <AdminEmpty title={title}>
+      <p>{reason}</p>
+      <p className="mt-1">See ADMIN_SETUP.md for the run order (0006 → 0007 → 0008).</p>
+    </AdminEmpty>
+  );
+}
+
 export function AdminLoading({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E5E5] bg-white px-6 py-12 text-sm text-[#6B7280]">

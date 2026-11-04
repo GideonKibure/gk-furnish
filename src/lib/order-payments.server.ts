@@ -1,3 +1,4 @@
+import { isMissingSchema } from "@/lib/db-compat";
 import { balanceDue } from "@/lib/payment-policy";
 import { toSnippePhone } from "@/config/payments";
 import { SITE } from "@/config/site";
@@ -109,30 +110,80 @@ async function applyStockOnce(supabaseAdmin: SupabaseAdmin, orderId: string) {
     .select("id")
     .maybeSingle();
   if (!claimed) return;
+  const { data: order } = await supabaseAdmin.from("orders").select("order_number").eq("id", orderId).maybeSingle();
   const { data: items } = await supabaseAdmin
     .from("order_items")
     .select("product_id,quantity")
     .eq("order_id", orderId);
   for (const item of items ?? []) {
     if (!item.product_id) continue;
-    const { data: product } = await supabaseAdmin
-      .from("products")
-      .select("stock_quantity")
-      .eq("id", item.product_id)
-      .maybeSingle();
-    if (!product || product.stock_quantity <= 0) continue;
-    await supabaseAdmin
-      .from("products")
-      .update({
-        stock_quantity: Math.max(0, product.stock_quantity - item.quantity),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", item.product_id);
+    await deductStockForSale(supabaseAdmin, {
+      productId: item.product_id,
+      quantity: item.quantity,
+      orderId,
+      orderNumber: order?.order_number ?? null,
+    });
   }
 }
 
-/** Recalculate the order's payment fields from its completed payments. */
-export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId: string, note?: string) {
+/**
+ * Take sold units out of stock. Products tracked by a finished-goods inventory item get a
+ * `sale_out` movement (which also updates product stock); others are decremented directly.
+ * Never goes below zero, matching made-to-order products that have no stock.
+ */
+export async function deductStockForSale(
+  supabaseAdmin: SupabaseAdmin,
+  input: { productId: string; quantity: number; orderId: string; orderNumber: string | null },
+) {
+  const { finishedItemFor, recordMovement } = await import("@/lib/ops/inventory.server");
+  const item = await finishedItemFor(supabaseAdmin, input.productId);
+  if (item) {
+    const take = Math.min(input.quantity, Math.max(0, Math.floor(Number(item.quantity))));
+    if (take <= 0) return;
+    try {
+      await recordMovement(supabaseAdmin, {
+        itemId: item.id,
+        type: "sale_out",
+        quantityChange: -take,
+        unitCost: Number(item.unit_cost),
+        refEntity: "order",
+        refId: input.orderId,
+        note: input.orderNumber ? `Order ${input.orderNumber}` : "Order",
+        actor: "System",
+      });
+      return;
+    } catch (err) {
+      console.warn("sale stock movement failed:", err instanceof Error ? err.message : err);
+      return;
+    }
+  }
+  const { data: product } = await supabaseAdmin
+    .from("products")
+    .select("stock_quantity")
+    .eq("id", input.productId)
+    .maybeSingle();
+  if (!product || product.stock_quantity <= 0) return;
+  await supabaseAdmin
+    .from("products")
+    .update({
+      stock_quantity: Math.max(0, product.stock_quantity - input.quantity),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.productId);
+}
+
+/** Total refunded on an order (0 before migration 0008 creates the refunds table). */
+export async function refundedTotal(supabaseAdmin: SupabaseAdmin, orderId: string) {
+  const { data, error } = await supabaseAdmin.from("refunds").select("amount").eq("order_id", orderId);
+  if (error) {
+    if (!isMissingSchema(error)) console.warn("refunds read failed:", error.message);
+    return 0;
+  }
+  return (data ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+}
+
+/** Recalculate the order's payment fields from its completed payments, net of refunds. */
+export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId: string, note?: string, actor?: string | null) {
   const { data: order } = await supabaseAdmin
     .from("orders")
     .select("id,status,total_amount,advance_required")
@@ -143,29 +194,47 @@ export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId
     .from("payments")
     .select("amount,status")
     .eq("order_id", orderId);
-  const paid = (rows ?? []).filter((r) => r.status === "completed").reduce((sum, r) => sum + Number(r.amount), 0);
+  const received = (rows ?? []).filter((r) => r.status === "completed").reduce((sum, r) => sum + Number(r.amount), 0);
+  const refunded = await refundedTotal(supabaseAdmin, orderId);
+  const paid = Math.max(0, received - refunded);
   const anyPending = (rows ?? []).some((r) => r.status === "pending");
   const total = Number(order.total_amount);
   const fully = total > 0 && paid >= total;
   const advancePaid = paid > 0 && Math.round(paid) >= Math.round(Number(order.advance_required));
-  const nextStatus = order.status === "pending" && advancePaid ? "confirmed" : order.status;
+  const fullyRefunded = refunded > 0 && Math.round(paid) <= 0;
+  const nextStatus = fullyRefunded
+    ? "refunded"
+    : (order.status === "pending" || order.status === "awaiting_payment") && advancePaid
+      ? "confirmed"
+      : order.status;
 
-  await supabaseAdmin
+  const fields = {
+    amount_paid: paid,
+    amount_due: balanceDue(total, paid),
+    payment_kind: paid <= 0 ? "none" : fully ? "full" : "advance",
+    payment_status: paid > 0 ? "paid" : anyPending ? "pending" : "unpaid",
+  };
+  const { error } = await supabaseAdmin
     .from("orders")
-    .update({
-      amount_paid: paid,
-      amount_due: balanceDue(total, paid),
-      payment_kind: paid <= 0 ? "none" : fully ? "full" : "advance",
-      payment_status: paid > 0 ? "paid" : anyPending ? "pending" : "unpaid",
-      status: nextStatus,
-    })
+    .update({ ...fields, status: nextStatus, ...(nextStatus !== order.status && note ? { status_reason: note } : {}) })
     .eq("id", orderId);
-
-  if (advancePaid) await applyStockOnce(supabaseAdmin, orderId);
-  if (note) {
-    await supabaseAdmin.from("order_status_history").insert({ order_id: orderId, status: nextStatus, note });
+  if (error && nextStatus !== order.status) {
+    // Before 0008 neither `refunded` nor `status_reason` exist; keep the payment figures right.
+    await supabaseAdmin.from("orders").update({ ...fields, ...(nextStatus === "refunded" ? {} : { status: nextStatus }) }).eq("id", orderId);
   }
-  return { paid, total, balance: balanceDue(total, paid), status: nextStatus };
+
+  if (advancePaid && !fullyRefunded) await applyStockOnce(supabaseAdmin, orderId);
+  if (note) {
+    const { noteOrderHistory } = await import("@/lib/ops/order-history.server");
+    await noteOrderHistory(supabaseAdmin, {
+      orderId,
+      status: nextStatus,
+      note,
+      actor: actor ?? null,
+      statusChanged: nextStatus !== order.status,
+    });
+  }
+  return { paid, received, refunded, total, balance: balanceDue(total, paid), status: nextStatus };
 }
 
 /** Mark a payment completed, give it a receipt number and update the order. Safe to call twice. */

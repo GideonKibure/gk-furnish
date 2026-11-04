@@ -206,10 +206,13 @@ export const createCheckout = createServerFn({ method: "POST" })
           ? " Collection (free)."
           : " Free delivery."
         : " Delivery fee to be confirmed.";
-    await supabaseAdmin.from("order_status_history").insert({
-      order_id: order.id,
+    const { noteOrderHistory } = await import("@/lib/ops/order-history.server");
+    await noteOrderHistory(supabaseAdmin, {
+      orderId: order.id,
       status: "pending",
       note: `Customer confirmed the design and specifications at checkout. Advance ${percent}% = ${advanceRequired.toLocaleString("en-US")} TZS.${deliveryNote}`,
+      actor: "Customer",
+      statusChanged: true,
     });
 
     if (context.userId) {

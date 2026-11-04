@@ -35,17 +35,24 @@ import { Route as AdminCategoriesRouteImport } from './routes/admin/categories'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
 import { Route as AdminCustomOrdersRouteImport } from './routes/admin/custom-orders'
 import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
+import { Route as AdminExpensesRouteImport } from './routes/admin/expenses'
+import { Route as AdminFinanceRouteImport } from './routes/admin/finance'
 import { Route as AdminForgotRouteImport } from './routes/admin/forgot'
 import { Route as AdminImagesRouteImport } from './routes/admin/images'
+import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminMessagesRouteImport } from './routes/admin/messages'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
 import { Route as AdminPopupsRouteImport } from './routes/admin/popups'
+import { Route as AdminProductionRouteImport } from './routes/admin/production'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
+import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminResetRouteImport } from './routes/admin/reset'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminSuppliersRouteImport } from './routes/admin/suppliers'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CategoriesIndexRouteImport } from './routes/categories.index'
 import { Route as CategoriesSlugRouteImport } from './routes/categories.$slug'
@@ -188,6 +195,16 @@ const AdminCustomersRoute = AdminCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminExpensesRoute = AdminExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFinanceRoute = AdminFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminForgotRoute = AdminForgotRouteImport.update({
   id: '/forgot',
   path: '/forgot',
@@ -196,6 +213,11 @@ const AdminForgotRoute = AdminForgotRouteImport.update({
 const AdminImagesRoute = AdminImagesRouteImport.update({
   id: '/images',
   path: '/images',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -223,9 +245,24 @@ const AdminPopupsRoute = AdminPopupsRouteImport.update({
   path: '/popups',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProductionRoute = AdminProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
+  id: '/purchases',
+  path: '/purchases',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminResetRoute = AdminResetRouteImport.update({
@@ -241,6 +278,11 @@ const AdminReviewsRoute = AdminReviewsRouteImport.update({
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSuppliersRoute = AdminSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
   getParentRoute: () => AdminRoute,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -324,17 +366,24 @@ export interface FileRoutesByFullPath {
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/expenses': typeof AdminExpensesRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/popups': typeof AdminPopupsRoute
+  '/admin/production': typeof AdminProductionRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -373,17 +422,24 @@ export interface FileRoutesByTo {
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/expenses': typeof AdminExpensesRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/popups': typeof AdminPopupsRoute
+  '/admin/production': typeof AdminProductionRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -424,17 +480,24 @@ export interface FileRoutesById {
   '/admin/content': typeof AdminContentRoute
   '/admin/custom-orders': typeof AdminCustomOrdersRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/expenses': typeof AdminExpensesRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
   '/admin/images': typeof AdminImagesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/popups': typeof AdminPopupsRoute
+  '/admin/production': typeof AdminProductionRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -476,17 +539,24 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/customers'
+    | '/admin/expenses'
+    | '/admin/finance'
     | '/admin/forgot'
     | '/admin/images'
+    | '/admin/inventory'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/popups'
+    | '/admin/production'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
     | '/admin/settings'
+    | '/admin/suppliers'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -525,17 +595,24 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/customers'
+    | '/admin/expenses'
+    | '/admin/finance'
     | '/admin/forgot'
     | '/admin/images'
+    | '/admin/inventory'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/popups'
+    | '/admin/production'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
     | '/admin/settings'
+    | '/admin/suppliers'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -575,17 +652,24 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/custom-orders'
     | '/admin/customers'
+    | '/admin/expenses'
+    | '/admin/finance'
     | '/admin/forgot'
     | '/admin/images'
+    | '/admin/inventory'
     | '/admin/login'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/popups'
+    | '/admin/production'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
     | '/admin/settings'
+    | '/admin/suppliers'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -819,6 +903,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/expenses': {
+      id: '/admin/expenses'
+      path: '/expenses'
+      fullPath: '/admin/expenses'
+      preLoaderRoute: typeof AdminExpensesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/finance': {
+      id: '/admin/finance'
+      path: '/finance'
+      fullPath: '/admin/finance'
+      preLoaderRoute: typeof AdminFinanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/forgot': {
       id: '/admin/forgot'
       path: '/forgot'
@@ -831,6 +929,13 @@ declare module '@tanstack/react-router' {
       path: '/images'
       fullPath: '/admin/images'
       preLoaderRoute: typeof AdminImagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/login': {
@@ -868,11 +973,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPopupsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/production': {
+      id: '/admin/production'
+      path: '/production'
+      fullPath: '/admin/production'
+      preLoaderRoute: typeof AdminProductionRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/products'
       fullPath: '/admin/products'
       preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/purchases': {
+      id: '/admin/purchases'
+      path: '/purchases'
+      fullPath: '/admin/purchases'
+      preLoaderRoute: typeof AdminPurchasesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/reset': {
@@ -894,6 +1020,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/suppliers': {
+      id: '/admin/suppliers'
+      path: '/suppliers'
+      fullPath: '/admin/suppliers'
+      preLoaderRoute: typeof AdminSuppliersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/auth/callback': {
@@ -982,17 +1115,24 @@ interface AdminRouteChildren {
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomOrdersRoute: typeof AdminCustomOrdersRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminExpensesRoute: typeof AdminExpensesRoute
+  AdminFinanceRoute: typeof AdminFinanceRoute
   AdminForgotRoute: typeof AdminForgotRoute
   AdminImagesRoute: typeof AdminImagesRoute
+  AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminPopupsRoute: typeof AdminPopupsRoute
+  AdminProductionRoute: typeof AdminProductionRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminPurchasesRoute: typeof AdminPurchasesRoute
+  AdminReportsRoute: typeof AdminReportsRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSuppliersRoute: typeof AdminSuppliersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -1002,17 +1142,24 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminContentRoute: AdminContentRoute,
   AdminCustomOrdersRoute: AdminCustomOrdersRoute,
   AdminCustomersRoute: AdminCustomersRoute,
+  AdminExpensesRoute: AdminExpensesRoute,
+  AdminFinanceRoute: AdminFinanceRoute,
   AdminForgotRoute: AdminForgotRoute,
   AdminImagesRoute: AdminImagesRoute,
+  AdminInventoryRoute: AdminInventoryRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminPopupsRoute: AdminPopupsRoute,
+  AdminProductionRoute: AdminProductionRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminPurchasesRoute: AdminPurchasesRoute,
+  AdminReportsRoute: AdminReportsRoute,
   AdminResetRoute: AdminResetRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminSuppliersRoute: AdminSuppliersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
