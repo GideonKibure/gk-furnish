@@ -149,18 +149,47 @@ export const getMyOrder = createServerFn({ method: "GET" })
     const { data: order, error } = await supabaseAdmin
       .from("orders")
       .select(
-        `${ORDER_FIELDS},payments(id,amount,status,purpose,provider,receipt_number,created_at,updated_at),order_status_history(status,note,created_at)`,
+        `${ORDER_FIELDS},payments(id,amount,status,purpose,provider,receipt_number,metadata,created_at,updated_at),order_status_history(status,note,created_at)`,
       )
       .eq("order_number", data.number)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) return null;
+    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+    await reconcileOpenPalmPayments(supabaseAdmin, { orderId: order.id });
+    const { data: fresh } = await supabaseAdmin
+      .from("orders")
+      .select(
+        `${ORDER_FIELDS},payments(id,amount,status,purpose,provider,receipt_number,metadata,created_at,updated_at),order_status_history(status,note,created_at)`,
+      )
+      .eq("id", order.id)
+      .maybeSingle();
+    const current = fresh ?? order;
     return {
-      ...shape(order),
-      payments: (order.payments ?? [])
-        .map((p) => ({ ...p, amount: Number(p.amount) }))
+      ...shape(current),
+      payments: (current.payments ?? [])
+        .map((p) => {
+          const meta = p.metadata && typeof p.metadata === "object" && !Array.isArray(p.metadata) ? (p.metadata as Record<string, unknown>) : {};
+          const reference =
+            p.receipt_number ||
+            (typeof meta["provider_reference"] === "string" ? meta["provider_reference"] : "") ||
+            (typeof meta["provider_order_id"] === "string" ? meta["provider_order_id"] : "") ||
+            null;
+          return {
+            id: p.id,
+            amount: Number(p.amount),
+            status: p.status,
+            purpose: p.purpose,
+            provider: p.provider,
+            receipt_number: p.receipt_number,
+            method: p.provider || (typeof meta["method"] === "string" ? meta["method"] : null),
+            reference,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+          };
+        })
         .sort((a, b) => a.created_at.localeCompare(b.created_at)),
-      order_status_history: (order.order_status_history ?? []).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      order_status_history: (current.order_status_history ?? []).sort((a, b) => a.created_at.localeCompare(b.created_at)),
     };
   });

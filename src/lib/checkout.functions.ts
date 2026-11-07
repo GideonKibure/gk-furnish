@@ -40,6 +40,7 @@ const CheckoutInput = z
     needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     notes: opt(1000),
     payment_choice: z.enum(["advance", "full"]),
+    payment_method: z.enum(["mobile", "cash"]).default("mobile"),
     payment_phone: phone.optional().or(z.literal("")),
     specs_agreed: z.literal(true),
   })
@@ -50,11 +51,11 @@ const CheckoutInput = z
 
 /** Public checkout settings: whether online payment is on, and where to collect from. */
 export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
-  const { snippeConfigured } = await import("@/lib/order-payments.server");
+  const { onlinePaymentsConfigured } = await import("@/lib/order-payments.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
   return {
-    onlinePayment: snippeConfigured(),
+    onlinePayment: onlinePaymentsConfigured(),
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
   };
 });
@@ -70,7 +71,7 @@ export const createCheckout = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { snippeConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
+    const { onlinePaymentsConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
 
     const { isMissingSchema } = await import("@/lib/db-compat");
     const { notify } = await import("@/lib/notify.server");
@@ -261,15 +262,17 @@ export const createCheckout = createServerFn({ method: "POST" })
     ]);
 
     const amount = chargeNow(data.payment_choice === "full" ? total : advanceRequired, total);
+    const payOnline = data.payment_method === "mobile" && onlinePaymentsConfigured();
     let paymentId: string | null = null;
     let paymentError: string | null = null;
-    if (snippeConfigured()) {
+    if (payOnline) {
       try {
         paymentId = await startMobilePayment(supabaseAdmin, {
           orderId: order.id,
           orderNumber: order.order_number,
           purpose: data.payment_choice === "full" ? "full" : "advance",
           amount,
+          balance: total,
           phone: paymentPhone,
           customerName: data.customer_name,
           email: data.email || context.email || null,
@@ -278,6 +281,14 @@ export const createCheckout = createServerFn({ method: "POST" })
       } catch (err) {
         paymentError = err instanceof Error ? err.message : "Payment could not start";
       }
+    } else if (data.payment_method === "cash") {
+      await noteOrderHistory(supabaseAdmin, {
+        orderId: order.id,
+        status: "pending",
+        note: "Customer chose cash. The order stays unpaid until GK furnish confirms the money was received.",
+        actor: "Customer",
+        statusChanged: false,
+      });
     }
 
     return {
@@ -285,7 +296,7 @@ export const createCheckout = createServerFn({ method: "POST" })
       trackingToken,
       paymentId,
       paymentError,
-      onlinePayment: snippeConfigured(),
+      onlinePayment: onlinePaymentsConfigured(),
       subtotal,
       deliveryFeeStatus,
       total,
@@ -303,12 +314,13 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ paymentId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { reconcilePayment } = await import("@/lib/order-payments.server");
+    const { reconcilePayment, reconcilePalmPayment } = await import("@/lib/order-payments.server");
+    const { readPalmMeta } = await import("@/lib/palmpesa.server");
     const load = () =>
       supabaseAdmin
         .from("payments")
         .select(
-          "id,amount,status,purpose,phone,provider,receipt_number,snippe_reference,created_at,updated_at,order_id,orders(order_number,customer_name,phone,email,delivery_location,total_amount,amount_paid,advance_percent,advance_required,status,created_at,order_items(product_name,quantity,unit_price,material,size,color))",
+          "id,amount,status,purpose,phone,provider,receipt_number,snippe_reference,metadata,created_at,updated_at,order_id,orders(order_number,customer_name,phone,email,delivery_location,total_amount,amount_paid,advance_percent,advance_required,status,created_at,order_items(product_name,quantity,unit_price,material,size,color))",
         )
         .eq("id", data.paymentId)
         .maybeSingle();
@@ -316,8 +328,11 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
     if (!payment) throw new Error("Payment not found");
 
     const ageMs = Date.now() - new Date(payment.created_at).getTime();
-    if (payment.status === "pending" && payment.snippe_reference && ageMs > 60_000) {
-      await reconcilePayment(supabaseAdmin, payment.id, payment.snippe_reference);
+    const palm = readPalmMeta(payment.metadata);
+    const palmOpen = palm.source === "palmpesa" && (payment.status === "pending" || payment.status === "expired");
+    if (ageMs > 3_000 && (palmOpen || (payment.status === "pending" && payment.snippe_reference))) {
+      if (palm.source === "palmpesa") await reconcilePalmPayment(supabaseAdmin, payment.id);
+      else if (payment.snippe_reference && ageMs > 60_000) await reconcilePayment(supabaseAdmin, payment.id, payment.snippe_reference);
       ({ data: payment } = await load());
       if (!payment) throw new Error("Payment not found");
     }
@@ -338,6 +353,7 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
     } | null;
     if (!order) throw new Error("Order not found");
     const masked = payment.phone ? `${payment.phone.slice(0, 5)}••••${payment.phone.slice(-3)}` : "";
+    const palmMeta = readPalmMeta(payment.metadata);
     return {
       id: payment.id,
       status: payment.status as "pending" | "completed" | "failed" | "expired",
@@ -345,6 +361,10 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
       purpose: payment.purpose,
       phone: masked,
       provider: payment.provider,
+      channel: palmMeta.channel || null,
+      failureReason: palmMeta.failureReason || null,
+      reference: payment.receipt_number || palmMeta.reference || palmMeta.providerOrderId || null,
+      canResend: payment.status === "pending" && Boolean(payment.snippe_reference) && palmMeta.source !== "palmpesa",
       receiptNumber: payment.receipt_number,
       paidAt: payment.updated_at,
       order: {
@@ -370,11 +390,15 @@ export const resendPaymentPrompt = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { resendPrompt } = await import("@/lib/order-payments.server");
+    const { readPalmMeta } = await import("@/lib/palmpesa.server");
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("status,snippe_reference")
+      .select("status,snippe_reference,metadata")
       .eq("id", data.paymentId)
       .maybeSingle();
+    if (readPalmMeta(payment?.metadata).source === "palmpesa") {
+      throw new Error("Check your phone for the prompt. If it has expired, start the payment again.");
+    }
     if (!payment?.snippe_reference || payment.status !== "pending") throw new Error("This payment cannot be resent");
     await resendPrompt(payment.snippe_reference);
     return { ok: true };
@@ -399,8 +423,9 @@ export const startOrderPayment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { snippeConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
-    if (!snippeConfigured()) throw new Error("Online payment is not switched on yet. Please contact us on WhatsApp.");
+    const { canPayOrder } = await import("@/lib/palmpesa");
+    const { onlinePaymentsConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
+    if (!onlinePaymentsConfigured()) throw new Error("Online payment is not switched on yet. Please contact us on WhatsApp.");
 
     let orderId: string | null = null;
     if (data.paymentId) {
@@ -409,7 +434,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
     } else if (data.orderNumber && context.userId) {
       const { data: own } = await supabaseAdmin
         .from("orders")
-        .select("id")
+        .select("id,user_id")
         .eq("order_number", data.orderNumber)
         .eq("user_id", context.userId)
         .maybeSingle();
@@ -419,9 +444,18 @@ export const startOrderPayment = createServerFn({ method: "POST" })
 
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id,order_number,customer_name,email,status,total_amount,amount_paid,advance_required")
+      .select("id,user_id,order_number,customer_name,email,status,total_amount,amount_paid,advance_required")
       .eq("id", orderId)
       .single();
+    if (
+      !canPayOrder({
+        userId: context.userId,
+        orderUserId: order?.user_id ?? null,
+        hasPaymentLink: Boolean(data.paymentId),
+      })
+    ) {
+      throw new Error("Order not found");
+    }
     if (!order || order.status === "cancelled") throw new Error("This order cannot be paid");
     const { count: pending } = await supabaseAdmin
       .from("payments")
@@ -445,6 +479,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       orderNumber: order.order_number,
       purpose,
       amount,
+      balance: left,
       phone: data.phone,
       customerName: order.customer_name,
       email: order.email,

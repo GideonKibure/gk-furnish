@@ -63,6 +63,8 @@ import { Route as TrackTokenRouteImport } from './routes/track.$token'
 import { Route as AccountOrdersNumberRouteImport } from './routes/account.orders.$number'
 import { Route as AccountRequestsIndexRouteImport } from './routes/account.requests.index'
 import { Route as AccountRequestsNumberRouteImport } from './routes/account.requests.$number'
+import { Route as ApiCronPalmpesaRouteImport } from './routes/api/cron/palmpesa'
+import { Route as ApiWebhooksPalmpesaRouteImport } from './routes/api/webhooks/palmpesa'
 import { Route as ApiWebhooksSnippeRouteImport } from './routes/api/webhooks/snippe'
 
 const IndexRoute = IndexRouteImport.update({
@@ -335,6 +337,16 @@ const AccountRequestsNumberRoute = AccountRequestsNumberRouteImport.update({
   path: '/account/requests/$number',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronPalmpesaRoute = ApiCronPalmpesaRouteImport.update({
+  id: '/api/cron/palmpesa',
+  path: '/api/cron/palmpesa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksPalmpesaRoute = ApiWebhooksPalmpesaRouteImport.update({
+  id: '/api/webhooks/palmpesa',
+  path: '/api/webhooks/palmpesa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksSnippeRoute = ApiWebhooksSnippeRouteImport.update({
   id: '/api/webhooks/snippe',
   path: '/api/webhooks/snippe',
@@ -395,6 +407,8 @@ export interface FileRoutesByFullPath {
   '/products/': typeof ProductsIndexRoute
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
+  '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests/': typeof AccountRequestsIndexRoute
 }
@@ -451,6 +465,8 @@ export interface FileRoutesByTo {
   '/products': typeof ProductsIndexRoute
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
+  '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests': typeof AccountRequestsIndexRoute
 }
@@ -509,6 +525,8 @@ export interface FileRoutesById {
   '/products/': typeof ProductsIndexRoute
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
+  '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests/': typeof AccountRequestsIndexRoute
 }
@@ -568,6 +586,8 @@ export interface FileRouteTypes {
     | '/products/'
     | '/account/orders/$number'
     | '/account/requests/$number'
+    | '/api/cron/palmpesa'
+    | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests/'
   fileRoutesByTo: FileRoutesByTo
@@ -624,6 +644,8 @@ export interface FileRouteTypes {
     | '/products'
     | '/account/orders/$number'
     | '/account/requests/$number'
+    | '/api/cron/palmpesa'
+    | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests'
   id:
@@ -681,6 +703,8 @@ export interface FileRouteTypes {
     | '/products/'
     | '/account/orders/$number'
     | '/account/requests/$number'
+    | '/api/cron/palmpesa'
+    | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests/'
   fileRoutesById: FileRoutesById
@@ -715,6 +739,8 @@ export interface RootRouteChildren {
   ProductsIndexRoute: typeof ProductsIndexRoute
   AccountOrdersNumberRoute: typeof AccountOrdersNumberRoute
   AccountRequestsNumberRoute: typeof AccountRequestsNumberRoute
+  ApiCronPalmpesaRoute: typeof ApiCronPalmpesaRoute
+  ApiWebhooksPalmpesaRoute: typeof ApiWebhooksPalmpesaRoute
   ApiWebhooksSnippeRoute: typeof ApiWebhooksSnippeRoute
   AccountRequestsIndexRoute: typeof AccountRequestsIndexRoute
 }
@@ -1099,6 +1125,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRequestsNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/palmpesa': {
+      id: '/api/cron/palmpesa'
+      path: '/api/cron/palmpesa'
+      fullPath: '/api/cron/palmpesa'
+      preLoaderRoute: typeof ApiCronPalmpesaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/palmpesa': {
+      id: '/api/webhooks/palmpesa'
+      path: '/api/webhooks/palmpesa'
+      fullPath: '/api/webhooks/palmpesa'
+      preLoaderRoute: typeof ApiWebhooksPalmpesaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/snippe': {
       id: '/api/webhooks/snippe'
       path: '/api/webhooks/snippe'
@@ -1195,6 +1235,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProductsIndexRoute: ProductsIndexRoute,
   AccountOrdersNumberRoute: AccountOrdersNumberRoute,
   AccountRequestsNumberRoute: AccountRequestsNumberRoute,
+  ApiCronPalmpesaRoute: ApiCronPalmpesaRoute,
+  ApiWebhooksPalmpesaRoute: ApiWebhooksPalmpesaRoute,
   ApiWebhooksSnippeRoute: ApiWebhooksSnippeRoute,
   AccountRequestsIndexRoute: AccountRequestsIndexRoute,
 }

@@ -1,4 +1,4 @@
-# Admin CMS, customer accounts & Snippe setup
+# Admin CMS, customer accounts & PalmPesa setup
 
 ## 1. Database
 
@@ -14,7 +14,9 @@ Run these in the Supabase SQL Editor, in order, if they have not been run yet:
 
 6. [`drizzle/migrations/0009_loan_repayments.sql`](drizzle/migrations/0009_loan_repayments.sql) — loan repayments (principal and interest) and a "repay by" date on loans, so each loan shows what is still owed. **Run it after 0008.**
 
-   The run order is **0006 → 0007 → 0008 → 0009**. Each file is safe to run more than once. Before 0009 is run, loans show the full amount borrowed and repayments can't be recorded. Before 0008 is run, the Operations and Finance pages say "Run migration 0008", the dashboard's net profit stays empty, and orders cannot use the new statuses, refunds or delivery records. Every new table has row-level security switched on with no browser access: the portal reads and writes them through admin-only server functions.
+7. [`drizzle/migrations/0010_palmpesa_payments.sql`](drizzle/migrations/0010_palmpesa_payments.sql) — PalmPesa payment references and a callback-event log. **Run it after 0009.** Payments still work before this file is run; the extra columns are stored inside the payment record until then.
+
+   The run order is **0006 → 0007 → 0008 → 0009 → 0010**. Each file is safe to run more than once. Before 0009 is run, loans show the full amount borrowed and repayments can't be recorded. Before 0008 is run, the Operations and Finance pages say "Run migration 0008", the dashboard's net profit stays empty, and orders cannot use the new statuses, refunds or delivery records. Every new table has row-level security switched on with no browser access: the portal reads and writes them through admin-only server functions.
 
 ## 2. Create an admin user
 
@@ -53,19 +55,21 @@ Email and password sign-up is on by default. Under Authentication → Emails you
 2. Add the authorised redirect URI shown in Supabase → Authentication → Providers → Google (it looks like `https://YOUR-PROJECT.supabase.co/auth/v1/callback`).
 3. Paste the client ID and secret into Supabase → Authentication → Providers → Google and enable it.
 
-## 4. Snippe mobile money payments
+## 4. PalmPesa mobile money
 
-Add these environment variables in Vercel (Project → Settings → Environment Variables), then redeploy:
+PalmPesa has no sandbox. A test payment of a few hundred shillings to your own phone is a real charge. Do not put the token in the frontend, in Git, or in a `VITE_` variable.
 
-| Variable | Purpose |
-|---|---|
-| `SNIPPE_API_KEY` | API key from [snippe.sh](https://snippe.sh) (`snp_…`) |
-| `SNIPPE_WEBHOOK_SECRET` | Webhook signing secret |
-| `SNIPPE_WEBHOOK_URL` | `https://gkfurnish.co.tz/api/webhooks/snippe` |
+1. In the [PalmPesa dashboard](https://palmpesa.co.tz), finish account approval and copy the API token.
+2. In Vercel → Project → Settings → Environment Variables, add `PALMPESA_API_TOKEN` for Production (and Preview if you want to test there). Optional: `PALMPESA_SIGNING_SECRET` only if PalmPesa has issued one, and `SITE_URL` = `https://gkfurnish.co.tz` if it is not already the address the site uses.
+3. Redeploy Vercel so the server can read the token.
+4. The callback address is `https://gkfurnish.co.tz/api/webhooks/palmpesa`. You do not register it in a dashboard: each payment sends that address to PalmPesa. It must be public HTTPS. Localhost cannot receive callbacks.
+5. Place a small order on the live site, pay with your own mobile-money number, and approve the prompt. The order should move to paid only after you approve, not when the prompt is sent.
 
-Register the same webhook URL in the Snippe dashboard. Networks: M-Pesa, Airtel Money, HaloPesa and Mixx by Yas, detected from the phone number. Snippe's minimum payment is TSh 500.
+Networks are detected from the phone number: M-Pesa, Mixx by Yas, Airtel Money and HaloPesa. The smallest amount PalmPesa accepts is 100 TZS. Cash stays unpaid until an admin records it on the order.
 
-Until the API key is set, checkout still saves the order and tells the customer that payment will be confirmed on WhatsApp or by phone. The admin can record cash, bank or mobile money payments on each order, and each one gets a receipt.
+Until the token is set, checkout still saves the order and the customer can choose cash. The admin records cash, bank or mobile money on each order, and each completed payment gets a receipt.
+
+Run `node --experimental-strip-types --test src/lib/palmpesa.test.ts` for the payment rules. Those tests use mocked results, not PalmPesa.
 
 ## 5. Payment policy
 

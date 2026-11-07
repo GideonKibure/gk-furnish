@@ -712,6 +712,8 @@ export const listAdminOrders = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+    await reconcileOpenPalmPayments(supabaseAdmin);
     const { data, error } = await supabaseAdmin
       .from("orders")
       .select("*, order_items(*), payments(*)")
@@ -886,6 +888,7 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { completePayment } = await import("@/lib/order-payments.server");
+    const { assertCashAmount, isRepeatAdminPayment } = await import("@/lib/palmpesa");
     const { data: order, error: loadErr } = await supabaseAdmin
       .from("orders")
       .select("id,total_amount,amount_paid,advance_required")
@@ -896,8 +899,26 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
     const total = Number(order.total_amount);
     const paid = Number(order.amount_paid);
     const left = Math.max(0, Math.round(total) - Math.round(paid));
-    if (total > 0 && Math.round(data.amount) > left) {
-      throw new Error(`That is more than the balance of ${left.toLocaleString("en-US")} TSh`);
+    const cashProblem = assertCashAmount(data.amount, left);
+    if (cashProblem) throw new Error(cashProblem.replace("remaining balance", `balance of ${left.toLocaleString("en-US")} TZS`));
+    const since = new Date(Date.now() - 120_000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("payments")
+      .select("amount,provider,created_at,status")
+      .eq("order_id", data.id)
+      .eq("status", "completed")
+      .gte("created_at", since);
+    if (
+      isRepeatAdminPayment(
+        (recent ?? []).map((row) => ({
+          amount: Number(row.amount),
+          method: row.provider ?? "",
+          createdAtMs: new Date(row.created_at).getTime(),
+        })),
+        { amount: data.amount, method: data.method, nowMs: Date.now() },
+      )
+    ) {
+      throw new Error("That payment was just recorded. Refresh the order before recording it again.");
     }
     const purpose =
       paid <= 0 && Math.round(data.amount) >= Math.round(total)
@@ -914,7 +935,7 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
         purpose,
         amount: data.amount,
         status: "pending",
-        metadata: { source: "admin", method: data.method, note: data.note || null },
+        metadata: { source: "admin", method: data.method, note: data.note || null, recorded_by: context.userId },
       })
       .select("id")
       .single();
@@ -922,7 +943,7 @@ export const recordAdminPayment = createServerFn({ method: "POST" })
     await completePayment(supabaseAdmin, payment.id, {
       amount: data.amount,
       provider: data.method,
-      metadata: { source: "admin", method: data.method, note: data.note || null },
+      metadata: { source: "admin", method: data.method, note: data.note || null, recorded_by: context.userId },
     });
     await writeAudit(supabaseAdmin, {
       actor: context.userId,
@@ -949,11 +970,17 @@ export const removeAdminPayment = createServerFn({ method: "POST" })
     const { refreshOrderPayments } = await import("@/lib/order-payments.server");
     const { data: payment } = await supabaseAdmin
       .from("payments")
-      .select("id,order_id,amount,receipt_number,snippe_reference,status,purpose,provider")
+      .select("id,order_id,amount,receipt_number,snippe_reference,status,purpose,provider,metadata")
       .eq("id", data.paymentId)
       .single();
     if (!payment) throw new Error("Payment not found");
-    if (payment.snippe_reference) throw new Error("Online payments cannot be removed");
+    const paymentMeta =
+      payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+        ? (payment.metadata as Record<string, unknown>)
+        : {};
+    if (payment.snippe_reference || payment.provider === "PalmPesa" || paymentMeta["source"] === "palmpesa" || String(payment.provider ?? "").startsWith("PalmPesa")) {
+      throw new Error("Online payments cannot be removed");
+    }
     const { count: refunded } = await supabaseAdmin
       .from("refunds")
       .select("id", { count: "exact", head: true })

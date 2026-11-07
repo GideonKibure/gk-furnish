@@ -60,6 +60,8 @@ export const listAdminPayments = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+    await reconcileOpenPalmPayments(supabaseAdmin);
     const { data, error } = await supabaseAdmin
       .from("payments")
       .select(
@@ -70,11 +72,34 @@ export const listAdminPayments = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (data ?? []).map((p) => {
       const meta = p.metadata && typeof p.metadata === "object" && !Array.isArray(p.metadata) ? (p.metadata as Record<string, unknown>) : {};
+      const palm = meta["source"] === "palmpesa" || p.provider === "PalmPesa" || String(p.provider ?? "").startsWith("PalmPesa");
+      const reference =
+        (typeof meta["provider_reference"] === "string" && meta["provider_reference"]) ||
+        (typeof meta["provider_order_id"] === "string" && meta["provider_order_id"]) ||
+        (typeof meta["transaction_id"] === "string" && meta["transaction_id"]) ||
+        p.snippe_reference ||
+        null;
       return {
         ...p,
         amount: Number(p.amount),
-        source: meta["source"] === "admin" ? ("Recorded by admin" as const) : p.snippe_reference ? ("Online (Snippe)" as const) : ("Other" as const),
-        method: p.provider ?? (typeof meta["method"] === "string" ? meta["method"] : p.snippe_reference ? "Mobile money" : null),
+        source: meta["source"] === "admin" ? ("Recorded by admin" as const) : palm ? ("Online (PalmPesa)" as const) : p.snippe_reference ? ("Online (Snippe)" as const) : ("Other" as const),
+        method: (typeof meta["method"] === "string" ? meta["method"] : null) ?? (palm || p.snippe_reference ? "Mobile money" : p.provider),
+        reference,
+        purposeKind: p.purpose,
       };
     });
+  });
+
+/** Outstanding customer balances. Cancelled orders are left out. Admin only. */
+export const getAdminPaymentSummary = createServerFn({ method: "GET" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.from("orders").select("amount_due,status").neq("status", "cancelled");
+    if (error) throw new Error(error.message);
+    const open = (data ?? []).filter((row) => Number(row.amount_due) > 0);
+    return {
+      outstanding: open.reduce((sum, row) => sum + Number(row.amount_due), 0),
+      openOrders: open.length,
+    };
   });

@@ -1,5 +1,7 @@
 import { isMissingSchema } from "@/lib/db-compat";
 import { balanceDue } from "@/lib/payment-policy";
+import { decideCallback, type LocalPayment } from "@/lib/palmpesa";
+import { fetchPalmPayment, palmpesaConfigured, readPalmMeta, startPalmPayment } from "@/lib/palmpesa.server";
 import { toSnippePhone } from "@/config/payments";
 import { SITE } from "@/config/site";
 
@@ -9,6 +11,11 @@ export type PaymentPurpose = "advance" | "balance" | "full";
 
 export function snippeConfigured() {
   return Boolean(process.env["SNIPPE_API_KEY"]?.trim());
+}
+
+/** PalmPesa when its token is set, otherwise the older Snippe integration. */
+export function onlinePaymentsConfigured() {
+  return palmpesaConfigured() || snippeConfigured();
 }
 
 async function snippeClient() {
@@ -37,9 +44,14 @@ export async function startMobilePayment(
     phone: string;
     customerName: string;
     email: string | null;
+    balance: number;
   },
 ) {
+  if (palmpesaConfigured()) {
+    return startPalmPayment(supabaseAdmin, input);
+  }
   const amount = Math.round(input.amount);
+  if (amount <= 0 || amount > Math.round(input.balance)) throw new Error("That is more than the remaining balance.");
   const phone = toSnippePhone(input.phone);
   const { data: payment, error } = await supabaseAdmin
     .from("payments")
@@ -253,21 +265,35 @@ export async function completePayment(
   const received = details.amount != null && details.amount > 0 ? details.amount : Number(payment.amount);
   const receipt = payment.receipt_number ?? (await nextReceiptNumber(supabaseAdmin, payment.order_id, orderNumber));
 
-  const { data: updated } = await supabaseAdmin
+  const paidAt = new Date().toISOString();
+  const patch = {
+    status: "completed" as const,
+    amount: received,
+    provider: details.provider ?? null,
+    receipt_number: receipt,
+    paid_at: paidAt,
+    ...(details.metadata !== undefined ? { metadata: JSON.parse(JSON.stringify(details.metadata)) } : {}),
+    updated_at: paidAt,
+  };
+  let updatedResult = await supabaseAdmin
     .from("payments")
-    .update({
-      status: "completed",
-      amount: received,
-      provider: details.provider ?? null,
-      receipt_number: receipt,
-      ...(details.metadata !== undefined ? { metadata: JSON.parse(JSON.stringify(details.metadata)) } : {}),
-      updated_at: new Date().toISOString(),
-    })
+    .update(patch)
     .eq("id", paymentId)
     .neq("status", "completed")
     .select("id")
     .maybeSingle();
-  if (!updated) return;
+  if (updatedResult.error && isMissingSchema(updatedResult.error)) {
+    const { paid_at: _paidAt, ...withoutPaidAt } = patch;
+    updatedResult = await supabaseAdmin
+      .from("payments")
+      .update(withoutPaidAt)
+      .eq("id", paymentId)
+      .neq("status", "completed")
+      .select("id")
+      .maybeSingle();
+  }
+  if (updatedResult.error) throw new Error(updatedResult.error.message);
+  if (!updatedResult.data) return;
 
   const mismatch = Math.round(received) !== Math.round(Number(payment.amount))
     ? ` (expected ${Math.round(Number(payment.amount)).toLocaleString("en-US")} TSh)`
@@ -310,6 +336,98 @@ export async function reconcilePayment(supabaseAdmin: SupabaseAdmin, paymentId: 
   } catch {
     // The webhook will still update the payment; polling just tries again.
   }
+}
+
+/** Ask PalmPesa whether a payment that is still open (or was expired) has since completed. */
+export async function reconcilePalmPayment(supabaseAdmin: SupabaseAdmin, paymentId: string) {
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .select("id,amount,currency,status,metadata")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || payment.status === "completed") return;
+  const meta = readPalmMeta(payment.metadata);
+  const providerOrderId = meta.providerOrderId;
+  const transactionId = meta.transactionId;
+  if (!providerOrderId || meta.source !== "palmpesa") return;
+  let remote;
+  try {
+    remote = await fetchPalmPayment(providerOrderId);
+  } catch {
+    return;
+  }
+  if (!remote) return;
+  const local: LocalPayment = {
+    amount: Number(payment.amount),
+    currency: payment.currency || "TZS",
+    status: payment.status as LocalPayment["status"],
+    transactionId,
+    providerOrderId,
+  };
+  const decision = decideCallback({
+    alreadyProcessed: false,
+    payment: local,
+    event: {
+      event: `payment.${remote.status.toLowerCase()}`,
+      event_id: `status-${providerOrderId}-${remote.status}`,
+      transaction_id: remote.transaction_id,
+      order_id: remote.order_id,
+      selcom_reference: remote.reference,
+      status: remote.status,
+      amount: remote.amount,
+      currency: remote.currency,
+      channel: remote.channel,
+      phone: null,
+      failure_reason: remote.failure_reason,
+    },
+    verifiedStatus: remote.status,
+  });
+  if (decision.action === "complete") {
+    await completePayment(supabaseAdmin, paymentId, {
+      amount: remote.amount,
+      provider: remote.channel ? `PalmPesa ${remote.channel}` : "PalmPesa",
+      metadata: {
+        ...metaRecord(payment.metadata),
+        source: "palmpesa",
+        transaction_id: remote.transaction_id,
+        provider_order_id: remote.order_id,
+        provider_reference: remote.reference,
+        channel: remote.channel,
+        method: "Mobile money",
+      },
+    });
+  } else if (decision.action === "fail" && payment.status === "pending") {
+    await failPayment(supabaseAdmin, paymentId, decision.status, {
+      ...metaRecord(payment.metadata),
+      source: "palmpesa",
+      failure_reason: decision.reason,
+    });
+  }
+}
+
+/** Check PalmPesa for payments that are still open, and apply COMPLETED without an admin click. */
+export async function reconcileOpenPalmPayments(supabaseAdmin: SupabaseAdmin, options?: { orderId?: string; limit?: number }) {
+  if (!palmpesaConfigured()) return;
+  const limit = options?.limit ?? 8;
+  let query = supabaseAdmin
+    .from("payments")
+    .select("id,status,metadata,created_at")
+    .in("status", ["pending", "expired"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (options?.orderId) query = query.eq("order_id", options.orderId);
+  else query = query.gte("created_at", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
+  const { data } = await query;
+  for (const row of data ?? []) {
+    const meta = readPalmMeta(row.metadata);
+    if (meta.source !== "palmpesa" || !meta.providerOrderId) continue;
+    if (row.status === "pending" && Date.now() - new Date(row.created_at).getTime() < 3_000) continue;
+    await reconcilePalmPayment(supabaseAdmin, row.id);
+  }
+}
+
+function metaRecord(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? { ...(metadata as Record<string, unknown>) } : {};
 }
 
 export async function resendPrompt(reference: string) {

@@ -38,7 +38,24 @@ function AccountOrderPage() {
 
   useEffect(() => {
     if (!user) return;
-    load({ data: { number } }).then(setOrder).catch(() => setOrder(null));
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = () => {
+      load({ data: { number } })
+        .then((next) => {
+          if (!alive) return;
+          setOrder(next);
+          if (next?.payments.some((p) => p.status === "pending")) timer = setTimeout(tick, 8000);
+        })
+        .catch(() => {
+          if (alive) setOrder(null);
+        });
+    };
+    tick();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
   }, [user?.id, number]);
 
   const crumbs = [
@@ -182,6 +199,34 @@ function AccountOrderPage() {
           </section>
 
           <section className="panel p-4 md:p-5">
+            <h2 className="text-base font-bold">{t.account.payments}</h2>
+            {o.payments.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">{t.account.noPayments}</p>
+            ) : (
+              <ul className="mt-3 space-y-2 text-sm">
+                {o.payments.map((p) => (
+                  <li key={p.id} className="rounded-lg bg-sand px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-navy">{formatAmount(p.amount)}</span>
+                      <StatusPill tone={p.status === "completed" ? "success" : p.status === "pending" ? "pending" : "danger"}>
+                        {statusLabel(t, p.status)}
+                      </StatusPill>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {purposeLabel(p.purpose)} · {p.method ?? "—"} · {when(p.status === "completed" ? p.updated_at : p.created_at)}
+                    </p>
+                    {p.reference && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {t.account.paymentReference}: {p.reference}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="panel p-4 md:p-5">
             <h2 className="text-base font-bold">{t.account.history}</h2>
             <ol className="mt-3 space-y-3 border-l-2 border-gold/50 pl-4 text-sm">
               {o.order_status_history.map((h, i) => (
@@ -223,6 +268,7 @@ function AccountOrderPage() {
                 <dd className="tabular-nums">{formatAmount(o.balance)}</dd>
               </div>
             </dl>
+            {o.amount_paid > 0 && o.balance > 0 && <p className="mt-2 text-xs font-semibold text-gold-ink">{t.account.depositPaid}</p>}
             {o.delivery_fee_status === "pending" && <p className="mt-2 text-xs text-muted-foreground">{t.delivery.pendingNote}</p>}
             {o.balance > 0 && o.status !== "cancelled" && config?.onlinePayment && (
               <div className="mt-4 space-y-3 border-t border-border pt-4">

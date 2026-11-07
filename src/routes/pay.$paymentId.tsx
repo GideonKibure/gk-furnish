@@ -36,6 +36,7 @@ function PayPage() {
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let expiredChecks = 0;
     setData(null);
     setMissing(false);
     const tick = async () => {
@@ -44,6 +45,10 @@ function PayPage() {
         if (!alive) return;
         setData(next);
         if (next.status === "pending") timer = setTimeout(tick, 4000);
+        else if (next.status === "expired" && expiredChecks < 30) {
+          expiredChecks += 1;
+          timer = setTimeout(tick, 10_000);
+        }
       } catch {
         if (alive) setMissing(true);
       }
@@ -138,6 +143,7 @@ function PayPage() {
                 {t.pay.waiting}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
+                {data.canResend && (
                 <button
                   type="button"
                   className="btn-base btn-outline-navy"
@@ -156,6 +162,7 @@ function PayPage() {
                 >
                   {t.pay.resend}
                 </button>
+                )}
               </div>
             </div>
           )}
@@ -215,7 +222,15 @@ function PayPage() {
           {(data.status === "failed" || data.status === "expired") && (
             <div>
               <XCircle className="h-10 w-10 text-destructive" />
-              <p className="mt-4 text-lg text-navy">{t.pay.failedBody}</p>
+              <p className="mt-4 text-lg text-navy">
+                {data.status === "expired"
+                  ? t.pay.expiredBody
+                  : data.failureReason === "CANCELLED"
+                    ? t.pay.cancelledBody
+                    : data.failureReason === "REJECTED"
+                      ? t.pay.rejectedBody
+                      : t.pay.failedBody}
+              </p>
             </div>
           )}
 

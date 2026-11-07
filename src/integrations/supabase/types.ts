@@ -741,11 +741,18 @@ export type Database = {
           order_id: string
           payment_kind: string
           phone: string | null
+          channel: string | null
+          failure_reason: string | null
+          paid_at: string | null
+          payment_method: string | null
           provider: string | null
+          provider_order_id: string | null
+          provider_reference: string | null
           purpose: string
           receipt_number: string | null
           snippe_reference: string | null
           status: string
+          transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -757,11 +764,18 @@ export type Database = {
           order_id: string
           payment_kind: string
           phone?: string | null
+          channel?: string | null
+          failure_reason?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
           provider?: string | null
+          provider_order_id?: string | null
+          provider_reference?: string | null
           purpose?: string
           receipt_number?: string | null
           snippe_reference?: string | null
           status?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -773,11 +787,18 @@ export type Database = {
           order_id?: string
           payment_kind?: string
           phone?: string | null
+          channel?: string | null
+          failure_reason?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
           provider?: string | null
+          provider_order_id?: string | null
+          provider_reference?: string | null
           purpose?: string
           receipt_number?: string | null
           snippe_reference?: string | null
           status?: string
+          transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -786,6 +807,44 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json
+          payment_id: string | null
+          processed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_type: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          processed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]

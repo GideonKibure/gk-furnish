@@ -18,7 +18,7 @@ export const DEFAULT_ADVANCE_SETTINGS: AdvanceSettings = {
   largeItems: 10,
 };
 
-/** Snippe rejects mobile money payments below this amount. */
+/** Smallest amount we send to mobile money. PalmPesa accepts from 100 TZS; furniture payments start at 500. */
 export const MIN_MOBILE_PAYMENT_TZS = 500;
 
 type SettingsRow = {

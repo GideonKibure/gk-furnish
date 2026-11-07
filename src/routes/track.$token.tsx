@@ -143,22 +143,23 @@ function OrderTracking({ order }: { order: TrackedOrder }) {
             <p className="mt-2 text-sm text-muted-foreground">{t.account.noPayments}</p>
           ) : (
             <ul className="mt-2 space-y-2 text-sm">
-              {order.payments.map((p, idx) => {
+              {order.payments.map((p) => {
                 const paidUpTo = order.payments
-                  .slice(0, idx + 1)
+                  .filter((x) => x.status === "completed" && x.updated_at <= p.updated_at)
                   .reduce((sum, x) => sum + x.amount, 0);
                 return (
                   <li
-                    key={idx}
+                    key={`${p.created_at}-${p.amount}-${p.status}`}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-sand px-3 py-2"
                   >
                     <span>
                       <span className="font-semibold text-navy">{formatAmount(p.amount)}</span>{" "}
                       <span className="text-muted-foreground">
-                        {purposeLabel(p.purpose)} ·{" "}
+                        {purposeLabel(p.purpose)} · {statusLabel(t, p.status)} ·{" "}
                         {new Date(p.updated_at).toLocaleDateString("en-GB")}
                       </span>
                     </span>
+                    {p.receipt_number && (
                     <button
                       type="button"
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold-ink hover:underline"
@@ -180,6 +181,7 @@ function OrderTracking({ order }: { order: TrackedOrder }) {
                       <Receipt className="h-3.5 w-3.5" />
                       {p.receipt_number ?? t.pay.receipt}
                     </button>
+                    )}
                   </li>
                 );
               })}

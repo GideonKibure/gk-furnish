@@ -55,6 +55,7 @@ function CheckoutPage() {
 
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
+  const [payMethod, setPayMethod] = useState<"mobile" | "cash">("mobile");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -142,7 +143,7 @@ function CheckoutPage() {
 
   function validatePayment() {
     const errs: Record<string, string> = {};
-    if (online) {
+    if (online && payMethod === "mobile") {
       const payPhone = form.payment_phone.trim() || form.phone.trim();
       if (!phoneOk(payPhone)) errs["payment_phone"] = t.validation.phoneInvalid;
     }
@@ -187,7 +188,8 @@ function CheckoutPage() {
           needed_by: form.needed_by,
           notes: form.notes.trim(),
           payment_choice: choice,
-          payment_phone: online ? form.payment_phone.trim() || form.phone.trim() : "",
+          payment_method: online && payMethod === "mobile" ? "mobile" : "cash",
+          payment_phone: online && payMethod === "mobile" ? form.payment_phone.trim() || form.phone.trim() : "",
           specs_agreed: true,
         },
       });
@@ -476,18 +478,42 @@ function CheckoutPage() {
 
                   {online ? (
                     <div className="mt-4">
-                      <label className="field-label" htmlFor="c-pay-phone">{t.checkout.phone} *</label>
-                      <input
-                        id="c-pay-phone"
-                        type="tel"
-                        inputMode="tel"
-                        className="field-input"
-                        placeholder={form.phone || "07…"}
-                        value={form.payment_phone}
-                        onChange={set("payment_phone")}
-                      />
-                      <p className="mt-1.5 text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
-                      {err("payment_phone")}
+                      <p className="text-sm font-semibold text-navy">{t.checkout.methodTitle}</p>
+                      <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.checkout.methodTitle}>
+                        {(["mobile", "cash"] as const).map((kind) => (
+                          <label
+                            key={kind}
+                            className={cn(
+                              "cursor-pointer rounded-lg border px-4 py-3 transition-colors",
+                              payMethod === kind ? "border-gold bg-gold-tint" : "border-input bg-white hover:border-navy/30",
+                            )}
+                          >
+                            <input type="radio" name="payment_method" className="sr-only" checked={payMethod === kind} onChange={() => setPayMethod(kind)} />
+                            <span className="block font-semibold text-navy">{kind === "mobile" ? t.checkout.methodMobile : t.checkout.methodCash}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {kind === "mobile" ? t.checkout.methodMobileHint : t.checkout.methodCashHint}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      {payMethod === "mobile" ? (
+                        <div className="mt-4">
+                          <label className="field-label" htmlFor="c-pay-phone">{t.checkout.phone} *</label>
+                          <input
+                            id="c-pay-phone"
+                            type="tel"
+                            inputMode="tel"
+                            className="field-input"
+                            placeholder={form.phone || "07…"}
+                            value={form.payment_phone}
+                            onChange={set("payment_phone")}
+                          />
+                          <p className="mt-1.5 text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
+                          {err("payment_phone")}
+                        </div>
+                      ) : (
+                        <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-navy">{t.checkout.methodCashHint}</p>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-4 rounded-lg bg-sand p-4">
@@ -529,6 +555,11 @@ function CheckoutPage() {
                         choice === "advance"
                           ? `${fill(t.checkout.advanceLabel, { percent: tier.percent })} — ${formatAmount(advance)}`
                           : `${t.checkout.fullLabel} — ${formatAmount(subtotal)}`,
+                      go: 1,
+                    },
+                    {
+                      label: t.checkout.payment,
+                      value: online && payMethod === "mobile" ? t.checkout.methodMobile : t.checkout.cashReview,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
@@ -578,7 +609,7 @@ function CheckoutPage() {
                   onClick={() => void placeOrder()}
                   disabled={busy || blocked || !cart.ready}
                 >
-                  {busy ? t.checkout.placing : online ? t.checkout.placeOrder : t.checkout.placeOrderOffline}
+                  {busy ? t.checkout.placing : online && payMethod === "mobile" ? t.checkout.placeOrder : t.checkout.placeOrderOffline}
                 </button>
               )}
             </div>

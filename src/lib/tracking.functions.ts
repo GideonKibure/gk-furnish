@@ -76,35 +76,44 @@ export const getTracking = createServerFn({ method: "GET" })
     }
 
     if (order) {
-      const total = Number(order.total_amount);
-      const paid = Number(order.amount_paid);
+      const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+      await reconcileOpenPalmPayments(supabaseAdmin, { orderId: order.id });
+      const { data: fresh } = await supabaseAdmin
+        .from("orders")
+        .select(
+          "*, order_items(product_name,quantity,unit_price,material,size,color), payments(amount,status,purpose,receipt_number,provider,created_at,updated_at), order_status_history(status,created_at)",
+        )
+        .eq("id", order.id)
+        .maybeSingle();
+      const current = fresh ?? order;
+      const total = Number(current.total_amount);
+      const paid = Number(current.amount_paid);
       return {
         kind: "order",
         order: {
-          number: order.order_number,
-          status: order.status,
-          createdAt: order.created_at,
-          customerName: order.customer_name.split(/\s+/)[0] ?? "",
-          phoneMasked: mask(order.phone),
-          fulfilmentMethod: order.fulfilment_method ?? "delivery",
-          location: order.delivery_location,
-          neededBy: order.needed_by,
-          subtotal: Number(order.subtotal_amount ?? order.total_amount),
-          deliveryFee: order.delivery_fee == null ? null : Number(order.delivery_fee),
-          deliveryFeeStatus: order.delivery_fee_status ?? "confirmed",
+          number: current.order_number,
+          status: current.status,
+          createdAt: current.created_at,
+          customerName: current.customer_name.split(/\s+/)[0] ?? "",
+          phoneMasked: mask(current.phone),
+          fulfilmentMethod: current.fulfilment_method ?? "delivery",
+          location: current.delivery_location,
+          neededBy: current.needed_by,
+          subtotal: Number(current.subtotal_amount ?? current.total_amount),
+          deliveryFee: current.delivery_fee == null ? null : Number(current.delivery_fee),
+          deliveryFeeStatus: current.delivery_fee_status ?? "confirmed",
           total,
           paid,
           balance: balanceDue(total, paid),
-          advancePercent: order.advance_percent,
-          advanceRequired: Number(order.advance_required),
-          paymentStatus: order.payment_status,
-          specsAgreed: Boolean(order.specs_agreed_at),
-          items: (order.order_items ?? []).map((i) => ({ ...i, unit_price: Number(i.unit_price) })),
-          payments: (order.payments ?? [])
-            .filter((p) => p.status === "completed")
+          advancePercent: current.advance_percent,
+          advanceRequired: Number(current.advance_required),
+          paymentStatus: current.payment_status,
+          specsAgreed: Boolean(current.specs_agreed_at),
+          items: (current.order_items ?? []).map((i) => ({ ...i, unit_price: Number(i.unit_price) })),
+          payments: (current.payments ?? [])
             .map((p) => ({ ...p, amount: Number(p.amount) }))
             .sort((a, b) => a.created_at.localeCompare(b.created_at)),
-          history: (order.order_status_history ?? [])
+          history: (current.order_status_history ?? [])
             .map((h) => ({ status: h.status, created_at: h.created_at }))
             .sort((a, b) => a.created_at.localeCompare(b.created_at)),
         },

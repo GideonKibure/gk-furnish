@@ -20,7 +20,7 @@ import {
 } from "@/components/admin/admin-ui";
 import { downloadReceipt, purposeLabel } from "@/lib/invoice";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
-import { listAdminPayments } from "@/lib/ops/customers.functions";
+import { getAdminPaymentSummary, listAdminPayments } from "@/lib/ops/customers.functions";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import { humanize, paymentRecordTone } from "@/lib/ops/status";
 
@@ -42,10 +42,25 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "All sources" },
+  { value: "Online (PalmPesa)", label: "Online (PalmPesa)" },
   { value: "Online (Snippe)", label: "Online (Snippe)" },
   { value: "Recorded by admin", label: "Recorded by admin" },
   { value: "Other", label: "Other" },
 ];
+
+const METHOD_OPTIONS = [
+  { value: "all", label: "All methods" },
+  { value: "Mobile money", label: "Mobile money" },
+  { value: "Cash", label: "Cash" },
+  { value: "Bank transfer", label: "Bank transfer" },
+] as const;
+
+const PURPOSE_OPTIONS = [
+  { value: "all", label: "All purposes" },
+  { value: "advance", label: "Deposit" },
+  { value: "balance", label: "Balance" },
+  { value: "full", label: "Full payment" },
+] as const;
 
 /** Paid date: completed payments are stamped when they complete. */
 function paidAt(p: Row) {
@@ -59,12 +74,19 @@ function AdminPaymentsPage() {
   const [range, setRange] = useState<DateRange | "all">("30d");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
+  const [method, setMethod] = useState<(typeof METHOD_OPTIONS)[number]["value"]>("all");
+  const [purpose, setPurpose] = useState<(typeof PURPOSE_OPTIONS)[number]["value"]>("all");
+  const [outstanding, setOutstanding] = useState<{ outstanding: number; openOrders: number } | null>(null);
+  const summary = useServerFn(getAdminPaymentSummary);
 
   useEffect(() => {
     list()
       .then(setRows)
       .catch((e) => toast.error(e instanceof Error ? e.message : "Load failed"));
-  }, [list]);
+    summary()
+      .then(setOutstanding)
+      .catch(() => setOutstanding(null));
+  }, [list, summary]);
 
   const shown = useMemo(() => {
     if (!rows) return [];
@@ -74,12 +96,14 @@ function AdminPaymentsPage() {
       if (from != null && new Date(paidAt(p)).getTime() < from) return false;
       if (status === "failed" ? !["failed", "expired"].includes(p.status) : status !== "all" && p.status !== status) return false;
       if (source !== "all" && p.source !== source) return false;
+      if (method !== "all" && p.method !== method) return false;
+      if (purpose !== "all" && p.purpose !== purpose) return false;
       if (!term) return true;
-      return [p.receipt_number, p.orders?.order_number, p.orders?.customer_name, p.snippe_reference, p.phone].some((v) =>
+      return [p.receipt_number, p.orders?.order_number, p.orders?.customer_name, p.reference, p.snippe_reference, p.phone].some((v) =>
         v?.toLowerCase().includes(term),
       );
     });
-  }, [rows, q, range, status, source]);
+  }, [rows, q, range, status, source, method, purpose]);
 
   const completed = shown.filter((p) => p.status === "completed");
   const pending = shown.filter((p) => p.status === "pending");
@@ -169,7 +193,7 @@ function AdminPaymentsPage() {
             onClick={() =>
               downloadCsv(
                 `gk-payments-${new Date().toISOString().slice(0, 10)}`,
-                ["Date", "Receipt", "Order", "Customer", "Purpose", "Method", "Source", "Status", "Amount (TSh)", "Snippe reference"],
+                ["Date", "Receipt", "Order", "Customer", "Purpose", "Method", "Source", "Status", "Amount (TZS)", "Reference"],
                 shown.map((p) => [
                   csvDate(paidAt(p)),
                   p.receipt_number,
@@ -180,7 +204,7 @@ function AdminPaymentsPage() {
                   p.source,
                   p.status,
                   Math.round(p.amount),
-                  p.snippe_reference,
+                  p.reference,
                 ]),
               )
             }
@@ -190,7 +214,7 @@ function AdminPaymentsPage() {
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Received"
           value={tzs(completed.reduce((s, p) => s + p.amount, 0))}
@@ -212,13 +236,22 @@ function AdminPaymentsPage() {
           icon={<Receipt className="h-5 w-5" />}
           tone="navy"
         />
+        <KpiCard
+          label="Still to collect"
+          value={outstanding ? tzs(outstanding.outstanding) : "—"}
+          hint={outstanding ? `${outstanding.openOrders} order${outstanding.openOrders === 1 ? "" : "s"} with a balance` : "Outstanding balances"}
+          icon={<Wallet className="h-5 w-5" />}
+          tone="pending"
+        />
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_11rem_11rem_11rem]">
-        <SearchInput value={q} onChange={setQ} placeholder="Search receipt, order, customer or reference" className="sm:col-span-2 lg:col-span-1" />
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <SearchInput value={q} onChange={setQ} placeholder="Search receipt, order, customer or reference" className="sm:col-span-2 xl:col-span-2" />
         <DateRangeSelect value={range} onChange={setRange} allowAll />
         <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} label="Payment status" />
         <FilterSelect value={source} onChange={setSource} options={SOURCE_OPTIONS} label="Payment source" />
+        <FilterSelect value={method} onChange={setMethod} options={[...METHOD_OPTIONS]} label="Payment method" />
+        <FilterSelect value={purpose} onChange={setPurpose} options={[...PURPOSE_OPTIONS]} label="Payment purpose" />
       </div>
 
       {!rows ? (

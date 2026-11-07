@@ -30,6 +30,7 @@ export function statusTone(status: string): StatusTone {
       return "info";
     case "cancelled":
     case "failed":
+    case "expired":
     case "rejected":
     case "refunded":
       return "danger";
