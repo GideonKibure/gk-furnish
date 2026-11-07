@@ -97,12 +97,6 @@ function CheckoutPage() {
   }, [addresses.length]);
 
   useEffect(() => {
-    if (sessionStorage.getItem("gk-checkout-start") !== "payment") return;
-    sessionStorage.removeItem("gk-checkout-start");
-    setStep(1);
-  }, []);
-
-  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
@@ -145,7 +139,6 @@ function CheckoutPage() {
       if (!place.region) errs["region"] = t.delivery.regionRequired;
       if (!place.address_line.trim()) errs["address_line"] = t.delivery.areaRequired;
     }
-    if (!form.needed_by) errs["needed_by"] = t.validation.dateRequired;
     setErrors(errs);
     return !Object.keys(errs).length;
   }
@@ -163,19 +156,10 @@ function CheckoutPage() {
 
   function next() {
     if (step === 0 && !validateDelivery()) return;
-    if (step === 1 && !validatePayment()) return;
-    if (step === 1 && !validateDelivery()) {
-      setStep(0);
-      return;
-    }
-    setStep((s) => Math.min(2, s + 1));
+    setStep(2);
   }
 
   async function placeOrder() {
-    if (!user) {
-      void nav({ to: "/account/login", search: { next: "/checkout" } });
-      return;
-    }
     if (!validateDelivery()) {
       setStep(0);
       return;
@@ -213,8 +197,8 @@ function CheckoutPage() {
         },
       });
       await cart.clear();
-      if (r.paymentId) {
-        void nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } });
+      if (r.trackingToken) {
+        void nav({ to: "/track/$token", params: { token: r.trackingToken } });
         return;
       }
       if (r.paymentError) toast.error(r.paymentError);
@@ -327,9 +311,9 @@ function CheckoutPage() {
         </div>
         <Stepper
           className="mt-4 max-w-xl"
-          steps={[t.steps.delivery, t.steps.payment, t.steps.review]}
-          current={step}
-          onStepClick={setStep}
+          steps={[t.steps.delivery, t.steps.review]}
+          current={step === 0 ? 0 : 1}
+          onStepClick={(index) => setStep(index === 0 ? 0 : 2)}
         />
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -454,7 +438,7 @@ function CheckoutPage() {
 
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="field-label" htmlFor="c-needed">{t.order.neededBy} *</label>
+                      <label className="field-label" htmlFor="c-needed">{t.order.neededBy}</label>
                       <input id="c-needed" type="date" min={todayIso()} className="field-input" value={form.needed_by} onChange={set("needed_by")} aria-invalid={Boolean(errors["needed_by"])} />
                       {err("needed_by")}
                     </div>
@@ -571,7 +555,7 @@ function CheckoutPage() {
                       value: placeLabel,
                       go: 0,
                     },
-                    { label: t.order.neededBy, value: form.needed_by, go: 0 },
+                    { label: t.order.neededBy, value: form.needed_by || "—", go: 0 },
                     {
                       label: t.steps.paymentPlan,
                       value:
@@ -582,7 +566,7 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value: online && payMethod === "mobile" ? `${t.checkout.methodMobile} · ${walletById(wallet)?.label ?? ""}` : t.checkout.cashReview,
+                      value: t.checkout.offline,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
@@ -610,7 +594,7 @@ function CheckoutPage() {
 
             <div className="flex flex-wrap-reverse items-center justify-between gap-3 [&>*:last-child]:max-sm:w-full">
               {step > 0 ? (
-                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep((s) => s - 1)}>
+                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(0)}>
                   <ArrowLeft className="h-4 w-4" />
                   {t.steps.back}
                 </button>
@@ -622,13 +606,9 @@ function CheckoutPage() {
               )}
               {step < 2 ? (
                 <button type="button" className="btn-base btn-gold btn-lg" onClick={next} disabled={blocked}>
-                  {step === 0 ? t.steps.continuePayment : t.steps.continueReview}
+                  {t.steps.continueReview}
                   <ArrowRight className="h-4 w-4" />
                 </button>
-              ) : authReady && !user ? (
-                <Link to="/account/login" search={{ next: "/checkout" }} className="btn-base btn-gold btn-lg">
-                  {t.checkout.signInToOrder}
-                </Link>
               ) : (
                 <button
                   type="button"
@@ -636,7 +616,7 @@ function CheckoutPage() {
                   onClick={() => void placeOrder()}
                   disabled={busy || blocked || !cart.ready || !authReady}
                 >
-                  {busy ? t.checkout.placing : online && payMethod === "mobile" ? t.checkout.placeOrder : t.checkout.placeOrderOffline}
+                  {busy ? t.checkout.placing : t.checkout.placeOrder}
                 </button>
               )}
             </div>

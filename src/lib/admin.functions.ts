@@ -872,6 +872,17 @@ export const setOrderArchived = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Confirm a payment the customer submitted. Only this adds the money. */
+export const confirmSubmittedPayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ paymentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { completePayment } = await import("@/lib/order-payments.server");
+    await completePayment(supabaseAdmin, data.paymentId, { provider: "Confirmed by GK furnish" });
+    return { ok: true };
+  });
+
 /** Record a cash, bank or mobile money payment taken outside the website. It gets a receipt number. */
 export const recordAdminPayment = createServerFn({ method: "POST" })
   .middleware([requireAdmin])

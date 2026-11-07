@@ -38,7 +38,7 @@ const CheckoutInput = z
     /** Older clients send one free-text location. */
     delivery_location: opt(200),
     save_address: z.boolean().optional(),
-    needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
     notes: opt(1000),
     payment_choice: z.enum(["advance", "full"]),
     payment_method: z.enum(["mobile", "cash"]).default("mobile"),
@@ -51,13 +51,12 @@ const CheckoutInput = z
     { message: "Delivery address is required", path: ["address_line"] },
   );
 
-/** Public checkout settings: whether online payment is on, and where to collect from. */
+/** Public checkout settings. Online wallet charges stay off while the owner confirms payments by hand. */
 export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
-  const { onlinePaymentsConfigured } = await import("@/lib/order-payments.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
   return {
-    onlinePayment: onlinePaymentsConfigured(),
+    onlinePayment: false,
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
   };
 });
@@ -72,9 +71,7 @@ export const createCheckout = createServerFn({ method: "POST" })
   .middleware([optionalSupabaseAuth])
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data, context }) => {
-    if (!context.userId) throw new Error("Sign in to place an order.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { onlinePaymentsConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
 
     const { isMissingSchema } = await import("@/lib/db-compat");
     const { notify } = await import("@/lib/notify.server");
@@ -131,7 +128,7 @@ export const createCheckout = createServerFn({ method: "POST" })
       preferred_color: first?.color || null,
       preferred_size: first?.size || null,
       delivery_location: deliveryLocation,
-      needed_by: data.needed_by,
+      needed_by: data.needed_by || null,
       notes: composeOrderNotes({ material: lines.length === 1 ? first?.material : "", neededBy: data.needed_by, notes: data.notes }),
       payment_kind: data.payment_choice,
       payment_status: "unpaid",
@@ -265,43 +262,22 @@ export const createCheckout = createServerFn({ method: "POST" })
     ]);
 
     const amount = chargeNow(data.payment_choice === "full" ? total : advanceRequired, total);
-    const payOnline = data.payment_method === "mobile" && onlinePaymentsConfigured();
-    if (payOnline && !data.wallet) throw new Error("Choose M-Pesa, Airtel Money, Yas or HaloPesa.");
-    let paymentId: string | null = null;
-    let paymentError: string | null = null;
-    if (payOnline) {
-      try {
-        paymentId = await startMobilePayment(supabaseAdmin, {
-          orderId: order.id,
-          orderNumber: order.order_number,
-          purpose: data.payment_choice === "full" ? "full" : "advance",
-          amount,
-          balance: total,
-          phone: paymentPhone,
-          customerName: data.customer_name,
-          email: data.email || context.email || null,
-          wallet: data.wallet ?? "mpesa",
-        });
-        await supabaseAdmin.from("orders").update({ payment_status: "pending" }).eq("id", order.id);
-      } catch (err) {
-        paymentError = err instanceof Error ? err.message : "Payment could not start";
-      }
-    } else if (data.payment_method === "cash") {
-      await noteOrderHistory(supabaseAdmin, {
-        orderId: order.id,
-        status: "pending",
-        note: "Customer chose cash. The order stays unpaid until GK furnish confirms the money was received.",
-        actor: "Customer",
-        statusChanged: false,
-      });
-    }
+    const paymentId: string | null = null;
+    const paymentError: string | null = null;
+    await noteOrderHistory(supabaseAdmin, {
+      orderId: order.id,
+      status: "pending",
+      note: "Order placed. The customer pays using the workshop instructions, then submits the transaction ID. The order stays unpaid until GK furnish confirms it.",
+      actor: "Customer",
+      statusChanged: false,
+    });
 
     return {
       orderNumber: order.order_number,
       trackingToken,
       paymentId,
       paymentError,
-      onlinePayment: onlinePaymentsConfigured(),
+      onlinePayment: false,
       subtotal,
       deliveryFeeStatus,
       total,
@@ -429,10 +405,13 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    // Set PAYMENT_MODE=palmpesa on the server to charge wallets again. Until then the workshop confirms each payment.
+    if (process.env["PAYMENT_MODE"] !== "palmpesa") {
+      throw new Error("Open your order link, pay the number shown, and send the transaction ID. GK furnish confirms it before the order is paid.");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { canPayOrder } = await import("@/lib/palmpesa");
-    const { onlinePaymentsConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
-    if (!onlinePaymentsConfigured()) throw new Error("Online payment is not switched on yet. Please contact us on WhatsApp.");
+    const { startMobilePayment } = await import("@/lib/order-payments.server");
 
     let orderId: string | null = null;
     if (data.paymentId) {
@@ -493,4 +472,70 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       wallet: data.wallet,
     });
     return { paymentId };
+  });
+
+/** Customer says they paid. The money is added only after the owner confirms. */
+export const submitPaymentProof = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({
+      token: z.string().uuid(),
+      method: z.enum(["mpesa", "airtel", "yas", "halopesa"]),
+      amount: z.number().int().positive(),
+      transactionId: z.string().trim().regex(/^[A-Za-z0-9]{6,20}$/),
+      phone: z.string().trim().max(20).optional().or(z.literal("")),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { paymentMethodById } = await import("@/config/payment-methods");
+    const { balanceDue } = await import("@/lib/payment-policy");
+    const method = paymentMethodById(data.method);
+    if (!method) throw new Error("Choose a payment method.");
+    const transactionId = data.transactionId.toUpperCase();
+
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("id,order_number,total_amount,amount_paid,advance_required,phone,status")
+      .eq("tracking_token", data.token)
+      .maybeSingle();
+    if (error || !order) throw new Error("Order not found");
+    if (order.status === "cancelled") throw new Error("This order is cancelled");
+    const left = balanceDue(Number(order.total_amount), Number(order.amount_paid));
+    if (data.amount > left) throw new Error("That amount is more than the balance still due.");
+
+    const { data: existing } = await supabaseAdmin.from("payments").select("id,order_id,status,metadata").eq("order_id", order.id);
+    const rows = existing ?? [];
+    const submitted = rows.filter((row) => row.status === "pending");
+    if (submitted.length >= 3) throw new Error("This order already has payments waiting to be confirmed.");
+    const duplicate = rows.some((row) => {
+      const meta = row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
+      const id = typeof meta["transaction_id"] === "string" ? meta["transaction_id"] : "";
+      return id.toUpperCase() === transactionId && row.status !== "failed";
+    });
+    if (duplicate) throw new Error("That transaction ID is already on this order.");
+    const { data: elsewhere } = await supabaseAdmin
+      .from("payments")
+      .select("id")
+      .filter("metadata->>transaction_id", "eq", transactionId)
+      .neq("order_id", order.id)
+      .neq("status", "failed");
+    if ((elsewhere ?? []).length > 0) throw new Error("That transaction ID is already used on another order.");
+
+    const paid = Number(order.amount_paid);
+    const advanceLeft = Math.max(0, Number(order.advance_required) - paid);
+    const purpose = data.amount >= left && paid <= 0 ? "full" : advanceLeft > 0 && data.amount <= advanceLeft ? "advance" : "balance";
+    const paymentKind = purpose === "full" ? "full" : "advance";
+    const { error: insertError } = await supabaseAdmin.from("payments").insert({
+      order_id: order.id,
+      payment_kind: paymentKind,
+      purpose,
+      amount: data.amount,
+      phone: data.phone || order.phone,
+      provider: method.label,
+      status: "pending",
+      metadata: { source: "manual", method: method.label, transaction_id: transactionId },
+    });
+    if (insertError) throw new Error(insertError.message);
+    await supabaseAdmin.from("orders").update({ payment_status: "pending" }).eq("id", order.id);
+    return { ok: true as const };
   });

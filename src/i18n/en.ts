@@ -281,11 +281,11 @@ export const en = {
     items: [
       {
         q: "How do I place an order?",
-        a: "Sign in, add pieces to your cart, then check out and pay the advance with mobile money. An account is required to place an order.",
+        a: "Add pieces to your cart and check out with your name and phone. An account is optional. After the order you pay using the numbers we show, then send us the transaction ID. We confirm the payment before production starts.",
       },
       {
         q: "Do I need an account?",
-        a: "No. An account is optional, but it keeps your cart and details, shows your order progress and lets you pay the balance online.",
+        a: "No. You can order with your name and phone. An account keeps your cart and orders so you can follow them and order again.",
       },
       {
         q: "Do you make custom furniture?",
@@ -317,7 +317,7 @@ export const en = {
       },
       {
         q: "How do I pay?",
-        a: "At checkout you choose to pay an advance or the full amount. We confirm your order by phone or WhatsApp, and you pay by mobile money, bank or cash — we record every payment on your order. The advance is 50% for standard orders, 60% for custom and high-value orders and 70% for large orders. Production starts once the advance is received, and the balance is paid before delivery. You get a receipt for every payment.",
+        a: "Place the order with your name and phone. The order page shows the M-Pesa, Airtel Money, Yas and HaloPesa numbers. Send the advance or the full amount, then enter the transaction ID. We confirm it before the order counts as paid. The advance is 50% for standard orders, 60% for custom and high-value orders and 70% for large orders. Production starts once the advance is confirmed, and the balance is paid before delivery. You get a receipt for every confirmed payment.",
       },
       {
         q: "Can I change the design after ordering?",
@@ -402,15 +402,15 @@ export const en = {
     specsAgree:
       "I confirm the design and specifications of this order. Any change must be agreed with GK furnish before production starts.",
     specsRequired: "Please confirm the design and specifications.",
-    placeOrder: "Place order and pay",
+    placeOrder: "Place order and see how to pay",
     placeOrderOffline: "Place order",
     placing: "Placing your order…",
-    signInPrompt: "Sign in to place an order. Your details and this order stay on your account.",
-    signInToOrder: "Sign in to place order",
+    signInPrompt: "Have an account? Sign in to fill in your details. You can also order without one.",
+    signInToOrder: "Sign in",
     total: "Total",
     payNow: "To pay now",
     balanceLater: "Balance before delivery",
-    offline: "Online payment is not switched on yet. We will save your order and confirm payment with you on WhatsApp or by phone.",
+    offline: "After you place the order you will see the payment numbers. Send the money, then give us the transaction ID. The order stays unpaid until we confirm it.",
     emptyCart: "Your cart is empty, so there is nothing to check out yet.",
   },
   pay: {
@@ -495,7 +495,7 @@ export const en = {
     loginTitle: "Sign in",
     loginIntro: "Sign in to follow your orders, pay balances and check out faster.",
     registerTitle: "Create an account",
-    registerIntro: "An account keeps your cart, details and orders in one place. Sign in before you place an order.",
+    registerIntro: "An account keeps your cart, details and orders in one place. You can still order without an account.",
     email: "Email",
     password: "Password",
     passwordHint: "At least 8 characters",
@@ -572,7 +572,7 @@ export const en = {
       },
       {
         title: "Your choices and rights",
-        body: "You sign in before placing an order. You can update your profile at any time. You can ask us to show, correct or delete your personal information by contacting us; some order and payment records may need to be kept for legal reasons.",
+        body: "You can place an order with your name and phone, or with an account. You can update your profile at any time. You can ask us to show, correct or delete your personal information by contacting us; some order and payment records may need to be kept for legal reasons.",
       },
       {
         title: "Security",
@@ -665,7 +665,7 @@ export const en = {
     howTitle: "How ordering works",
     howSteps: [
       { title: "Choose", body: "Browse the shop or send us a custom request." },
-      { title: "Order", body: "Sign in, add to cart, and check out with your account." },
+      { title: "Order", body: "Add to cart and check out with your name and phone, or with an account." },
       { title: "Pay the advance", body: "We confirm your order and the advance; you get a receipt." },
       { title: "Receive", body: "We make or prepare it, then deliver — or you collect." },
     ],
@@ -776,6 +776,17 @@ export const en = {
     keepLink: "Save this link to check your order at any time.",
     open: "Track this order",
     unavailable: "Order tracking will be available soon.",
+    howToPay: "How to pay",
+    paySteps: "Send the amount below to one of these numbers. Use your order number as the reference. Then tell us the transaction ID. We confirm payments within 2 working hours, 08:00 to 18:00, East Africa Time. A payment is not received until we confirm it.",
+    amountDue: "Amount due now",
+    iHavePaid: "I have paid",
+    transactionId: "Transaction ID",
+    transactionHint: "6 to 20 letters or digits from the message you received.",
+    proofSent: "Payment submitted. We will confirm it after we see it in our statement.",
+    awaiting: "Awaiting confirmation",
+    copy: "Copy",
+    copied: "Copied",
+    whatsappProof: "Tell us on WhatsApp",
   },
   addresses: {
     title: "Saved addresses",

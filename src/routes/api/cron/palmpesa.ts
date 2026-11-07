@@ -8,6 +8,7 @@ export const Route = createFileRoute("/api/cron/palmpesa")({
         const secret = process.env["CRON_SECRET"]?.trim();
         const auth = request.headers.get("authorization") ?? "";
         if (secret && auth !== `Bearer ${secret}`) return new Response("Unauthorized", { status: 401 });
+        if (process.env["PAYMENT_MODE"] !== "palmpesa") return Response.json({ ok: true, disabled: true });
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");

@@ -1,0 +1,2306 @@
+
+
+===== PAGE 1 =====
+GK FURNISH
+PRODUCT REQUIREMENTS  |  PRD-002  |  VERSION 2.0 (TARGET)
+Simpler to buy,
+simpler to run
+Storefront, manual payment confirmation, one-tap order workflow,
+WhatsApp and email messaging, and safe data control for the
+furniture workshop in Mbeya, Tanzania.
+Item
+Value
+Product
+GK Furnish, https://gkfurnish.co.tz
+Document
+PRD-002, version 2.0 (target state)
+Replaces
+PRD-001 (as built, 7 November 2026) once this document is approved
+Status
+Draft for owner approval. Items marked "assumed" in section 2 need the owner to confirm.
+Date
+7 November 2026
+Audience
+Owner, operators, designers and developers changing the product
+Currency and languages
+Tanzanian shilling (TZS); English and Kiswahili
+
+
+===== PAGE 2 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 2
+Contents
+ .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 3
+1. Purpose and how to read this document
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 3
+2. Decisions register
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 4
+3. What changes from PRD-001
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 4
+4. Product summary, goals and success measures
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 5
+5. People
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 6
+6. Brand and contact
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 6
+7. Customer site
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 10
+8. Payments: manual confirmation
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 12
+9. Money rules
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 13
+10. Order statuses and the one-tap workflow
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 14
+11. Messaging customers
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 16
+12. Owner portal
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 17
+13. Deleting data, trash and reset
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 19
+14. Activity log and backup
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 19
+15. Sales psychology built into the product
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 20
+16. Retention and relationship
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 21
+17. Interface, performance and language
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 22
+18. Security, privacy and quality
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 22
+19. Integrations and configuration
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 23
+20. Main records and data migration
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 24
+21. Main journeys
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 25
+22. Acceptance checks
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 26
+23. Release plan
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 26
+24. Risks and open points
+  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 27
+25. Glossary
+
+
+===== PAGE 3 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 3
+1. Purpose and how to read this document
+This document states what GK Furnish must become next. PRD-001 describes the product as it is built today.
+PRD-002 keeps what works, changes what slows customers and the owner down, and adds what is missing: manual
+payment confirmation, a simpler home page, a personal shop page for signed-in customers, a one-tap order workflow,
+messaging through WhatsApp and email, and safe delete and reset tools.
+It is a product document, not a technical design. It says what the product must do and what rules it must keep. When
+a later change conflicts with a requirement here, the change must update this document in the same piece of work.
+Reading the requirement tables
+  ID is a stable reference (for example PAY-7). Use it in tasks, tests and discussions.
+ Change shows how the requirement relates to PRD-001: KEEP (unchanged), CHANGED (rewritten), NEW (did
+not exist), REMOVED (no longer a requirement).
+ The second line of the Change column is the release phase: P1, P2 or P3 (section 23).
+ "Must" means required for the phase it is in. "Should" means expected unless there is a stated reason not to.
+2. Decisions register
+These decisions shape the whole document. Confirmed decisions come from the owner. Assumed decisions are
+defaults chosen so the document is complete; the owner should confirm or change each one.
+#
+Decision
+Status
+D1
+Payments are confirmed manually by the owner in the admin portal. PalmPesa is not integrated for now.
+Confirmed
+D2
+After sign-in, a customer lands on the shop, not on the profile.
+Confirmed
+D3
+The public home page has fewer sections and fewer steps.
+Confirmed
+D4
+A signed-in customer sees a personal shop page that differs from the visitor home page.
+Confirmed
+D5
+The owner updates order progress with fewer statuses and fewer steps.
+Confirmed
+D6
+The owner can delete data in the site and reset the whole system.
+Confirmed
+D7
+The owner can message customers from the portal by WhatsApp click-to-chat and by email.
+Confirmed
+A1
+Guest checkout is allowed. An account is optional.
+Assumed
+A2
+Payment instructions live in settings. A transaction ID is required; a screenshot is optional.
+Assumed
+A3
+Order statuses are New, Deposit confirmed, In production, Ready, Delivered and Cancelled.
+Assumed
+A4
+Deleted data goes to a 30-day trash. Reset has two levels: clear test data, and factory reset.
+Assumed
+A5
+Automatic emails are limited to order received, payment submitted and the owner alert. All other
+messages are sent when the owner taps Send, unless the owner turns on automatic status emails.
+Assumed
+A6
+The owner is alerted to a submitted payment by a badge in the portal and by email. The customer can
+also send proof by one tap on WhatsApp.
+Assumed
+A7
+Bulk marketing messages are not part of the first release. Consent is recorded from day one.
+Assumed
+A8
+Advance tiers stay at 50, 60 and 70 percent. A smaller reservation deposit is postponed.
+Assumed
+A9
+"Personal account" means the customer account.
+Assumed
+A10
+Email sending is switched on only after the sender domain (for example orders@gkfurnish.co.tz) is
+verified. WhatsApp does not depend on it.
+Assumed
+
+
+===== PAGE 4 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 4
+3. What changes from PRD-001
+ Area
+PRD-001 (as built)
+PRD-002 (target)
+Payments
+PalmPesa starts a phone prompt, a webhook
+and a scheduled check mark payments paid.
+The customer pays using the owner's instructions and
+submits the transaction ID. The owner confirms in one
+tap. Only confirmation adds money.
+Account to order
+Required before an order can be placed.
+Optional. Guest checkout with name and phone; account
+offered after the order.
+After sign-in
+Customer account (profile).
+Shop home with a "continue" strip.
+Home page
+Many blocks and processes.
+Five content blocks, one main button.
+Signed-in
+customer
+Sees the same home page.
+Sees a personal shop page.
+Checkout
+Three steps (details, payment, review) before
+payment.
+Two steps (details, review and place), then a pay page.
+Delivery fee
+"To be confirmed" unless every item is free
+delivery.
+Fee table by region and district, final at checkout. "To be
+confirmed" only for places not in the table.
+Order statuses
+Eleven, plus seven quote states.
+Six order statuses and five quote states.
+Admin order
+update
+Pick a status; the system may refuse.
+One next-step button with a visible checklist; optional
+notify prompt.
+Messaging
+None from the portal.
+WhatsApp click-to-chat and email, templates in two
+languages, message log.
+Delete and reset
+Cash payment removal only.
+Delete with 30-day trash; clear test data; factory reset;
+backup first.
+Audit
+None.
+Append-only activity log.
+Measures
+None.
+Defined success measures and a funnel report.
+FAQ
+"Do I need an account?" answered "No" while
+ACC-5 required one.
+Consistent: guest checkout allowed, and the FAQ says
+so.
+4. Product summary, goals and success measures
+GK Furnish is the public shop and the private workshop office of a furniture maker in Mbeya. Customers browse
+chairs, tables, beds, lamps and custom work, choose size, material and colour, and order for delivery or collection.
+The owner runs products, orders, production, stock, suppliers, money and the words and pictures of the site from one
+admin portal.
+The shop serves a general audience: homes, students, schools, offices, hotels, guest houses, churches and other
+organisations. It is not a student-only catalogue.
+Positioning. Durable furniture, made by hand in Mbeya or with checked partner carpenters, at a price agreed before work starts.
+Study chairs and study tables are made in the workshop. Beds and larger pieces may be made with partners and are checked
+before they leave.
+4.1 Goals
+ 1. A first-time visitor reaches a product in one tap from the home page.
+2. A customer places an order without an account in under three minutes.
+3. The customer knows exactly how to pay and tells the workshop they paid in under two minutes.
+4. The owner confirms a payment and moves an order forward in two taps from the order screen.
+5. The customer is told what is happening at each stage and has reasons to return.
+
+
+===== PAGE 5 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 5
+6. The owner can delete data and reset the system without risking financial records by accident.
+4.2 Non-goals
+  A marketplace of many sellers. There is one workshop and one owner.
+ Staff roles below the owner. The portal is for the owner.
+ Asking for a mobile-money PIN on the website, or treating a customer's claim of payment as money received.
+ Automatic payment collection (PalmPesa) in this version. The code may stay behind a switch (PAY-20).
+ The WhatsApp Business API, a WhatsApp inbox in the portal, SMS, card payments, and bulk marketing in the first
+release.
+4.3 Success measures
+Rates need 30 days of baseline data before targets are fixed. Where a number is given it is a proposal for the owner
+to adjust.
+Measure
+Definition
+Target
+M1 Checkout completion
+Orders placed divided by checkouts started
+Baseline first, then raise
+M2 Deposit within 24 hours
+Orders with a confirmed advance within 24 hours of placing
+60 percent (proposal)
+M3 Confirmation time
+Time from "I have paid" to owner decision, 08:00 to 18:00 East
+Africa Time
+Median within 2 hours (owner
+service level)
+M4 Cart abandonment
+Carts with items and no order after 24 hours
+Baseline first, then reduce
+M5 Notification coverage
+Status changes followed by a customer message (WhatsApp
+opened or email sent)
+90 percent
+M6 Review rate
+Delivered orders with an approved review within 30 days
+30 percent (proposal)
+M7 Repeat customers
+Customers with a second order within 12 months
+Baseline first, then raise
+Measures use first-party events recorded by the site itself (MET-1); no third-party tracking is required.
+5. People
+ Person
+What they need
+Visitor
+Look, compare, ask on WhatsApp, build a cart, and reach checkout without signing in.
+Guest customer
+Order with name and phone, learn how to pay, submit proof, and follow the order by a private link.
+Signed-in customer
+Land on the shop, resume what they were doing, see order progress, save items, reorder, pay
+balances and review pieces.
+Institution or business
+Order several pieces, request custom sizes, keep receipts, and see a clear balance.
+Owner (admin)
+See what needs action, confirm payments, move orders forward, message customers, edit the
+catalogue, and keep the records clean.
+Customers and the owner use one sign-in page. An admin account opens the admin portal; a customer account
+opens the shop (NAV-2).
+
+
+===== PAGE 6 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 6
+6. Brand and contact
+ Item
+Value
+Name
+GK Furnish
+Tagline
+Locally made furniture from Mbeya, Tanzania
+Phone and WhatsApp
++255 692 713 993
+Email
+gideonkibure@gmail.com (a domain address such as orders@gkfurnish.co.tz is wanted for sending;
+see A10)
+Place
+Mbeya, Tanzania
+Colours
+Navy #14213D, gold #FCA311, white, light grey #E5E5E5, black. Gold buttons use navy text.
+Type
+Outfit
+Payment numbers
+Not fixed in this document. They are entered in settings (PAY-1).
+7. Customer site
+7.1 Pages
+ Group
+Pages
+Public
+Home, shop, product, cart, checkout, pay page, order tracking, custom order, gallery, about (includes how we
+work), FAQ, contact, privacy.
+Account
+Sign in, register, forgot and reset password, shop home (signed in), my orders, saved items, custom requests,
+saved addresses, notifications, profile.
+7.2 Visitor home page
+The home page must lead to the shop quickly. Everything else moves to its own page.
+ID
+Requirement
+Change
+HOME-1
+The home page has these blocks in this order: header, hero, categories, best sellers, how it works
+with a trust strip, footer. Nothing else.
+CHANGED
+P1
+HOME-2
+The hero has one headline, one sentence, one main button "Shop furniture" and one text link
+"Request a custom piece". The hero image is owner-editable.
+CHANGED
+P1
+HOME-3
+Categories show at most six tiles with a photo and name, and an "All categories" link.
+CHANGED
+P1
+HOME-4
+Best sellers show eight pieces: the most ordered in the last 90 days, with owner-pinned pieces first.
+If there are too few orders, newest pieces fill the gap.
+NEW
+P1
+HOME-5
+How it works has three steps: 1 Choose and pay a deposit; 2 We build it; 3 We deliver, and the
+balance is paid before handover. One line under it explains what the deposit is for (SAL-3).
+CHANGED
+P1
+HOME-6
+The trust strip shows up to three approved reviews (with photo where one exists), up to three
+workshop photos, and the owner's guarantee line if one is set (SAL-4). Only real photos and real
+reviews appear.
+NEW
+P1
+HOME-7
+Gallery, FAQ and process detail are not on the home page. They stay on their own pages and in
+the footer and menu.
+CHANGED
+P1
+HOME-8
+At most one announcement popup is shown, once per browser session, dismissible, and never on
+checkout or pay pages.
+CHANGED
+P1
+HOME-9
+A WhatsApp button is on every public page, placed above the phone bottom bar so it never covers
+an action.
+KEEP
+P1
+
+
+===== PAGE 7 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 7
+7.3 Sign-in and landing
+ ID
+Requirement
+Change
+NAV-1
+One sign-in page serves customers and the owner. Registration is email and password; Google
+sign-in and password reset remain.
+KEEP
+P1
+NAV-2
+After sign-in or registration, a customer lands on the shop home (7.4). If sign-in was started from a
+protected action (checkout, pay, review, saved items), the customer returns to that action instead.
+The profile is never the landing page.
+CHANGED
+P1
+NAV-3
+An admin session is sent to the admin portal.
+KEEP
+P1
+NAV-4
+The profile is one tap away from the account menu.
+NEW
+P1
+NAV-5
+The session stays until the person signs out, and a refresh never signs anyone out.
+KEEP
+P1
+NAV-6
+Phone bottom bar: visitors see Home, Shop, Cart, Sign in. Signed-in customers see Shop, Cart,
+Orders, Account. Actions must remain reachable above the bar.
+CHANGED
+P1
+7.4 Shop home for signed-in customers
+When a customer is signed in, the home address and the shop address show the same personal page. The marketing
+home page stays reachable from the menu ("About GK Furnish"). The logo leads to the shop home.
+ID
+Requirement
+Change
+PERS-1
+The page opens with the customer's first name and one "Continue" strip showing the single most
+important next action, chosen in this order: (1) an order awaiting payment, with the amount due and
+a Pay button; (2) a payment awaiting confirmation, with its status; (3) an order Ready, with the
+balance due; (4) a cart with items, with a Continue checkout button.
+NEW
+P1
+PERS-2
+Below it, up to three cards show orders in progress, each with a mini progress tracker (Deposit
+paid, In production, Ready, Delivered).
+NEW
+P1
+PERS-3
+Next come Saved items and Order again (pieces from delivered orders).
+NEW
+P2
+PERS-4
+The catalogue follows, with search and filters (CAT-9). Pieces in categories the customer bought
+before may be listed first. No other profiling is used.
+NEW
+P1
+PERS-5
+Marketing blocks (hero, how it works, trust strip) are not repeated on this page.
+NEW
+P1
+7.5 Catalogue
+ ID
+Requirement
+Change
+CAT-1
+The shop lists products with category, price or price range, availability, and a way to like a product.
+KEEP
+P1
+CAT-2
+A product can offer materials, sizes and colours. The owner may mark one option in each group
+"Most chosen"; it is preselected. The customer can change it. Every option group the product
+defines must have a selection before the piece is added to the cart.
+CHANGED
+P1
+CAT-3
+Price can depend on material and size and updates immediately when the customer changes an
+option. A product may show an old price and an editable discount percent.
+KEEP
+P1
+CAT-4
+The owner chooses whether stock is shown as a label or an exact count. An exact "Only N left"
+appears only when the real count is at or below the owner's threshold (default 3).
+CHANGED
+P1
+CAT-5
+A piece that is unavailable cannot be bought. The cart tells the customer to remove it.
+KEEP
+P1
+
+
+===== PAGE 8 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 8
+ID
+Requirement
+Change
+CAT-6
+Views and likes are shared totals recorded through a public database function and an anonymous
+visitor id in the browser. They need no account and expose no visitor records.
+KEEP
+P1
+CAT-7
+Add to cart keeps the customer shopping. Buy now adds the piece and opens checkout step 1.
+CHANGED
+P1
+CAT-8
+Every product has a lead time (for example "Ready in 10 to 14 days"), set by the owner, shown on
+the product, cart and checkout.
+NEW
+P1
+CAT-9
+The shop has search, filters (category, price range, material, availability) and sorting (popular,
+newest, price).
+NEW
+P1
+CAT-10
+The product page shows: photos (swipe on phones), price and old price, lead time, "Pay TZS X
+today to start" (the advance for one unit), delivery note, trust points, reviews, and an "Ask about this
+piece" WhatsApp button prefilled with the product name.
+NEW
+P1
+CAT-11
+On phones, a sticky bar on the product page shows the price and the Buy now and Add to cart
+buttons.
+NEW
+P1
+CAT-12
+Bundles (for example a table with four chairs) can be created as one priced product made of
+existing products.
+NEW
+P3
+7.6 Cart and account
+ ID
+Requirement
+Change
+ACC-1
+A visitor may build a cart before signing in. The cart is kept in the browser.
+KEEP
+P1
+ACC-2
+A signed-in customer's cart is stored on the account and merged with the browser cart at sign-in.
+KEEP
+P1
+ACC-3
+The customer can keep a profile, saved addresses, order history, custom-request history,
+notifications and, in P2, saved items.
+CHANGED
+P1
+ACC-4
+Placing an order does not require an account. A guest must give a name and a valid Tanzanian
+phone number (MSG-3). The server rejects an order without them.
+CHANGED
+P1
+ACC-5
+After a guest order, the page offers "Create an account to track and reorder". The order is attached
+to an account only when the person registers or signs in while holding that order's private link.
+Matching by phone number alone is not allowed.
+NEW
+P1
+ACC-6
+A guest's name, phone and address are remembered in that browser only, to prefill the next order.
+Signing out of an account does not clear them; the customer can clear them from the checkout
+page.
+NEW
+P1
+ACC-7
+The cart does not calculate delivery. It says "Delivery is calculated at checkout".
+NEW
+P1
+7.7 Checkout
+Checkout has two steps with a progress indicator: (1) Details, (2) Review and place order. Payment happens on the
+pay page after the order exists (section 8). This removes one step compared with PRD-001 and gives the customer
+an order number before they pay.
+ID
+Requirement
+Change
+CHK-1
+Step 1 asks for name, phone (required), email (optional), fulfilment (delivery or collection), and for
+delivery the region, district and area or landmark. Needed-by date and notes are optional.
+CHANGED
+P1
+CHK-2
+Collection is free from the workshop address. Delivery fee comes from the delivery fee table by
+region and district (MON-6). If every item is marked free delivery, the fee is zero. If the place is not
+in the table, the fee is "To be confirmed" and the total is labelled "excluding delivery".
+CHANGED
+P1
+CHK-3
+Step 2 shows the items, lead time, totals, and the plan: advance (percent and TZS amount from the
+tier in section 9) or full amount. A single line explains what the deposit pays for (SAL-3).
+CHANGED
+P1
+
+
+===== PAGE 9 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 9
+ID
+Requirement
+Change
+CHK-4
+Step 2 has a required checkbox confirming that the design and specifications are agreed and that
+later changes must be agreed before production, and an optional, unticked checkbox "Send me
+offers and updates" (MSG-14).
+KEEP
+P1
+CHK-5
+The place button reads "Place order and see how to pay". It creates the order with status New,
+payment status Unpaid and an order number, reserves stock for the hold period (SAL-8), and
+opens the pay page.
+CHANGED
+P1
+CHK-6
+The customer may choose "Pay cash at the workshop" on the pay page. The order stays unpaid
+until the owner records the cash (PAY-11).
+KEEP
+P1
+CHK-7
+After placing, the customer sees the order number and, if an email was given, receives the
+order-received email (MSG-9). A "Send my order on WhatsApp" button opens a message to the
+workshop prefilled with the order number.
+NEW
+P1
+CHK-8
+Fields validate as the customer types, use the right phone and email keyboards, and keep their
+values when the customer goes back a step.
+NEW
+P1
+CHK-9
+If the same phone places the same items within 10 minutes, the customer is shown the existing
+order instead of creating a duplicate, and can still choose to create a new one.
+NEW
+P1
+7.8 Custom orders
+ ID
+Requirement
+Change
+CUS-1
+A customer or guest can describe a piece not in the catalogue: size, material, colour, finish, budget
+range, and optionally one to three reference photos (JPG, PNG or WebP, up to 5 MB each). A
+name and phone are required.
+CHANGED
+P1
+CUS-2
+The owner replies with a quote. The customer can accept, decline or ask for changes. A newer
+quote replaces the older one. The owner is offered the "Quote ready" message (MSG-7) when a
+quote is sent.
+CHANGED
+P1
+CUS-3
+Quote states are Draft, Sent, Changes requested, Accepted and Closed. Closed stores a reason:
+declined, expired (default 14 days after sending) or replaced.
+CHANGED
+P1
+CUS-4
+No production starts on a custom request until the quote is accepted and the advance rules in
+section 9 are met. An accepted quote becomes an order in the Custom tier.
+KEEP
+P1
+7.9 After the order
+ ID
+Requirement
+Change
+ORD-1
+The customer can open the order from their account (if signed in) and from a private tracking link.
+The link is long, random and unguessable.
+KEEP
+P1
+ORD-2
+The order page shows a four-stage tracker (Deposit paid, In production, Ready, Delivered) with the
+date of each reached stage, the estimated ready date once the deposit is confirmed (confirmation
+date plus lead time), and the order number.
+CHANGED
+P1
+ORD-3
+The order page shows amount paid, amount still due, and each payment with its state: Awaiting
+confirmation, Confirmed (with receipt number) or Not confirmed (with the reason).
+CHANGED
+P1
+ORD-4
+A confirmed deposit with a balance left is shown as "Deposit paid". The order is never called fully
+paid while a balance remains.
+KEEP
+P1
+ORD-5
+The customer can pay the remaining advance or the remaining balance from the order, using the
+same pay page.
+KEEP
+P1
+ORD-6
+The order page shows production updates (a note and photos) added by the owner, with dates.
+NEW
+P2
+ORD-7
+Only a customer whose order is Delivered can submit a review, including a guest who holds the
+tracking link. A review may include a photo. It stays hidden until the owner approves it. A piece can
+be reviewed once per order.
+CHANGED
+P1
+
+
+===== PAGE 10 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 10
+ID
+Requirement
+Change
+ORD-8
+Every order page has a "Message us on WhatsApp" button prefilled with the order number.
+NEW
+P1
+ORD-9
+Receipts are shown on the order page and can be shared by WhatsApp link or saved as PDF.
+KEEP
+P1
+7.10 Content pages
+ ID
+Requirement
+Change
+CON-1
+About (with how we work), gallery, FAQ, contact and privacy remain. The owner can replace
+images on the home page, shop, categories, gallery, about and custom-order page.
+KEEP
+P1
+CON-2
+The FAQ must be corrected: an account is not needed to order, and payment is by the owner's
+listed methods followed by confirmation. It must also explain the deposit, lead times and delivery.
+CHANGED
+P1
+CON-3
+The privacy page (also used for Google sign-in) must be updated to cover payment screenshots,
+guest data, WhatsApp and email messaging, marketing consent, retention and how to ask for
+deletion.
+CHANGED
+P1
+8. Payments: manual confirmation
+Principle. The customer pays outside the site, on their own phone or at a bank, using the owner's instructions. The site records
+the customer's claim. Only the owner's confirmation adds money to an order. The website never asks for a mobile-money PIN.
+8.1 Flow
+ 1. The customer places the order and lands on the pay page with the order number.
+2. The pay page shows the amount due now and each enabled payment method: name, number or account,
+account name, and copy buttons. The reference to use is the order number.
+3. The customer pays on their phone or at the bank.
+4. The customer taps "I have paid" and enters the method, amount, transaction ID, and optionally a screenshot and
+the paying phone number.
+5. The payment is stored as Submitted. The order shows "Awaiting confirmation". The customer sees the expected
+confirmation time. The owner is alerted.
+6. The owner checks the transaction ID and amount in their own mobile-money or bank statement, then taps
+Confirm or Reject.
+7. Confirm: the payment gets a receipt number, the balance updates, the order moves to Deposit confirmed if the
+advance is reached, stock is reduced once, and the owner is offered the "Payment confirmed" message. Reject:
+the customer sees the reason and can resubmit.
+8.2 Requirements
+ ID
+Requirement
+Change
+PAY-1
+Settings hold a list of payment methods: label (for example M-Pesa, Airtel Money, Yas, HaloPesa,
+Bank), type, number or account, account name, display order, enabled, and an optional note in both
+languages. If no method is enabled, the pay page says "Contact us on WhatsApp to pay".
+NEW
+P1
+PAY-2
+Each method, the amount due and the order number have a copy button. The pay page shows
+short steps for paying with that method.
+NEW
+P1
+PAY-3
+The "I have paid" form requires: method (from enabled methods), amount in whole TZS (prefilled
+with the amount due now, greater than zero, not above the balance still due), and transaction ID (6
+to 20 letters and digits, trimmed, stored in capitals). It optionally takes a screenshot (JPG, PNG or
+WebP up to 5 MB) and the paying phone number.
+NEW
+P1
+
+
+===== PAGE 11 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 11
+ID
+Requirement
+Change
+PAY-4
+A transaction ID must be unique across all payments, ignoring case. An ID on a rejected payment
+may be reused only on the same order. A duplicate is refused with a clear message and a
+WhatsApp link.
+NEW
+P1
+PAY-5
+Rate limits: at most 5 submissions per order per hour, and at most 3 payments in Submitted state
+on one order.
+NEW
+P1
+PAY-6
+A Submitted payment never changes amount paid, balance, order status or stock. Wording for it is
+"Awaiting confirmation", never "Paid".
+NEW
+P1
+PAY-7
+The customer may cancel a Submitted payment before it is decided (for example a wrong ID) and
+submit again.
+NEW
+P1
+PAY-8
+Confirm is one tap. The confirmed amount defaults to the submitted amount; the owner can change
+it to the amount actually received, with a note. It cannot exceed the balance still due; any
+overpayment is noted on the payment and handled outside the system. Confirming an already
+confirmed payment does nothing (a double tap is safe).
+NEW
+P1
+PAY-9
+Reject requires a reason: not received, amount differs, ID not found, duplicate, or other (free text).
+The customer sees the reason on the order and in the message prompt.
+NEW
+P1
+PAY-10
+Each confirmed payment gets a sequential receipt number. Stock is reduced once, when confirmed
+payments first reach the advance, not on later payments.
+KEEP
+P1
+PAY-11
+The owner can record a payment directly (cash, bank transfer, mobile money or other). It is
+Confirmed immediately. Recording the same amount and method on the same order twice within
+two minutes is blocked.
+KEEP
+P1
+PAY-12
+A refund is recorded from a confirmed payment with an amount and a reason. It is a separate
+negative entry, and the balance is recalculated. Refunds are never set by choosing a status.
+KEEP
+P1
+PAY-13
+Removing a confirmed payment means moving it to the trash with a reason (section 13). The order
+balance and status are recalculated and the action is logged.
+CHANGED
+P1
+PAY-14
+Payment screenshots are stored privately. Only the owner and the holder of the order's private link
+can see them, through links that expire after 10 minutes.
+NEW
+P1
+PAY-15
+The pay page shows the expected confirmation time from settings (default text: "We confirm
+payments within 2 working hours, 08:00 to 18:00, East Africa Time"). The owner can edit the text.
+NEW
+P1
+PAY-16
+A payment Submitted for more than 3 hours (setting) is highlighted red on the dashboard. An order
+with nothing submitted 24 hours after placing is listed in Needs action with a one-tap "Payment
+reminder" message.
+NEW
+P1
+PAY-17
+Order payment status is derived, never typed: Unpaid, Awaiting confirmation, Deposit paid, Paid in
+full, Part refunded, Refunded.
+CHANGED
+P1
+PAY-18
+After proof is submitted, the customer is offered a "Tell us on WhatsApp" button that opens a
+message to the workshop with order number, amount and transaction ID prefilled. This is optional
+and does not replace the submission.
+NEW
+P1
+PAY-19
+A person who does not own the order and does not hold its private link cannot see its pay page or
+submit a payment for it.
+KEEP
+P1
+PAY-20
+A setting PAYMENT_MODE has the value "manual" in this version. In manual mode the wallet
+picker, the PalmPesa webhook (it answers "disabled"), the scheduled check and the PalmPesa
+token are not used. Turning PalmPesa on again is a future project and needs its own revision of
+this document. The Snippe fallback is removed from scope.
+CHANGED
+P1
+
+
+===== PAGE 12 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 12
+8.3 Payment records
+ Payment state
+Meaning
+Adds money?
+Submitted
+The customer says they paid and gave a transaction ID.
+No
+Confirmed
+The owner verified it or recorded it directly.
+Yes
+Rejected
+The owner could not verify it. A reason is stored.
+No
+Cancelled by customer
+The customer withdrew it before a decision.
+No
+Removed
+Moved to the trash by the owner. Recalculates the order.
+No (until restored)
+A payment also has a kind (payment or refund) and a purpose (advance, balance or full), which the system derives
+from the order at the time of confirmation.
+9. Money rules
+The owner can change the percentages and thresholds. Defaults:
+Tier
+When it applies
+Advance
+Standard
+Ordinary catalogue orders below the higher thresholds
+50%
+Custom or high value
+A custom order, or goods total from 1,000,000 TZS
+60%
+Large
+Goods total from 3,000,000 TZS, or 10 or more items
+70%
+ID
+Requirement
+Change
+MON-1
+Tier thresholds use the goods total before delivery. The advance is the tier percent of goods total
+plus the delivery fee when the fee is known, rounded up to the nearest 100 TZS.
+CHANGED
+P1
+MON-2
+Balance equals the order total minus confirmed payments, after refunds. A paid advance does not
+mean the order is fully paid.
+KEEP
+P1
+MON-3
+Production cannot start until the advance is confirmed and the owner has marked the design and
+specifications as agreed.
+KEEP
+P1
+MON-4
+Delivered cannot be set while a delivery fee is still unconfirmed (for delivery orders) or a balance
+remains.
+KEEP
+P1
+MON-5
+Cancelling an order requires a reason. A design change after ordering must be agreed before
+production, and the agreement is recorded on the order with the date.
+KEEP
+P1
+MON-6
+A delivery fee table in settings holds region, district and fee. The fee in force is copied onto the
+order when it is placed. The owner may change it on an order with a note; the customer then sees
+the new total and the owner is offered the "Fee confirmed" message.
+NEW
+P1
+MON-7
+Each order line keeps a snapshot of product name, options and unit price at order time, so later
+edits or deletion of a product never change order history.
+NEW
+P1
+MON-8
+Order items may be edited by the owner only before production starts. Each edit is logged and
+recalculates totals, advance and balance, and requires a note that the customer agreed.
+NEW
+P1
+MON-9
+Owner capital, gifts and loans are recorded in finance and are not sales. A loan shows borrowed,
+repaid, interest and still owed.
+KEEP
+P1
+MON-10
+Sales reports show order value and cash received (confirmed payments) side by side.
+CHANGED
+P2
+
+
+===== PAGE 13 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 13
+10. Order statuses and the one-tap workflow
+10.1 Statuses
+ Status
+Meaning
+How it is reached
+Customer sees
+New
+Order placed. Advance not yet
+confirmed.
+Placing the order
+Order received, awaiting
+deposit
+Deposit confirmed
+Confirmed payments reach the
+advance.
+Automatic when the owner confirms
+the payment that reaches the
+advance
+Deposit paid
+In production
+Work has started.
+Next-step button. Needs advance
+and specifications agreed.
+In production
+Ready
+Finished and waiting for handover.
+May carry the flag "Out for delivery".
+Next-step button
+Ready for collection or
+delivery
+Delivered
+Handed over by delivery or
+collection. The order is complete.
+Next-step button. Needs fee
+confirmed (delivery) and zero
+balance.
+Delivered
+Cancelled
+Order stopped. Reason stored.
+Cancel action from any status before
+Delivered
+Cancelled
+Badges derived from data, not statuses: Awaiting confirmation, Deposit paid, Paid in full, Refunded, Overdue, Fee to
+set, Reservation expired.
+10.2 Mapping from PRD-001 statuses (data migration)
+ PRD-001 status
+PRD-002 status
+Pending, awaiting payment
+New
+Confirmed, processing
+Deposit confirmed
+In production
+In production
+Ready
+Ready
+Dispatched
+Ready with flag "Out for delivery"
+Delivered, completed
+Delivered
+Cancelled
+Cancelled
+Refunded
+Cancelled, with a refund entry on its payments and the badge Refunded
+10.3 Requirements
+ ID
+Requirement
+Change
+STA-1
+The order screen has one primary button named for the next action: "Start production", "Mark
+ready" or "Mark delivered". Deposit confirmed is reached automatically by confirming a payment.
+NEW
+P1
+STA-2
+Next to the button is a checklist: Advance confirmed; Specifications agreed (a toggle that records
+the date); Delivery fee confirmed (delivery orders); Balance cleared (for Delivered). Each unmet
+item has a direct action beside it: toggle, enter fee, or Record payment.
+NEW
+P1
+STA-3
+When a condition is unmet the button is disabled and shows the first missing item in plain words.
+The owner never sees a technical error.
+NEW
+P1
+STA-4
+After any status change or payment decision, a "Notify customer?" sheet opens with the right
+template filled in, and buttons WhatsApp, Email and Skip (section 11).
+NEW
+P1
+
+
+===== PAGE 14 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 14
+ID
+Requirement
+Change
+STA-5
+The owner can move an order one step back, with a reason. The change is logged.
+NEW
+P1
+STA-6
+Cancel is available until Delivered, requires a reason, releases the stock reservation, and leaves
+confirmed payments recorded. Money is returned only through a refund entry (PAY-12).
+KEEP
+P1
+STA-7
+The orders list has tabs with counts: Needs action, In production, Ready, All. Needs action
+includes: payments to confirm, orders whose next step is allowed, unpaid orders over 24 hours,
+orders with a fee to set, and expired reservations.
+NEW
+P1
+STA-8
+Payments can be confirmed or rejected from the list row, the order screen, and the Payments to
+confirm list, without opening other pages.
+NEW
+P1
+STA-9
+Overdue means the needed-by date or the estimated ready date has passed while the order is not
+Ready or Delivered. It is highlighted in the list and listed on the dashboard.
+CHANGED
+P1
+STA-10
+Every status change updates the customer's tracker at once and creates an in-app notification.
+NEW
+P1
+STA-11
+At any status the owner can add a production update: a note and up to five photos, shown on the
+customer's order page.
+NEW
+P2
+11. Messaging customers
+The owner sends messages from the portal in two ways. WhatsApp click-to-chat opens WhatsApp with the
+message ready; the owner taps Send. Email is sent by the server through an email service. WhatsApp is the main
+channel because many customers give no email. Email suits automatic messages and anything that needs a record.
+11.1 Limits of click-to-chat (to state plainly)
+  The portal can open WhatsApp but cannot know whether the owner pressed Send. The log therefore says
+"Opened in WhatsApp", not "Sent".
+ It cannot attach photos or files. Production photos are shown on the order page and the message carries the
+tracking link.
+ Replies arrive in the owner's own WhatsApp, not in the portal. There is no inbox in the portal.
+ It cannot send automatically. Automatic WhatsApp messages need the WhatsApp Business API, which is a later
+phase (P3).
+11.2 Requirements
+ ID
+Requirement
+Change
+MSG-1
+A "Message customer" button is on the order, custom request, contact message and customer
+screens. It opens a composer with channel tabs (WhatsApp, Email), a template picker, and an
+editable preview.
+NEW
+P1
+MSG-2
+WhatsApp opens https://wa.me/ followed by the customer's number in international form and the
+URL-encoded text. A character counter warns above 1,000 characters.
+NEW
+P1
+MSG-3
+Phone numbers are normalised on entry: spaces, hyphens and plus signs removed; a leading 0
+replaced by 255. A number is valid only as 255 followed by 9 digits starting with 6 or 7. Invalid
+numbers are refused at checkout with a clear message. Numbers are stored in this form.
+NEW
+P1
+MSG-4
+Tapping WhatsApp writes a log entry "Opened in WhatsApp" with time, template and a copy of the
+text.
+NEW
+P1
+MSG-5
+Email is sent from a verified domain address with the sender name "GK Furnish" and the owner's
+mailbox as reply-to. Each email is logged as Sent or Failed with the provider id; a failed email can
+be retried. The Email tab is hidden until the sender domain is verified and the key is set (A10).
+NEW
+P1
+
+
+===== PAGE 15 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 15
+ID
+Requirement
+Change
+MSG-6
+Emails are plain, mobile-friendly and bilingual by the customer's language. They carry the order
+number, amounts, tracking link and, where relevant, the payment instructions. Marketing emails
+include an unsubscribe link.
+NEW
+P1
+MSG-7
+The templates in 11.3 exist in English and Kiswahili, are editable in settings, and can be reset to
+default. Placeholders are filled from the order and escaped so customer text cannot inject markup.
+NEW
+P1
+MSG-8
+The template language defaults to the language the customer used on the site when ordering. The
+owner can switch it in the composer.
+NEW
+P1
+MSG-9
+Automatic emails (no owner action) are limited to: order received and payment submitted, both to
+the customer if an email was given, and a "payment submitted" alert to the owner with a link to
+confirm it. A setting "Send status emails automatically" is off by default. When on, the email for
+each status change and payment decision is sent without the owner tapping Send.
+NEW
+P1
+MSG-10
+Every status change, payment confirmation or rejection, and quote creates an in-app notification for
+the customer, whatever channel the owner uses.
+NEW
+P1
+MSG-11
+Each order and customer shows a message log: time, channel, template, state (Opened in
+WhatsApp, Sent, Failed) and text. Log entries cannot be edited.
+NEW
+P1
+MSG-12
+If the same template was already opened or sent for the same order in the last 10 minutes, the
+composer warns before sending again.
+NEW
+P1
+MSG-13
+Contact-form messages show "Reply on WhatsApp" and "Reply by email" buttons and can be
+marked answered.
+NEW
+P1
+MSG-14
+Consent: the checkout and registration forms have an unticked "Send me offers and updates" box.
+The customer record stores marketing opt-in with date and source, and a separate "Do not contact"
+flag the owner can set (for example after a STOP reply). Order-related messages about an existing
+order do not need marketing consent.
+NEW
+P1
+MSG-15
+Marketing templates (offers, seasonal reminders) can be used only for customers with marketing
+opt-in and without "Do not contact". They are sent one customer at a time in this version. Marketing
+WhatsApp texts end with "Reply STOP to opt out".
+NEW
+P1
+MSG-16
+If "Do not contact" is set, the composer shows a warning on every channel and requires the owner
+to confirm before opening it.
+NEW
+P1
+MSG-17
+Bulk sending, scheduled sending and the WhatsApp Business API are out of scope until P3. The
+message log and templates are designed so they can be added without a rewrite.
+NEW
+P3
+11.3 Templates
+ Template
+Used when
+Main content
+Usual channel
+Order received
+Order placed
+Order number, amount due now, link to pay
+Email (automatic)
+Payment submitted
+Customer submits proof
+We received your details; confirmation time
+Email (automatic)
+Payment confirmed
+Owner confirms
+Receipt number, amount paid, balance, tracking
+link
+WhatsApp
+Payment not
+confirmed
+Owner rejects
+Reason and how to resubmit
+WhatsApp
+Production started
+In production
+Estimated ready date, tracking link
+WhatsApp
+Production update
+Owner adds an update
+Short note and tracking link with photos
+WhatsApp
+Ready
+Ready
+Collection address and hours or delivery date;
+balance due
+WhatsApp
+Balance reminder
+Owner or reminder list
+Balance, payment instructions link
+WhatsApp
+Delivered thank-you
+Delivered
+Thanks, receipt, care tips link
+WhatsApp
+Review request
+3 days after delivery
+Link to review the piece
+WhatsApp or email
+
+
+===== PAGE 16 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 16
+Template
+Used when
+Main content
+Usual channel
+Quote ready
+Quote sent
+Link to view and answer the quote
+WhatsApp or email
+Fee confirmed
+Delivery fee set or
+changed
+New total and balance
+WhatsApp
+Check-in
+30 days after delivery
+Care tips, ask if all is well
+WhatsApp
+Offer
+Owner chooses
+Seasonal or repeat-customer offer
+Only with opt-in
+Free message
+Owner chooses
+Any text
+Any
+Placeholders available: customer name, order number, product names, amount due now, amount paid, balance,
+receipt number, tracking link, pay-page link, estimated ready date, payment instructions, workshop address and
+hours.
+12. Owner portal
+The portal is for the owner only and must work well on a phone. It opens after the owner signs in, and the owner can
+change their own password.
+ID
+Requirement
+Change
+ADM-1
+The dashboard opens with a Needs action block at the top: payments to confirm, orders ready for a
+next step, unpaid over 24 hours, fees to set, follow-ups due (section 16) and overdue orders. Below
+it: orders in production, orders Ready, money received today and balance owed.
+CHANGED
+P1
+ADM-2
+The order screen shows, in this order: order number and customer with Message buttons; status
+and payment badges; the next-step button and checklist; payments with Confirm and Reject; items
+and delivery; production updates; message log; activity.
+NEW
+P1
+ADM-3
+One global search finds orders by order number, customer name, phone, or transaction ID.
+NEW
+P1
+ADM-4
+The portal has a bottom navigation bar on phones: Dashboard, Orders, Payments, Messages,
+More.
+NEW
+P1
+ADM-5
+Admin pages stay signed in across a refresh. Destructive actions ask for the password again
+(section 13).
+CHANGED
+P1
+ADM-6
+Lists can be exported to CSV: orders, payments, customers, expenses.
+KEEP
+P1
+ADM-7
+Confirming a payment, moving an order and sending a message each take no more than two taps
+from the order screen.
+NEW
+P1
+12.1 Portal areas
+ Area
+What the owner can do
+Dashboard
+See what needs action and the workshop at a glance.
+Orders
+Work orders with the next-step button; edit before production; message; cancel; refund; delete or
+archive.
+Payments
+Payments to confirm first; all payments; record cash or bank; refund; export; remove to trash.
+Custom orders
+Read requests; send, replace or close quotes; message the customer.
+Production
+Orders In production and Ready with estimated dates and overdue markers.
+Products and categories
+Create and edit the catalogue: options, Most chosen flags, prices, discounts, lead time, stock
+display, free delivery, bundles (P3), featured and pinned best sellers.
+Inventory
+See stock. Stock is reserved when an order is placed, released on cancel or expiry, and reduced
+once when the advance is first confirmed.
+
+
+===== PAGE 17 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 17
+Area
+What the owner can do
+Images
+Replace pictures on home, shop, categories, gallery, about and custom order. Uploads are resized
+and compressed automatically (UX-5).
+Customers
+See customers, language, consent flags, order history and message log; set institution discount
+(P3).
+Messages
+Read contact-form messages and reply on WhatsApp or by email.
+Reviews
+Approve or hold reviews. Only approved reviews are public.
+Finance, expenses,
+purchases, suppliers
+Record capital, gifts and loans; costs; purchase orders; suppliers.
+Reports
+Sales (order value and cash received), funnel (MET-2), exports.
+Settings
+Payment methods, delivery fees, advance tiers, collection address and hours, lead-time defaults,
+reservation hours, production slots, low-stock threshold, confirmation-time text, message
+templates, automatic email switches, warranty text, site copy and popups.
+Trash and data
+Restore deleted items, download a backup, clear test data, factory reset (section 13).
+Activity log
+Read the record of important actions (section 14).
+13. Deleting data, trash and reset
+The owner can delete data and reset the system. Because deleted financial records cannot be rebuilt, deletion is
+made safe by a trash, by order snapshots, by a backup before any reset, and by extra confirmation for paid orders.
+13.1 What deleting does
+ Data
+Delete behaviour
+Restore
+Product
+Moves to trash and leaves the shop. Order lines keep their snapshot
+(MON-7). Removed from carts with the message "no longer
+available".
+30 days
+Category
+Allowed when empty or after the products are moved. Moves to trash.
+30 days
+Site picture or uploaded file
+Asks for confirmation, then the file is removed and the default
+placeholder shows. Replacing is the normal action.
+No
+Order that is Cancelled or has
+no confirmed payment
+Moves to trash. Permanent delete after a second confirmation.
+30 days
+Order with confirmed payments
+Archived by default: hidden from lists, kept in reports. Permanent
+delete needs the password and typing the order number; its payments
+go with it.
+Archive: any time.
+Trash: 30 days
+Payment
+Moves to trash with a reason. The order is recalculated.
+30 days
+Customer
+Account disabled and moved to trash. On permanent deletion
+personal details are anonymised; orders and payments stay for
+accounting.
+30 days
+Custom request or quote,
+contact message, review,
+popup, content block, message
+log entry, expense, purchase,
+supplier, capital or loan record
+Moves to trash.
+30 days
+Admin account
+Cannot be deleted.
+Not applicable
+Activity log
+Cannot be deleted from the portal.
+Not applicable
+
+
+===== PAGE 18 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 18
+ID
+Requirement
+Change
+DEL-1
+Before any delete, the dialog says what will be affected (for example "1 order, 2 payments, 4
+messages") and uses a clearly marked red button.
+NEW
+P1
+DEL-2
+The Trash screen lists deleted items with type, name, date deleted and days left, with Restore and
+Delete now. Empty trash asks for confirmation.
+NEW
+P1
+DEL-3
+Items older than 30 days in the trash are removed permanently. The removal runs whenever the
+owner opens the portal, so no scheduler is needed.
+NEW
+P1
+DEL-4
+Restoring an order restores its payments and items and recalculates its balance and status.
+NEW
+P1
+DEL-5
+Lists allow selecting several items to delete at once (orders, messages, test customers).
+NEW
+P1
+DEL-6
+Every delete, restore and permanent removal writes to the activity log.
+NEW
+P1
+13.2 Reset
+The Trash and data page offers three tools: Download backup, Clear test data and Factory reset.
+Clear test data (level 1)
+Factory reset (level 2)
+Removes
+Orders, order items, payments, receipts, custom
+requests and quotes, reviews, contact messages,
+message log, notifications, carts, saved addresses,
+customer accounts (not admin), views and likes,
+payment screenshots and quote attachments.
+Everything except the admin account and the activity
+log: all of level 1, plus products, categories, images, site
+content, popups, suppliers, purchases, expenses,
+capital and loans, and all stored files.
+Keeps
+Products, categories, images, site content, popups,
+settings, payment methods, delivery fees, templates,
+admin account, activity log. An unticked option "Also
+clear finance records" decides about expenses,
+purchases, suppliers, capital and loans (kept by
+default).
+The admin account and the activity log (which records
+the reset).
+After
+Order numbers and receipt numbers restart. The go-live
+checklist is shown.
+Settings, tiers and templates return to defaults. The
+go-live checklist is shown.
+ID
+Requirement
+Change
+DEL-7
+Download backup creates a ZIP of every table as CSV and JSON, plus a list of file addresses. It
+can be run at any time.
+NEW
+P1
+DEL-8
+Both reset levels require, in this order: (1) a summary of how many records will be removed; (2) a
+fresh backup, which the owner must download before the confirm button becomes active; (3) the
+owner's password again; (4) typing an exact phrase (CLEAR TEST DATA or RESET GK
+FURNISH).
+NEW
+P1
+DEL-9
+Reset runs on the server as one operation. If it fails, nothing is removed. On success the owner
+sees what was removed.
+NEW
+P1
+DEL-10
+Every destructive request is checked on the server for an admin session. Customers and visitors
+can never call it.
+NEW
+P1
+DEL-11
+After a reset the owner sees a go-live checklist: add payment methods; add delivery fees; add
+products and images; review templates; place and confirm a test order; clear test data again.
+NEW
+P1
+DEL-12
+Reset never touches secrets such as keys and tokens, and never deletes the admin account.
+NEW
+P1
+
+
+===== PAGE 19 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 19
+14. Activity log and backup
+ ID
+Requirement
+Change
+LOG-1
+The activity log is append-only. Each entry stores time, action, what it affected, a short summary,
+and which device or browser did it.
+NEW
+P1
+LOG-2
+It records: admin sign-in, payment confirm, reject, record, refund and removal; status changes; fee
+and order edits; deletes, restores and resets; changes to payment methods and settings; messages
+opened or sent.
+NEW
+P1
+LOG-3
+The log can be searched by order number or date, and a filtered view appears on each order.
+NEW
+P1
+LOG-4
+Entries are kept at least 24 months. Customers cannot see the log.
+NEW
+P1
+LOG-5
+The owner is reminded to download a backup every 7 days when the portal is opened. The owner
+should also check which backup features the database plan in use provides.
+NEW
+P1
+15. Sales psychology built into the product
+The aim is to help a customer who already wants a piece to decide with confidence and to pay quickly, without
+pressure that is false. Every persuasive element below must be backed by real data or by something the owner has
+actually promised.
+Principle
+How it shows in the product
+IDs
+Clarity before
+commitment
+Price, deposit amount, lead time and delivery fee are visible before
+the customer starts checkout.
+CAT-8, CAT-10, CHK-2
+Low effort
+Guest checkout, two steps, preselected "Most chosen" options, copy
+buttons on the pay page.
+ACC-4, CHK-1, CAT-2,
+PAY-2
+Trust in the deposit
+A plain explanation of what the deposit pays for.
+SAL-3
+Risk reversal
+The owner's own guarantee or warranty statement.
+SAL-4
+Social proof
+Approved verified reviews with photos; counts and ratings.
+HOME-6, ORD-7, SAL-5
+Anchoring
+Old price and discount; bundles.
+CAT-3, CAT-12, SAL-6
+Honest scarcity
+Real low stock, real production slots, a real reservation window.
+CAT-4, SAL-7, SAL-8
+Progress
+A tracker, a "Deposit paid" confirmation, and production photos.
+ORD-2, ORD-6, SAL-9
+Always one tap from a
+person
+WhatsApp on every page and prefilled with the order number.
+HOME-9, ORD-8, PAY-18
+ID
+Requirement
+Change
+SAL-1
+Every product card and page shows the price; the product page also shows the lead time and the
+amount to pay today. Nothing about the price is hidden until checkout, except a delivery fee for a
+place not in the table.
+NEW
+P1
+SAL-2
+The customer is never asked for the same information twice in one order, and never asked to
+create an account before ordering.
+NEW
+P1
+SAL-3
+The product page, cart, checkout and pay page carry one sentence explaining the deposit (default:
+"Your deposit buys the materials for your piece. The balance is paid when it is ready."). The owner
+can edit it in both languages.
+NEW
+P1
+SAL-4
+The owner can enter a guarantee or warranty statement (what is covered and for how long). It
+appears on product pages, about and the trust strip only when entered. The product does not invent
+a guarantee.
+NEW
+P1
+SAL-5
+Approved reviews show the star rating, the text, the reviewer's first name and a "Verified buyer"
+label. A product page shows the average and the count.
+NEW
+P1
+
+
+===== PAGE 20 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 20
+ID
+Requirement
+Change
+SAL-6
+When an old price is shown, it must be a price that was genuinely charged before. Bundles show
+the saving compared with buying the pieces separately.
+NEW
+P1
+SAL-7
+Scarcity must be true. Low stock appears only from real stock counts (CAT-4). "Production slots left
+this month" appears only if the owner turns it on and sets the number; the number falls when an
+order with a made-to-order item reaches Deposit confirmed, and the owner can adjust it.
+NEW
+P2
+SAL-8
+After placing an order, the customer sees "We have reserved your piece for 24 hours. Pay your
+deposit to confirm your place." The hours are a setting. Stock is held for that time. When it passes
+with no confirmed advance, the hold is released, the order shows the badge Reservation expired,
+the owner is told in Needs action, and the customer may still pay if stock allows.
+NEW
+P1
+SAL-9
+When a deposit is confirmed the customer sees a clear "Deposit paid: your piece is in the queue"
+page with the estimated ready date, not just a status change.
+NEW
+P1
+SAL-10
+When a balance is due, the order page and the message say what the payment unlocks: "Pay the
+balance to arrange delivery" or "to collect".
+NEW
+P1
+SAL-11
+Not allowed: countdown timers that reset, invented numbers of viewers or buyers, fake reviews,
+hidden fees, and "only N left" when the count is not real.
+NEW
+P1
+16. Retention and relationship
+A customer comes back when the first order felt safe, was communicated well, and the next need is easy to act on.
+Because click-to-chat cannot send by itself, the portal prepares the moments and the owner sends them in one tap.
+ID
+Requirement
+Change
+RET-1
+The dashboard has a Follow-ups due list built from delivered orders: thank-you (day 0), review
+request (day 3), check-in with care tips (day 30), and owner-defined seasonal reminders. Each row
+has one tap to open the prepared message and a Done button.
+NEW
+P1
+RET-2
+The customer notifications page keeps every update, so nothing is lost if the customer does not use
+WhatsApp.
+KEEP
+P1
+RET-3
+Order again: a delivered order has a button that adds the same pieces and options to the cart.
+NEW
+P2
+RET-4
+Saved items: a signed-in customer can save pieces and sees them on the shop home.
+NEW
+P2
+RET-5
+Photo updates during production appear on the order page and are announced by the Production
+update message.
+NEW
+P2
+RET-6
+Warranty or problem reports start from the order with a prefilled WhatsApp message, so the owner
+has the order context.
+NEW
+P1
+RET-7
+Referral: each customer has a code; the owner sets the discount for the new customer and the
+credit for the referrer; both are recorded on the order.
+NEW
+P3
+RET-8
+Institution pricing: the owner can mark a customer as an institution and set a repeat-order discount
+percent applied at checkout.
+NEW
+P3
+RET-9
+Seasonal offers use the Offer template and respect marketing consent (MSG-14, MSG-15).
+NEW
+P1
+
+
+===== PAGE 21 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 21
+17. Interface, performance and language
+17.1 Interface and performance
+ ID
+Requirement
+Change
+UX-1
+The brand colours and Outfit type (section 6) are defined once as design tokens and used
+everywhere. Gold buttons use navy text. Each page has one primary action.
+CHANGED
+P1
+UX-2
+Touch targets are at least 44 pixels. Text in form fields is at least 16 pixels on phones. Text and
+buttons meet WCAG AA contrast.
+NEW
+P1
+UX-3
+Pages are designed for a phone first and work on a desktop. They never force sideways scrolling.
+Actions remain reachable above the bottom bar.
+KEEP
+P1
+UX-4
+Target: largest content visible within 2.5 seconds on a mid-range phone on 4G. Images are
+responsive, lazy-loaded and in modern formats; the hero image is loaded first.
+NEW
+P1
+UX-5
+Uploaded pictures are resized to at most 1600 pixels on the long side and compressed
+automatically, to protect customers' mobile data.
+NEW
+P1
+UX-6
+Loading uses placeholders, empty screens suggest a next action, and error messages are in plain
+language in the current language, without codes.
+NEW
+P1
+UX-7
+Status colours are consistent and always paired with text: New grey, Deposit confirmed blue, In
+production gold, Ready light green, Delivered green, Cancelled red.
+NEW
+P1
+UX-8
+Forms use the correct keyboards, autofill hints and thousands separators for money. Phone
+numbers display as +255 692 713 993 and are stored in international form.
+NEW
+P1
+UX-9
+Admin screens use large buttons and one main action. Confirmation dialogs are used only for
+destructive actions; other mistakes are fixed by going one step back (STA-5) or by the trash.
+NEW
+P1
+UX-10
+Pages have labels for form fields, visible keyboard focus, alternative text for pictures, and the
+correct page language.
+NEW
+P1
+UX-11
+Submitting a payment or an order is safe to repeat on a poor connection: a retry never creates a
+second record.
+NEW
+P1
+17.2 Language and format
+ ID
+Requirement
+Change
+I18N-1
+Every customer-facing screen, message template and payment instruction has English and
+Kiswahili. The customer can switch language and the choice is kept.
+CHANGED
+P1
+I18N-2
+Product and category names can have a Kiswahili version.
+KEEP
+P1
+I18N-3
+On first visit the site uses Kiswahili if the browser prefers it, otherwise English.
+NEW
+P1
+I18N-4
+Money is shown as TZS with thousands separators. Dates use the Dar es Salaam calendar and
+East Africa Time.
+KEEP
+P1
+17.3 Measurement
+ ID
+Requirement
+Change
+MET-1
+The site records first-party events, without personal data: product viewed, added to cart, checkout
+started, step completed, order placed, payment submitted, payment confirmed.
+NEW
+P1
+MET-2
+Reports show a funnel from product view to confirmed payment, the time to confirm, and the
+measures in section 4.3.
+NEW
+P2
+
+
+===== PAGE 22 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 22
+18. Security, privacy and quality
+ ID
+Requirement
+Change
+SEC-1
+Only the owner's confirmation or direct recording adds money to an order. The server checks every
+amount and state; the browser is never trusted.
+CHANGED
+P1
+SEC-2
+Payment, message and activity records cannot be read from the public browser database. The
+server reads and writes them with the service key, which stays on the server.
+KEEP
+P1
+SEC-3
+Private order and payment links are at least 32 random characters. Screenshots are private files
+with expiring links (PAY-14).
+CHANGED
+P1
+SEC-4
+Every admin endpoint requires an admin session. Delete, reset, refund and payment-method
+changes also require the password again.
+NEW
+P1
+SEC-5
+Rate limits apply to sign-in, order creation, payment submission and contact messages.
+NEW
+P1
+SEC-6
+Text entered by customers is escaped wherever it is shown, including in messages, emails and the
+admin portal, and email headers cannot be injected.
+NEW
+P1
+SEC-7
+Personal data is kept to what is needed: name, phone, optional email, address, order history,
+consent, and proof screenshots. Customers can ask for deletion (permanent delete anonymises,
+section 13). Financial records are kept for the period the law requires; the owner should confirm
+that period with an adviser (commonly five years).
+NEW
+P1
+SEC-8
+The owner should confirm with a legal adviser that consent, retention and messaging practices
+meet the Personal Data Protection Act, 2022 of Tanzania.
+NEW
+P1
+SEC-9
+Multi-factor sign-in for the admin account is strongly recommended because the owner account can
+reset the system.
+NEW
+P2
+SEC-10
+A refresh never signs anyone out. Pages and images open quickly and never force sideways
+scrolling.
+KEEP
+P1
+19. Integrations and configuration
+ System
+Role in this version
+Supabase
+Accounts, database, and stored files (including private screenshots). The browser uses the public key;
+the server uses the service role for orders, payments, messages and resets.
+Email service
+A transactional email provider (for example Resend or Brevo), chosen by the owner. Needs a verified
+sending domain with SPF, DKIM and DMARC records. Gmail is not used to send from the server.
+WhatsApp click-to-chat
+wa.me links opened by the owner and by customers. No account link, no API, no cost. Not a payment
+system.
+Google
+Optional customer sign-in. Privacy policy URL: https://gkfurnish.co.tz/privacy.
+Vercel
+Hosts the site. No scheduled payment check is needed in manual mode, so plan limits on scheduled
+jobs do not affect payments.
+PalmPesa
+Not used. Code may stay behind PAYMENT_MODE (PAY-20). Its token and webhook are not
+required.
+Settings and server variables this version needs
+ Name
+Purpose
+Where
+PAYMENT_MODE
+Value "manual". Switches off the PalmPesa path.
+Server environment
+EMAIL_API_KEY
+Key of the email provider. Secret.
+Server environment
+EMAIL_FROM
+Verified sender address, for example orders@gkfurnish.co.tz.
+Server environment
+OWNER_ALERT_EMAIL
+Where "payment submitted" alerts are sent.
+Server environment
+
+
+===== PAGE 23 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 23
+Name
+Purpose
+Where
+Payment methods
+Names, numbers, account names (PAY-1).
+Admin settings
+Delivery fees
+Region, district, fee (MON-6).
+Admin settings
+Templates and texts
+Message templates, deposit sentence, confirmation-time text,
+warranty text.
+Admin settings
+Reservation hours, slots,
+thresholds
+Hold hours (default 24), monthly slots, low-stock threshold (default
+3), confirmation reminder hours (default 3).
+Admin settings
+Variable names are suggestions; the developer may choose others if this document is updated with them.
+20. Main records and data migration
+ Record
+What changes from PRD-001
+Order
+Adds: order number (for example GK-2026-0001, used as the payment reference), language, guest
+flag, marketing consent, hold expiry, estimated ready date, delivery-fee source, archived and
+deleted markers. Status reduced to six values. Payment status becomes derived.
+Order line
+Snapshot of name, options and unit price (MON-7).
+Payment
+Adds: kind (payment or refund), state (Submitted, Confirmed, Rejected, Cancelled by customer,
+Removed), method label, transaction ID (unique), proof file, paying phone, submitted time,
+confirmed time and amount, receipt number, rejection reason, note. PalmPesa fields stay unused.
+Existing completed PalmPesa payments become Confirmed history.
+Payment method (setting)
+Label, type, number or account, account name, order, enabled, bilingual note.
+Delivery fee
+Region, district, fee.
+Customer
+Adds: language, marketing opt-in with date and source, do-not-contact flag, type (household or
+institution), repeat discount (P3), deleted marker.
+Product
+Adds: lead time range, Most chosen option flags, featured and pinned flags, deleted marker; bundle
+members (P3).
+Message template
+Name, language, channel, text with placeholders, default text.
+Message log
+Order or customer, channel, template, state, text copy, time.
+Notification
+Customer, text, link, read time.
+Production update
+Order, note, up to five photos, time (P2).
+Activity log
+Time, action, affected record, summary, device.
+Event
+First-party funnel events without personal data.
+Review, custom request,
+quote, capital and loan
+Kept as in PRD-001. Quote states reduced to five. Deleted marker added.
+ID
+Requirement
+Change
+MIG-1
+A new database migration after 0010 adds the structures above. Migration 0010 (PalmPesa
+columns and events) is not required in manual mode; if it is already applied, nothing in it is used.
+CHANGED
+P1
+MIG-2
+Existing orders receive order numbers, statuses are mapped as in 10.2, and existing payments are
+mapped to Confirmed unless they are pending or failed, in which case they are kept as history and
+do not add money.
+NEW
+P1
+MIG-3
+A backup is taken before the migration runs on live data.
+NEW
+P1
+
+
+===== PAGE 24 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 24
+21. Main journeys
+21.1 A guest buys a piece
+ 1. The visitor opens a product. Most chosen options are preselected. They see price, lead time and the deposit due
+today.
+2. They tap Buy now. Checkout step 1 asks name, phone and delivery details.
+3. Step 2 shows totals and the plan. They tick the agreement and tap "Place order and see how to pay".
+4. The pay page shows the order number, the amount due, the reservation notice and the payment methods with
+copy buttons.
+5. They pay on their phone, then tap "I have paid" and enter the transaction ID. They may tap "Tell us on
+WhatsApp".
+6. The order shows "Awaiting confirmation". They are offered to create an account to track and reorder.
+21.2 The owner confirms and starts work
+ 1. The dashboard shows "1 payment to confirm". The owner taps it and checks the ID and amount in their own
+statement.
+2. The owner taps Confirm. The order moves to Deposit confirmed; stock reduces once; a receipt is created.
+3. The Notify sheet opens with "Payment confirmed" prefilled. The owner taps WhatsApp, then Send in WhatsApp.
+4. Later the owner marks specifications agreed, taps "Start production", and sends the production message.
+21.3 Handover and follow-up
+ 1. The owner taps "Mark ready" and sends the Ready message with the balance due.
+2. The customer pays the balance through the same pay page. The owner confirms it.
+3. The owner taps "Mark delivered". The checklist is complete, so the button is active; the thank-you message is
+sent.
+4. On day 3 and day 30 the Follow-ups due list offers the review request and the check-in.
+21.4 A returning customer
+ 1. The customer signs in and lands on the shop home. The Continue strip shows the order that needs attention.
+2. They tap Pay balance, or Order again on a delivered piece (P2).
+21.5 Going live after testing
+ 1. The owner enters payment methods, delivery fees, products, images and templates.
+2. The owner places and processes a test order and a test payment end to end.
+3. The owner downloads a backup, then runs Clear test data. Order numbers restart.
+
+
+===== PAGE 25 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 25
+22. Acceptance checks
+ Check
+Pass when
+Guest order
+A signed-out visitor places an order with name and a valid phone. The same call without a phone is
+rejected by the server.
+Phone format
+0712 345 678 is stored as 255712345678 and its WhatsApp link is https://wa.me/255712345678. 0512
+345 678 is refused.
+Landing
+Customer sign-in opens the shop home. Sign-in started from checkout returns to checkout. An admin
+account opens the portal.
+Home page
+The home page has exactly the blocks in HOME-1 and one main button.
+Personal page
+A signed-in customer with an unpaid order sees it in the Continue strip with an amount and a Pay
+button. A visitor never sees it.
+No PIN
+No screen asks for a mobile-money PIN.
+Submitted is not paid
+After "I have paid", amount paid, balance, status and stock are unchanged, and the page says
+"Awaiting confirmation".
+Confirm once
+Confirming the advance moves the order to Deposit confirmed, creates one receipt and reduces stock
+once. A second tap changes nothing.
+Duplicate ID
+Submitting a transaction ID already used on another order is refused with a clear message.
+Amount limit
+A submission or confirmation above the balance still due is refused.
+Reject
+A rejected payment shows its reason to the customer, adds no money and can be resubmitted.
+Cash
+A cash order stays unpaid until recorded. Recording the same amount and method twice within two
+minutes is blocked.
+Production gate
+The Start production button is disabled until the advance is confirmed and specifications are agreed,
+and says which is missing.
+Handover gate
+Mark delivered is disabled while a delivery fee is unconfirmed or a balance remains.
+Notify prompt
+After Start production the sheet shows the template in the customer's language; tapping WhatsApp
+opens the link and adds a log entry "Opened in WhatsApp".
+Email
+A failed email shows Failed and can be retried. The Email tab is hidden when no verified sender is set.
+Consent
+The Offer template cannot be opened for a customer without marketing opt-in. A customer with Do not
+contact triggers a warning on every channel.
+Reservation
+After 24 hours with no confirmed advance, the hold is released and the badge Reservation expired
+appears.
+Delete product
+Deleting a product that was ordered leaves the order's names and prices unchanged.
+Trash
+A deleted order can be restored within 30 days with its payments, and its balance is recalculated.
+Paid order delete
+Permanently deleting an order with confirmed payments needs the password and the typed order
+number.
+Reset safeguards
+The reset button stays inactive until a backup is downloaded; a wrong phrase or password is refused;
+the admin account and secrets remain; a customer calling the reset address is refused.
+Clear test data
+After level 1, products, images, settings and templates remain; orders, payments, customers and
+messages are gone; order numbers restart.
+Review gate
+A person whose order is not Delivered cannot publish a review. A new review waits for approval.
+Private proof
+A screenshot link opened without an admin session or the order's link fails, and an admin link stops
+working after 10 minutes.
+Language
+Switching to Kiswahili changes checkout, pay-page instructions and message templates.
+PalmPesa off
+The wallet picker is absent and the PalmPesa webhook answers "disabled".
+
+
+===== PAGE 26 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 26
+Check
+Pass when
+FAQ
+The FAQ states that an account is not needed to order.
+Refresh
+Refreshing a signed-in page does not sign the person out.
+Speed
+The home page shows its largest content within 2.5 seconds on a mid-range phone on 4G.
+23. Release plan
+ Phase
+Contents
+Done when
+P1 Simplify and
+control
+Manual payment confirmation; guest checkout; two-step checkout
+and pay page; simplified home; sign-in landing; personal shop
+home (continue strip and orders); six statuses and the next-step
+button; delivery fee table; WhatsApp click-to-chat and email with
+templates, log and consent; trash, reset, backup and activity log;
+FAQ and privacy corrections; first-party events.
+The owner completes a real test
+order from placing to delivered using
+only a phone, confirms two payments
+manually, opens messages on
+WhatsApp, runs Clear test data, and
+downloads a backup.
+P2 Trust and repeat
+Production updates with photos; saved items; order again;
+production slots; funnel and cash-versus-order-value reports;
+admin multi-factor sign-in.
+The funnel report shows data for 30
+days and the owner reads it without
+help.
+P3 Grow
+Bundles; referral; institution pricing; bulk marketing with consent;
+WhatsApp Business API; smaller reservation deposit for in-stock
+items; PalmPesa reactivation if wanted.
+Each item is accepted separately
+after its own requirements are
+written.
+24. Risks and open points
+ Risk or open point
+Impact
+Handling
+Manual confirmation delays
+Customers wait and may leave or
+pay twice.
+Show the expected time (PAY-15); red highlight after 3
+hours (PAY-16); the WhatsApp proof button (PAY-18);
+measure M3.
+False or reused transaction IDs
+Owner confirms money not
+received.
+The owner checks their own statement; unique IDs
+(PAY-4); amounts checked; log of every decision.
+One person does everything
+Delays when the owner is away.
+Phone-friendly portal; a later staff role is a separate
+decision (non-goal for now).
+Powerful owner account
+A stolen password could reset the
+system.
+Password re-entry, backup first, activity log, multi-factor
+sign-in in P2 (SEC-9).
+Email going to spam
+Customers miss receipts.
+Verified domain with SPF, DKIM and DMARC (A10);
+WhatsApp stays the main channel.
+"Opened in WhatsApp" is not
+"sent"
+The log may overstate contact.
+Wording is honest (MSG-4); the in-app notification still
+reaches the customer (MSG-10).
+Consent and data law
+Complaints or fines.
+Opt-in recorded, unsubscribe and STOP respected,
+adviser review (SEC-8).
+Backups depend on the
+database plan
+Data loss.
+Own weekly backup download (LOG-5); check the plan's
+features.
+Owner inputs not yet known
+The product cannot be configured.
+List below.
+Information the owner must provide before P1 is built
+  Confirmation of the assumed decisions A1 to A10 in section 2.
+ Payment methods: each network number or Lipa number with its account name, and any bank account.
+ The delivery fee table by region and district.
+ A lead time for each product, or a default by category.
+ The guarantee or warranty statement, if one will be offered.
+
+
+===== PAGE 27 =====
+GK Furnish  |  PRD-002 Product Requirements (target, version 2.0)
+Draft for owner approval
+7 November 2026  |  Supersedes PRD-001 once approved
+Page 27
+ The owner alert email address, and whether a domain email will be created.
+ The wording of the deposit sentence and the confirmation-time text in both languages.
+25. Glossary
+ Term
+Meaning
+Advance
+The part that must be confirmed before production starts. Default 50, 60 or 70 percent.
+Balance
+Order total minus confirmed payments, after refunds. What is still owed.
+Deposit paid
+The advance is confirmed and a balance remains.
+Submitted payment
+A payment the customer reported, not yet confirmed. It adds no money.
+Confirmed payment
+A payment the owner verified or recorded. The only kind that adds money.
+Transaction ID
+The reference the mobile-money network or bank gives for a payment.
+Click-to-chat
+A wa.me link that opens WhatsApp with the message ready to send.
+Template
+A saved message with placeholders for name, order number, amounts and links.
+Next-step button
+The one button on the order screen that moves the order to its next status.
+Trash
+Where deleted items wait 30 days before permanent removal.
+Reservation
+The period (default 24 hours) in which a piece is held for a customer who has not yet paid.
+Collection
+The customer picks the piece up from the workshop. There is no delivery fee.
+Free delivery
+A product flag. If every item has it, the delivery fee is zero.
+Guest
+A customer who orders without an account.
+GK Furnish product requirements, PRD-002, 7 November 2026. This document states target requirements. It does
+not by itself change the built product.

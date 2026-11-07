@@ -60,8 +60,10 @@ export const listAdminPayments = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
-    await reconcileOpenPalmPayments(supabaseAdmin);
+    if (process.env["PAYMENT_MODE"] === "palmpesa") {
+      const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+      await reconcileOpenPalmPayments(supabaseAdmin);
+    }
     const { data, error } = await supabaseAdmin
       .from("payments")
       .select(
@@ -82,7 +84,7 @@ export const listAdminPayments = createServerFn({ method: "GET" })
       return {
         ...p,
         amount: Number(p.amount),
-        source: meta["source"] === "admin" ? ("Recorded by admin" as const) : palm ? ("Online (PalmPesa)" as const) : p.snippe_reference ? ("Online (Snippe)" as const) : ("Other" as const),
+        source: meta["source"] === "manual" ? ("Submitted by customer" as const) : meta["source"] === "admin" ? ("Recorded by admin" as const) : palm ? ("Online (PalmPesa)" as const) : p.snippe_reference ? ("Online (Snippe)" as const) : ("Other" as const),
         method: (typeof meta["method"] === "string" ? meta["method"] : null) ?? (palm || p.snippe_reference ? "Mobile money" : p.provider),
         reference,
         purposeKind: p.purpose,

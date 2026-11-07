@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -15,7 +16,9 @@ import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StatusPill } from "@/components/brand/StatusPill";
 import { RequestDetails } from "@/components/site/RequestDetails";
+import { PAYMENT_METHODS, type PaymentMethodId } from "@/config/payment-methods";
 import { formatAmount, waLink } from "@/config/site";
+import { submitPaymentProof } from "@/lib/checkout.functions";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
@@ -50,8 +53,17 @@ function stepIndex(status: string) {
   return i < 0 ? 0 : i;
 }
 
-function OrderTracking({ order }: { order: TrackedOrder }) {
+function OrderTracking({ order, token }: { order: TrackedOrder; token: string }) {
   const { t } = useLang();
+  const queryClient = useQueryClient();
+  const sendProof = useServerFn(submitPaymentProof);
+  const [method, setMethod] = useState<PaymentMethodId>("mpesa");
+  const [tx, setTx] = useState("");
+  const [busy, setBusy] = useState(false);
+  const due = Math.max(order.advanceRequired - order.paid, 0) > 0 && order.paid < order.advanceRequired
+    ? Math.min(order.balance, Math.max(order.advanceRequired - order.paid, 0))
+    : order.balance;
+  const waiting = order.payments.some((p) => p.status === "pending");
   const current = stepIndex(order.status);
   const stopped = order.status === "cancelled" || order.status === "refunded";
   const lines = order.items.map((i) => ({
@@ -72,6 +84,72 @@ function OrderTracking({ order }: { order: TrackedOrder }) {
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <div className="space-y-4">
+        {order.balance > 0 && order.status !== "cancelled" && (
+          <section className="panel p-4 md:p-5">
+            <h2 className="text-base font-bold">{t.track.howToPay}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t.track.paySteps}</p>
+            <p className="mt-3 text-sm text-navy">
+              {t.track.amountDue}: <strong>{formatAmount(due)}</strong>
+            </p>
+            <p className="text-sm text-navy">Order {order.number}</p>
+            <ul className="mt-3 space-y-2">
+              {PAYMENT_METHODS.map((item) => (
+                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                  <span><strong className="text-navy">{item.label}</strong> · {item.accountName} · {item.account}</span>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-gold-ink"
+                    onClick={() => void navigator.clipboard?.writeText(item.account).then(() => toast.success(t.track.copied))}
+                  >
+                    {t.track.copy}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {waiting && <p className="mt-3 text-sm font-semibold text-gold-ink">{t.track.awaiting}</p>}
+            <form
+              className="mt-4 grid gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setBusy(true);
+                void sendProof({ data: { token, method, amount: Math.round(due), transactionId: tx.trim() } })
+                  .then(async () => {
+                    toast.success(t.track.proofSent);
+                    setTx("");
+                    await queryClient.invalidateQueries({ queryKey: ["tracking", token] });
+                  })
+                  .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={cn("rounded-lg border px-3 py-2 text-sm font-semibold", method === item.id ? "border-gold bg-gold-tint text-navy" : "border-input")}
+                    onClick={() => setMethod(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <label className="field-label" htmlFor="tx">{t.track.transactionId}</label>
+              <input id="tx" className="field-input" value={tx} onChange={(e) => setTx(e.target.value)} placeholder="ABC123456" />
+              <p className="text-xs text-muted-foreground">{t.track.transactionHint}</p>
+              <button type="submit" className="btn-base btn-gold" disabled={busy || due <= 0}>{t.track.iHavePaid}</button>
+              <a
+                className="btn-base btn-outline-navy"
+                href={waLink(`Order ${order.number}. I paid ${formatAmount(due)} by ${method}. Transaction ID: ${tx.trim() || "(not yet)"}.`)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {t.track.whatsappProof}
+              </a>
+            </form>
+          </section>
+        )}
         <section className="panel p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold">{t.track.progress}</h2>
@@ -342,7 +420,7 @@ function TrackPage() {
               }
             />
           ) : data.kind === "order" ? (
-            <OrderTracking order={data.order} />
+            <OrderTracking order={data.order} token={token} />
           ) : (
             <RequestDetails
               request={data.request}

@@ -20,6 +20,7 @@ import {
 } from "@/components/admin/admin-ui";
 import { downloadReceipt, purposeLabel } from "@/lib/invoice";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
+import { confirmSubmittedPayment } from "@/lib/admin.functions";
 import { getAdminPaymentSummary, listAdminPayments } from "@/lib/ops/customers.functions";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import { humanize, paymentRecordTone } from "@/lib/ops/status";
@@ -44,6 +45,7 @@ const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "All sources" },
   { value: "Online (PalmPesa)", label: "Online (PalmPesa)" },
   { value: "Online (Snippe)", label: "Online (Snippe)" },
+  { value: "Submitted by customer", label: "Submitted by customer" },
   { value: "Recorded by admin", label: "Recorded by admin" },
   { value: "Other", label: "Other" },
 ];
@@ -69,6 +71,7 @@ function paidAt(p: Row) {
 
 function AdminPaymentsPage() {
   const list = useServerFn(listAdminPayments);
+  const confirm = useServerFn(confirmSubmittedPayment);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState("");
   const [range, setRange] = useState<DateRange | "all">("30d");
@@ -277,6 +280,20 @@ function AdminPaymentsPage() {
                 <p className="font-semibold text-navy">{tzs(p.amount)}</p>
                 <StatusPill tone={paymentRecordTone(p.status)}>{humanize(p.status)}</StatusPill>
               </div>
+              {p.status === "pending" && p.source === "Submitted by customer" && (
+                <button
+                  type="button"
+                  className={btn("gold", "sm", "mt-2 w-full")}
+                  onClick={() =>
+                    void confirm({ data: { paymentId: p.id } })
+                      .then(() => list().then(setRows))
+                      .then(() => toast.success("Payment confirmed"))
+                      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not confirm"))
+                  }
+                >
+                  Confirm payment
+                </button>
+              )}
               {p.status === "completed" && (
                 <button type="button" className={btn("outline", "sm", "mt-2 w-full")} onClick={() => receipt(p)}>
                   <Receipt className="h-3.5 w-3.5" /> Download receipt {p.receipt_number ?? ""}

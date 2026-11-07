@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>GK Furnish — Product Requirements Document</title>
+<style>
+  :root {
+    --navy: #14213d;
+    --gold: #fca311;
+    --ink: #1b1b1b;
+    --muted: #4a5160;
+    --line: #e5e5e5;
+    --sand: #f7f5f2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Calibri, Arial, sans-serif;
+    color: var(--ink);
+    font-size: 11pt;
+    line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  h1, h2, h3, h4 { color: var(--navy); line-height: 1.2; page-break-after: avoid; }
+  h1 { font-size: 22pt; margin: 0 0 8px; }
+  h2 { font-size: 15pt; margin: 22px 0 8px; border-bottom: 2px solid var(--gold); padding-bottom: 4px; }
+  h3 { font-size: 12.5pt; margin: 16px 0 6px; }
+  h4 { font-size: 11pt; margin: 12px 0 4px; }
+  p { margin: 0 0 8px; }
+  ul, ol { margin: 0 0 8px; padding-left: 18px; }
+  li { margin: 0 0 3px; }
+  a { color: var(--navy); }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; page-break-inside: avoid; font-size: 10pt; }
+  th, td { border: 1px solid #d5d5d5; padding: 5px 7px; vertical-align: top; text-align: left; }
+  th { background: var(--navy); color: white; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .cover {
+    min-height: 250mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    page-break-after: always;
+    background: var(--navy);
+    color: white;
+    margin: -16mm -15mm 0;
+    padding: 22mm 18mm 16mm;
+  }
+  .cover h1 { color: white; font-size: 34pt; letter-spacing: -0.5px; }
+  .eyebrow { color: var(--gold); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-size: 10pt; margin: 0 0 10px; }
+  .cover p { color: #e8e8e8; max-width: 130mm; font-size: 12.5pt; }
+  .goldbar { height: 6px; width: 72px; background: var(--gold); margin: 16px 0 18px; }
+  .meta { display: grid; grid-template-columns: 42mm 1fr; gap: 4px 10px; font-size: 11pt; }
+  .meta span { color: #b9c0cc; }
+  .section { page-break-inside: auto; }
+  .keep { page-break-inside: avoid; }
+  .req { page-break-inside: avoid; margin: 0 0 8px; }
+  .id { display: inline-block; background: var(--navy); color: white; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 3px; margin-right: 6px; vertical-align: 1px; }
+  .note { background: var(--sand); border-left: 4px solid var(--gold); padding: 8px 10px; margin: 8px 0 12px; page-break-inside: avoid; }
+  .small { color: var(--muted); font-size: 9.5pt; }
+  footer.foot { margin-top: 18px; color: var(--muted); font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <p class="eyebrow">Product requirements</p>
+    <h1>GK Furnish</h1>
+    <div class="goldbar"></div>
+    <p>A bilingual workshop storefront and owner portal for furniture made in Mbeya, Tanzania: catalogue, accounts, checkout, PalmPesa mobile money, custom work, and the records the workshop needs to build, deliver and get paid.</p>
+  </div>
+  <div class="meta">
+    <span>Product</span><strong>GK Furnish</strong>
+    <span>Public site</span><strong>https://gkfurnish.co.tz</strong>
+    <span>Document</span><strong>PRD-001</strong>
+    <span>Status</span><strong>As built, 7 November 2026</strong>
+    <span>Audience</span><strong>Owner, operators, and anyone changing the product</strong>
+    <span>Currency</span><strong>Tanzanian shilling (TZS)</strong>
+    <span>Languages</span><strong>English and Kiswahili</strong>
+  </div>
+</section>
+
+<h2>1. Purpose</h2>
+<p>This document states what GK Furnish is for, who it serves, and the behaviour the product must keep. It describes the product as it works in the codebase on 7 November 2026. It is a product document, not a technical design or a marketing brochure.</p>
+<p>When a later change conflicts with a requirement here, the change should update this document in the same piece of work.</p>
+
+<h2>2. Product summary</h2>
+<p>GK Furnish is the public shop and private workshop office of a furniture maker in Mbeya. Customers browse chairs, tables, beds, lamps and custom work, choose size, material and colour, and order for delivery or collection. The owner runs products, orders, production, stock, suppliers, money and the words and pictures on the site from one admin portal.</p>
+<p>The shop is for a general audience: homes, students, schools, offices, hotels, guest houses, churches and other organisations. It is not a student-only catalogue.</p>
+<div class="note">
+  <strong>Positioning.</strong> Durable furniture, made by hand in Mbeya or with checked partner carpenters, at a price agreed before work starts. Study chairs and study tables are made in the workshop. Beds and larger pieces may be made with partners and are checked before they leave.
+</div>
+
+<h3>2.1 Goals</h3>
+<ul>
+  <li>Let a customer choose a real piece, agree the options, and place an order without a phone call.</li>
+  <li>Collect an advance before production, record every payment, and clear the balance before handover.</li>
+  <li>Accept M-Pesa, Airtel Money, Yas (Tigo Pesa) and HaloPesa through PalmPesa, plus cash recorded by the owner.</li>
+  <li>Give the owner one place to see orders, stock, production, custom quotes, expenses and what is still owed.</li>
+  <li>Keep the shop understandable in English and Kiswahili, on a phone and on a desktop.</li>
+</ul>
+
+<h3>2.2 Non-goals</h3>
+<ul>
+  <li>A marketplace of many independent sellers. There is one workshop and one owner.</li>
+  <li>Staff roles below the owner. The admin portal is for the owner.</li>
+  <li>Collecting a mobile-money PIN on the website. The customer approves the charge on their phone.</li>
+  <li>Treating a payment as successful when PalmPesa has only started it. Only a completed PalmPesa payment adds money.</li>
+  <li>A second payments backend. PalmPesa runs through the existing order and payment records. Snippe remains only as an unused fallback when no PalmPesa token is set.</li>
+</ul>
+
+<h2>3. People</h2>
+<table>
+  <thead><tr><th>Person</th><th>What they need</th></tr></thead>
+  <tbody>
+    <tr><td>Household customer</td><td>See a price, choose finish and size, pay an advance, and know when the piece is ready.</td></tr>
+    <tr><td>Institution or business</td><td>Order several pieces, request a custom size, and keep receipts and a balance that is clear.</td></tr>
+    <tr><td>Guest browser</td><td>Look, ask on WhatsApp, and build a cart. Placing an order requires an account.</td></tr>
+    <tr><td>Signed-in customer</td><td>Place orders, save addresses, follow status, pay a remaining balance, and review a piece they received.</td></tr>
+    <tr><td>Owner (admin)</td><td>Change the catalogue and site images, move orders through production, confirm delivery fees, record cash, and see money in and money out.</td></tr>
+  </tbody>
+</table>
+<p>Customers and the owner use one sign-in page. After sign-in, an admin account opens the admin portal. A customer account opens the customer account. The session stays until the person signs out.</p>
+
+<h2>4. Brand and contact</h2>
+<table>
+  <thead><tr><th>Item</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Name</td><td>GK Furnish</td></tr>
+    <tr><td>Tagline</td><td>Locally made furniture from Mbeya, Tanzania</td></tr>
+    <tr><td>Phone and WhatsApp</td><td>+255 692 713 993</td></tr>
+    <tr><td>Email</td><td>gideonkibure@gmail.com</td></tr>
+    <tr><td>Place</td><td>Mbeya, Tanzania</td></tr>
+    <tr><td>Colours</td><td>Navy #14213D, gold #FCA311, white, light grey #E5E5E5, black. Gold buttons use navy text.</td></tr>
+    <tr><td>Type</td><td>Outfit</td></tr>
+  </tbody>
+</table>
+
+<h2>5. Customer site</h2>
+<p>Public pages: home, shop, product, categories, cart, checkout, payment waiting, order success, order tracking, gallery, about, process, FAQ, custom order, contact, privacy, account (sign in, register, forgot and reset password), and saved addresses, orders, custom requests and notifications.</p>
+
+<h3>5.1 Catalogue</h3>
+<div class="req"><span class="id">CAT-1</span>The shop lists products with category, price or price range, availability, and a way to like a product.</div>
+<div class="req"><span class="id">CAT-2</span>A product can offer materials, sizes and colours. The customer must choose every option the product defines before it can be added to the cart.</div>
+<div class="req"><span class="id">CAT-3</span>Price can depend on the material and size. A product may show an old price and an editable discount percent.</div>
+<div class="req"><span class="id">CAT-4</span>The owner chooses whether stock is shown as a label or as an exact count.</div>
+<div class="req"><span class="id">CAT-5</span>A piece that is unavailable cannot be bought. The cart tells the customer to remove it.</div>
+<div class="req"><span class="id">CAT-6</span>Views and likes are shared totals. They use a public database function and an anonymous visitor id stored in the browser. They do not require an account and they do not expose visitor records.</div>
+<div class="req"><span class="id">CAT-7</span>Add to cart keeps the customer shopping. Buy now opens checkout on the payment step so the customer can choose how to pay.</div>
+
+<h3>5.2 Cart and account</h3>
+<div class="req"><span class="id">ACC-1</span>A visitor may build a cart before signing in. The cart is kept in the browser.</div>
+<div class="req"><span class="id">ACC-2</span>A signed-in customer’s cart is stored on their account and merged with the browser cart when they sign in.</div>
+<div class="req"><span class="id">ACC-3</span>Registration is email and password. Google sign-in is supported. Password reset is available.</div>
+<div class="req"><span class="id">ACC-4</span>The customer can keep a profile, saved addresses, order history, custom-request history and notifications.</div>
+<div class="req"><span class="id">ACC-5</span>Placing an order requires a signed-in customer. The review step shows “Sign in to place order” when there is no session. The server rejects an order that has no account.</div>
+<div class="req"><span class="id">ACC-6</span>The owner signs in on the same page. An admin session is sent to the admin portal.</div>
+
+<h3>5.3 Checkout</h3>
+<p>Checkout has three steps: delivery details, payment, and review.</p>
+<div class="req"><span class="id">CHK-1</span>The customer gives a name, phone, optional email, the date they need the piece, and optional notes.</div>
+<div class="req"><span class="id">CHK-2</span>Fulfilment is delivery or collection. Collection is free, from the workshop address. Delivery asks for region, district and area. The delivery fee is “to be confirmed” unless every item is marked free delivery.</div>
+<div class="req"><span class="id">CHK-3</span>The customer chooses an advance or the full amount. The advance percent comes from the tier in section 7.</div>
+<div class="req"><span class="id">CHK-4</span>When PalmPesa is configured, the customer chooses mobile money or cash. Mobile money shows four wallets and a phone number for that wallet.</div>
+<div class="req"><span class="id">CHK-5</span>When PalmPesa is not configured, checkout explains the offline path (WhatsApp and cash). It does not pretend a phone prompt was sent.</div>
+<div class="req"><span class="id">CHK-6</span>The customer must confirm that the design and specifications are agreed, and that later changes must be agreed before production.</div>
+<div class="req"><span class="id">CHK-7</span>After a successful mobile-money start, the customer is taken to a private payment page. After a cash order, the order exists and stays unpaid until the owner records the cash.</div>
+<div class="req"><span class="id">CHK-8</span>Buy now skips ahead to the payment step. If delivery details are still missing, the customer is returned to that step before review.</div>
+
+<h3>5.4 Custom orders</h3>
+<div class="req"><span class="id">CUS-1</span>A customer can describe a piece that is not in the catalogue, including size, material, colour, finish and a budget range.</div>
+<div class="req"><span class="id">CUS-2</span>The owner replies with a quote. The customer can accept, decline, or ask for changes. A newer quote replaces an older one.</div>
+<div class="req"><span class="id">CUS-3</span>No production starts on a custom request until the quote is accepted and the advance rules in section 7 are met.</div>
+
+<h3>5.5 After the order</h3>
+<div class="req"><span class="id">ORD-1</span>The customer can open the order from their account and from a private tracking link. The tracking link is unguessable.</div>
+<div class="req"><span class="id">ORD-2</span>The order shows status, amounts paid and still due, each payment, and a receipt when a receipt number exists.</div>
+<div class="req"><span class="id">ORD-3</span>A paid deposit is shown as “Deposit paid” while a balance remains. The order is not described as fully paid.</div>
+<div class="req"><span class="id">ORD-4</span>The customer can pay the rest of the advance or the remaining balance from the order, using the same wallet choice.</div>
+<div class="req"><span class="id">ORD-5</span>Only a customer who received the product can submit a review. The review is hidden until the owner approves it. A product can be reviewed once by that customer.</div>
+
+<h3>5.6 Content pages</h3>
+<p>Home, about, process, gallery, FAQ, contact and privacy are part of the product. The owner can replace images used on the home page, shop, categories, gallery, about and custom-order page. Contact and product pages can open WhatsApp with a prepared message. The privacy page is the public privacy policy used for Google sign-in.</p>
+
+<h2>6. Payments</h2>
+<p>PalmPesa is the mobile-money provider. The customer never types a PIN into GK Furnish. PalmPesa sends a prompt to the phone. The customer enters the PIN on that phone. The site marks the payment paid only after PalmPesa reports the payment as completed.</p>
+
+<h3>6.1 Wallets</h3>
+<p>The customer chooses the wallet, then enters the number that belongs to it. PalmPesa itself routes by the phone number. GK Furnish checks that the number’s prefix matches the wallet before sending the charge.</p>
+<table>
+  <thead><tr><th>Wallet</th><th>Accepted prefixes after 255 or a leading 0</th></tr></thead>
+  <tbody>
+    <tr><td>M-Pesa</td><td>74, 75, 76</td></tr>
+    <tr><td>Airtel Money</td><td>68, 69, 78, 79</td></tr>
+    <tr><td>Yas (Tigo Pesa)</td><td>65, 67, 71</td></tr>
+    <tr><td>HaloPesa</td><td>61, 62</td></tr>
+  </tbody>
+</table>
+<div class="req"><span class="id">PAY-1</span>A mismatched number is refused with a clear message and no charge is sent.</div>
+<div class="req"><span class="id">PAY-2</span>The waiting page names the wallet and the masked phone, and tells the customer to enter the PIN on the phone prompt.</div>
+<div class="req"><span class="id">PAY-3</span>The page keeps checking while the payment is pending. If the prompt expires, it keeps checking for a late completion.</div>
+<div class="req"><span class="id">PAY-4</span>The smallest furniture mobile-money charge is 500 TZS. PalmPesa’s own minimum is 100 TZS. The charge never exceeds the balance still due.</div>
+<div class="req"><span class="id">PAY-5</span>Cash is not a mobile-money charge. The order stays unpaid until the owner records the cash. Recording the same cash amount and method twice within two minutes is blocked.</div>
+<div class="req"><span class="id">PAY-6</span>A failed, cancelled, rejected or expired PalmPesa result does not add money. A later completed result for that same payment still counts as paid, once.</div>
+<div class="req"><span class="id">PAY-7</span>The same PalmPesa callback is applied once. An amount that does not match the payment is refused.</div>
+<div class="req"><span class="id">PAY-8</span>Each completed payment gets a receipt number. Stock is reduced once, when the advance is first reached, not on every later payment.</div>
+<div class="req"><span class="id">PAY-9</span>Someone who does not own the order and does not hold the private payment link cannot pay it.</div>
+<div class="req"><span class="id">PAY-10</span>The PalmPesa token stays on the server. It is not placed in the browser, in a public environment variable, or in git.</div>
+
+<h3>6.2 How status becomes paid</h3>
+<ol>
+  <li>The site creates a pending payment and asks PalmPesa to start it.</li>
+  <li>PalmPesa notifies the site, and the site also asks PalmPesa for the current status.</li>
+  <li>The customer’s payment page, the order page, the admin lists, and a scheduled check all look for payments that are still open.</li>
+  <li>Only a verified completed status adds the amount to the order.</li>
+</ol>
+<p>There is no PalmPesa sandbox. A test charge is a real charge.</p>
+
+<h2>7. Money rules on an order</h2>
+<p>The owner can change the percentages and the thresholds. The defaults are:</p>
+<table>
+  <thead><tr><th>Tier</th><th>When it applies</th><th>Advance</th></tr></thead>
+  <tbody>
+    <tr><td>Standard</td><td>Ordinary catalogue orders below the higher thresholds</td><td>50%</td></tr>
+    <tr><td>Custom or high value</td><td>A custom order, or a total from 1,000,000 TZS</td><td>60%</td></tr>
+    <tr><td>Large</td><td>A total from 3,000,000 TZS, or 10 or more items</td><td>70%</td></tr>
+  </tbody>
+</table>
+<div class="req"><span class="id">POL-1</span>Production cannot start until the advance has been received and the owner has marked the design and specifications as agreed.</div>
+<div class="req"><span class="id">POL-2</span>Dispatch, delivery and completion also require a confirmed delivery fee, when a fee is still pending, and a zero balance.</div>
+<div class="req"><span class="id">POL-3</span>A paid advance does not mean the order is fully paid. The balance is the order total minus completed payments, after refunds.</div>
+<div class="req"><span class="id">POL-4</span>Cancelling an order requires a reason. Refunding an order is done from a payment, not by picking a status from a list.</div>
+<div class="req"><span class="id">POL-5</span>Any change to the design after the order must be agreed before production, and the agreement is recorded on the order.</div>
+
+<h3>7.1 Order statuses</h3>
+<p>Pending, awaiting payment, confirmed, processing, in production, ready, dispatched, delivered, completed, cancelled, refunded. Custom quotes use their own states: draft, sent, accepted, declined, changes requested, expired, and replaced.</p>
+<p>Payment rows use pending, completed, failed and expired. A cancelled or rejected PalmPesa result is stored as failed, with the reason kept.</p>
+
+<h2>8. Owner portal</h2>
+<p>The portal is for the owner only. It opens after the owner signs in. The owner can change their own password. Admin pages stay signed in across a refresh.</p>
+<table>
+  <thead><tr><th>Area</th><th>What the owner can do</th></tr></thead>
+  <tbody>
+    <tr><td>Dashboard</td><td>See the workshop at a glance, including overdue items when the dashboard is opened.</td></tr>
+    <tr><td>Orders</td><td>Read items, customer, payment references and the policy blockers. Move status only when the rules allow it.</td></tr>
+    <tr><td>Custom orders</td><td>Read requests and send or replace quotes.</td></tr>
+    <tr><td>Production</td><td>Follow work that is allowed to start.</td></tr>
+    <tr><td>Products and categories</td><td>Create and edit the catalogue, options, prices, discounts and stock display.</td></tr>
+    <tr><td>Inventory</td><td>See stock. Stock falls once when an advance is paid.</td></tr>
+    <tr><td>Images</td><td>Replace images on the home page, shop, categories, gallery, about and custom-order page.</td></tr>
+    <tr><td>Customers and messages</td><td>See customers and contact messages.</td></tr>
+    <tr><td>Reviews</td><td>Approve or hold reviews. Only approved reviews are public.</td></tr>
+    <tr><td>Payments</td><td>See online and recorded payments, filter them, export them, and record or remove a cash payment. A PalmPesa payment cannot be deleted as if it were cash.</td></tr>
+    <tr><td>Finance</td><td>Record owner capital, gifts and loans. A loan shows borrowed, repaid, interest and still owed. Capital is not sales.</td></tr>
+    <tr><td>Expenses, purchases, suppliers</td><td>Record costs, purchase orders and who the workshop buys from.</td></tr>
+    <tr><td>Reports</td><td>See sales and money summaries.</td></tr>
+    <tr><td>Content, popups, settings</td><td>Edit site copy, announcement popups, advance tiers, collection address and related settings.</td></tr>
+  </tbody>
+</table>
+
+<h2>9. Languages and layout</h2>
+<div class="req"><span class="id">I18N-1</span>Every customer-facing screen has English and Kiswahili. The customer can switch language and the choice is kept.</div>
+<div class="req"><span class="id">I18N-2</span>Product names and category names can have a Kiswahili version.</div>
+<div class="req"><span class="id">I18N-3</span>Pages work on a phone and on a desktop. The phone has a bottom navigation bar. Actions must remain reachable above that bar.</div>
+<div class="req"><span class="id">I18N-4</span>Money is shown as TZS with thousands separators. Dates use the Dar es Salaam calendar.</div>
+
+<h2>10. Quality the product must hold</h2>
+<ul>
+  <li>A payment page must not show success before PalmPesa has completed the payment.</li>
+  <li>Refreshing the site must not sign the person out.</li>
+  <li>Private order and payment links must be long and random.</li>
+  <li>Payment records are not readable from the public browser database. The server reads and writes them.</li>
+  <li>The PalmPesa token, signing secret and database service key stay on the server.</li>
+  <li>Repeating a PalmPesa notification must not add the money twice.</li>
+  <li>The shop should open quickly. Images and pages should not force sideways scrolling.</li>
+</ul>
+
+<h2>11. Integrations</h2>
+<table>
+  <thead><tr><th>System</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>PalmPesa</td><td>Starts a mobile-money prompt and reports whether it completed. The public callback is /api/webhooks/palmpesa. A scheduled check runs every five minutes.</td></tr>
+    <tr><td>Supabase</td><td>Accounts, database, and stored files. The browser uses the public key. The server uses the service role for orders and payments.</td></tr>
+    <tr><td>Google</td><td>Optional customer sign-in. The privacy policy URL is https://gkfurnish.co.tz/privacy.</td></tr>
+    <tr><td>WhatsApp</td><td>Fast contact from product, contact and receipt sharing. It is not the payment system.</td></tr>
+    <tr><td>Vercel</td><td>Hosts the site. PALMPESA_API_TOKEN is a secret environment variable on the project, then the site is redeployed.</td></tr>
+  </tbody>
+</table>
+<p>The PalmPesa secret is stored in Vercel as key <strong>PALMPESA_API_TOKEN</strong>, type Secret, on Production. An optional signing secret is <strong>PALMPESA_SIGNING_SECRET</strong>, used only when PalmPesa signing is turned on.</p>
+
+<h2>12. Main records</h2>
+<ul>
+  <li><strong>Product</strong> — name, Kiswahili name, category, price, compare-at price, discount, options, colours, stock display, free-delivery flag, source (workshop or partner), availability.</li>
+  <li><strong>Cart line</strong> — product, quantity, material, size, colour, and the customer when signed in.</li>
+  <li><strong>Order</strong> — customer account, contact, fulfilment, place, needed-by date, notes, totals, advance percent and amount, amount paid, amount still due, payment status, delivery-fee status, specifications-agreed time, status, tracking token.</li>
+  <li><strong>Payment</strong> — order, amount, purpose (advance, balance or full), method, status, receipt, PalmPesa transaction and provider ids, wallet, channel, failure reason, paid time.</li>
+  <li><strong>Payment event</strong> — PalmPesa event id, used so the same notice is not applied twice.</li>
+  <li><strong>Review</strong> — product, verified buyer, rating, text, approval.</li>
+  <li><strong>Custom request and quote</strong> — the customer’s brief and the owner’s priced reply.</li>
+  <li><strong>Capital and loan</strong> — money put into the business, with borrowed, repaid, interest and still owed.</li>
+</ul>
+
+<h2>13. Main journeys</h2>
+<h3>13.1 Buy a catalogue piece</h3>
+<ol>
+  <li>The customer opens a product and chooses colour, size and material where those exist.</li>
+  <li>Buy now adds the piece and opens checkout on the payment step. Add to cart does not.</li>
+  <li>They choose a wallet and enter that wallet’s number, or they choose cash.</li>
+  <li>They complete delivery details and the date, review the order, and confirm the specifications.</li>
+  <li>If they are not signed in, they sign in or create an account and return to checkout.</li>
+  <li>For mobile money, PalmPesa prompts the phone. They enter the PIN on the phone. The site shows paid only after completion.</li>
+  <li>They follow the order until the balance is cleared and the piece is delivered or collected.</li>
+</ol>
+<h3>13.2 Pay the rest later</h3>
+<ol>
+  <li>From the account order, the customer chooses the wallet and number again.</li>
+  <li>They can pay what is left of the advance, or the full remaining balance.</li>
+  <li>The same confirmation rules apply. The owner can also record cash or a bank payment.</li>
+</ol>
+<h3>13.3 Custom piece</h3>
+<ol>
+  <li>The customer sends a brief.</li>
+  <li>The owner sends a quote.</li>
+  <li>The customer accepts, asks for changes, or declines.</li>
+  <li>After acceptance, the advance and specification rules gate production in the same way as a catalogue order.</li>
+</ol>
+
+<h2>14. Acceptance checks</h2>
+<table>
+  <thead><tr><th>Check</th><th>Pass when</th></tr></thead>
+  <tbody>
+    <tr><td>Wallet match</td><td>An Airtel choice with a 074 number is refused. A Yas choice with 0712 is accepted.</td></tr>
+    <tr><td>No website PIN</td><td>No screen asks the customer to type a mobile-money PIN.</td></tr>
+    <tr><td>Pending is not paid</td><td>A started or pending PalmPesa payment leaves the order unpaid.</td></tr>
+    <tr><td>One completion</td><td>Two notices for the same completed payment add the money once and create one stock reduction.</td></tr>
+    <tr><td>Late success</td><td>A completion that arrives after an expiry still marks that payment paid once.</td></tr>
+    <tr><td>Sign-in gate</td><td>A signed-out visitor cannot place the order from the browser or by calling the server.</td></tr>
+    <tr><td>Cash</td><td>A cash order stays unpaid until the owner records it, and a double record within two minutes is blocked.</td></tr>
+    <tr><td>Production gate</td><td>In production is blocked until the advance is in and specifications are agreed.</td></tr>
+    <tr><td>Handover gate</td><td>Dispatched is blocked while a delivery fee is unconfirmed or a balance remains.</td></tr>
+    <tr><td>Review gate</td><td>A person who has not received the product cannot publish a review, and a new review waits for approval.</td></tr>
+    <tr><td>Language</td><td>Switching to Kiswahili changes the checkout and payment words, including the wallet instructions.</td></tr>
+  </tbody>
+</table>
+
+<h2>15. Open points</h2>
+<p>These are known gaps. They are not silent requirements.</p>
+<ul>
+  <li>The FAQ still answers “Do I need an account?” with “No”, while placing an order now requires an account. That answer should be corrected.</li>
+  <li>The four wallets appear only after PALMPESA_API_TOKEN is set on the host and the site is redeployed. Without it, checkout shows the offline explanation.</li>
+  <li>Database migration 0010 must be applied so PalmPesa columns and payment events exist. Earlier shop migrations must already be applied.</li>
+  <li>Transport and inspection are not inside the stock unit cost. Purchase-order deposits are display-only. Overdue alerts appear when the dashboard is opened. Product sales reports use order value, not cash received.</li>
+  <li>Loans have no repayment schedule beyond the payments the owner records.</li>
+  <li>There is no staff role below the owner, and admin multi-factor sign-in is not built.</li>
+  <li>A Vercel hobby plan may reject a scheduled check every five minutes. The payment page and the admin lists still check open PalmPesa payments.</li>
+</ul>
+
+<h2>16. Glossary</h2>
+<table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Advance</td><td>The portion that must be paid before production starts. Default 50, 60 or 70 percent.</td></tr>
+    <tr><td>Balance</td><td>Order total minus completed payments, after refunds. This is what is still owed.</td></tr>
+    <tr><td>Deposit paid</td><td>The advance was paid and a balance remains. The order payment status is paid for that deposit, and the screen says deposit paid.</td></tr>
+    <tr><td>Wallet</td><td>M-Pesa, Airtel Money, Yas (Tigo Pesa) or HaloPesa.</td></tr>
+    <tr><td>Prompt</td><td>The phone message from the network that asks for the PIN. It is not a field on the website.</td></tr>
+    <tr><td>Completed</td><td>The only PalmPesa result that means the money was received.</td></tr>
+    <tr><td>Collection</td><td>The customer picks the piece up. There is no delivery fee.</td></tr>
+    <tr><td>Free delivery</td><td>A product flag. If every item has it, the delivery fee is zero. Otherwise the owner confirms the fee after the order.</td></tr>
+  </tbody>
+</table>
+
+<footer class="foot">
+  GK Furnish product requirements, PRD-001, 7 November 2026. This document describes the product as built. It does not authorise a new feature by itself.
+</footer>
+</body>
+</html>

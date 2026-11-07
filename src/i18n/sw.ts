@@ -283,11 +283,11 @@ export const sw: Dictionary = {
     items: [
       {
         q: "Naagizaje?",
-        a: "Ingia, weka vipande kwenye kikapu, kisha lipa malipo ya awali kwa pesa za simu. Akaunti inahitajika kuweka oda.",
+        a: "Weka vipande kwenye kikapu na uagize kwa jina na namba ya simu. Akaunti si lazima. Baada ya oda unalipa kwa namba tunazoonyesha, kisha unatutumia namba ya muamala. Tunathibitisha malipo kabla ya kuanza kutengeneza.",
       },
       {
         q: "Je, nahitaji akaunti?",
-        a: "Hapana. Akaunti si lazima, lakini inahifadhi kikapu na taarifa zako, inaonyesha maendeleo ya oda na inakuwezesha kulipa salio mtandaoni.",
+        a: "Hapana. Unaweza kuagiza kwa jina na namba ya simu. Akaunti inahifadhi kikapu na oda ili uweze kuzifuata na kuagiza tena.",
       },
       {
         q: "Mnatengeneza samani maalum?",
@@ -319,7 +319,7 @@ export const sw: Dictionary = {
       },
       {
         q: "Nalipa vipi?",
-        a: "Wakati wa kuagiza unachagua kulipa malipo ya awali au kiasi chote. Tunathibitisha oda yako kwa simu au WhatsApp, na unalipa kwa pesa ya simu, benki au taslimu — tunarekodi kila malipo kwenye oda yako. Malipo ya awali ni 50% kwa oda za kawaida, 60% kwa oda maalum na za thamani kubwa, na 70% kwa oda kubwa. Utengenezaji unaanza baada ya kupokea malipo ya awali, na salio hulipwa kabla ya kupelekewa. Unapata risiti kwa kila malipo.",
+        a: "Weka oda kwa jina na namba ya simu. Ukurasa wa oda unaonyesha namba za M-Pesa, Airtel Money, Yas na HaloPesa. Tuma malipo ya awali au kiasi chote, kisha weka namba ya muamala. Tunathibitisha kabla oda haijahesabiwa kuwa imelipwa. Malipo ya awali ni 50% kwa oda za kawaida, 60% kwa oda maalum na za thamani kubwa, na 70% kwa oda kubwa. Utengenezaji unaanza baada ya kuthibitisha malipo ya awali, na salio hulipwa kabla ya kupelekewa. Unapata risiti kwa kila malipo yaliyothibitishwa.",
       },
       {
         q: "Naweza kubadilisha muundo baada ya kuagiza?",
@@ -404,15 +404,15 @@ export const sw: Dictionary = {
     specsAgree:
       "Ninathibitisha muundo na vipimo vya oda hii. Mabadiliko yoyote lazima yakubaliwe na GK furnish kabla utengenezaji haujaanza.",
     specsRequired: "Tafadhali thibitisha muundo na vipimo.",
-    placeOrder: "Weka oda na ulipe",
+    placeOrder: "Weka oda na uone jinsi ya kulipa",
     placeOrderOffline: "Weka oda",
     placing: "Tunaweka oda yako…",
-    signInPrompt: "Ingia ili uweke oda. Taarifa zako na oda hii zinabaki kwenye akaunti yako.",
-    signInToOrder: "Ingia ili uweke oda",
+    signInPrompt: "Una akaunti? Ingia ili taarifa zako zijazwe. Unaweza pia kuagiza bila akaunti.",
+    signInToOrder: "Ingia",
     total: "Jumla",
     payNow: "Kulipa sasa",
     balanceLater: "Salio kabla ya kupelekewa",
-    offline: "Malipo ya mtandaoni bado hayajawashwa. Tutahifadhi oda yako na kuthibitisha malipo nawe kwa WhatsApp au simu.",
+    offline: "Baada ya kuweka oda utaona namba za kulipa. Tuma pesa, kisha tupe namba ya muamala. Oda haijalipwa mpaka tuthibitishe.",
     emptyCart: "Kikapu chako ni tupu, hakuna cha kulipia bado.",
   },
   pay: {
@@ -497,7 +497,7 @@ export const sw: Dictionary = {
     loginTitle: "Ingia",
     loginIntro: "Ingia ili kufuatilia oda, kulipa salio na kulipa kwa haraka zaidi.",
     registerTitle: "Fungua akaunti",
-    registerIntro: "Akaunti inaweka kikapu, taarifa na oda zako mahali pamoja. Ingia kabla ya kuweka oda.",
+    registerIntro: "Akaunti inaweka kikapu, taarifa na oda zako mahali pamoja. Bado unaweza kuagiza bila akaunti.",
     email: "Barua pepe",
     password: "Nenosiri",
     passwordHint: "Angalau herufi 8",
@@ -574,7 +574,7 @@ export const sw: Dictionary = {
       },
       {
         title: "Chaguo na haki zako",
-        body: "Unaingia kabla ya kuweka oda. Unaweza kubadilisha wasifu wako wakati wowote. Unaweza kutuomba kukuonyesha, kusahihisha au kufuta taarifa zako binafsi kwa kuwasiliana nasi; baadhi ya kumbukumbu za oda na malipo zinaweza kuhitajika kuhifadhiwa kwa sababu za kisheria.",
+        body: "Unaweza kuweka oda kwa jina na namba ya simu, au kwa akaunti. Unaweza kubadilisha wasifu wako wakati wowote. Unaweza kutuomba kukuonyesha, kusahihisha au kufuta taarifa zako binafsi kwa kuwasiliana nasi; baadhi ya kumbukumbu za oda na malipo zinaweza kuhitajika kuhifadhiwa kwa sababu za kisheria.",
       },
       {
         title: "Usalama",
@@ -667,7 +667,7 @@ export const sw: Dictionary = {
     howTitle: "Jinsi ya kuagiza",
     howSteps: [
       { title: "Chagua", body: "Tazama duka au tutumie ombi la samani maalum." },
-      { title: "Agiza", body: "Ingia, weka kwenye kikapu, kisha ulipe kwa akaunti yako." },
+      { title: "Agiza", body: "Weka kwenye kikapu na uagize kwa jina na namba ya simu, au kwa akaunti." },
       { title: "Lipa kianzio", body: "Tunathibitisha oda na kianzio; unapata risiti." },
       { title: "Pokea", body: "Tunatengeneza au kuandaa, kisha tunakuletea — au unachukua." },
     ],
@@ -778,6 +778,17 @@ export const sw: Dictionary = {
     keepLink: "Hifadhi kiungo hiki ili kuangalia oda yako wakati wowote.",
     open: "Fuatilia oda hii",
     unavailable: "Ufuatiliaji wa oda utapatikana hivi karibuni.",
+    howToPay: "Jinsi ya kulipa",
+    paySteps: "Tuma kiasi hapa chini kwa moja ya namba hizi. Tumia namba ya oda kama kumbukumbu. Kisha tuambie namba ya muamala. Tunathibitisha malipo ndani ya saa 2 za kazi, 08:00 hadi 18:00, saa za Afrika Mashariki. Malipo hayajaingia mpaka tuyathibitishe.",
+    amountDue: "Kiasi cha kulipa sasa",
+    iHavePaid: "Nimeshalipa",
+    transactionId: "Namba ya muamala",
+    transactionHint: "Herufi au namba 6 hadi 20 kutoka kwenye ujumbe uliopokea.",
+    proofSent: "Malipo yametumwa. Tutayathibitisha tukiona kwenye taarifa yetu.",
+    awaiting: "Tunasubiri uthibitisho",
+    copy: "Nakili",
+    copied: "Imenakiliwa",
+    whatsappProof: "Tuambie WhatsApp",
   },
   addresses: {
     title: "Anwani zilizohifadhiwa",

@@ -7,7 +7,7 @@ import { useLang } from "@/i18n/LanguageProvider";
 import { getMyRole } from "@/lib/account.functions";
 
 /** Only same-site paths are allowed as a post-login destination. */
-export function safeNext(next: unknown, fallback = "/account") {
+export function safeNext(next: unknown, fallback = "/products") {
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
 }
 
@@ -15,9 +15,9 @@ const isAdminPath = (path: string) => /^\/admin(?:[/?#]|$)/.test(path);
 
 /** Where a signed-in user goes: an explicit safe `next` wins, except admin pages for non-admins. */
 export function postLoginPath(next: unknown, isAdmin: boolean) {
-  const home = isAdmin ? "/admin" : "/account";
+  const home = isAdmin ? "/admin" : "/products";
   const target = safeNext(next, home);
-  return isAdminPath(target) && !isAdmin ? "/account" : target;
+  return isAdminPath(target) && !isAdmin ? "/products" : target;
 }
 
 /** Resolves the post-login destination for the current session; role lookup failures count as customer. */
