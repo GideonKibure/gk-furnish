@@ -283,7 +283,7 @@ export const sw: Dictionary = {
     items: [
       {
         q: "Naagizaje?",
-        a: "Weka vipande kwenye kikapu, nenda kulipa na lipa malipo ya awali kwa pesa za simu. Unaweza kulipa kama mgeni au kufungua akaunti ili kufuatilia oda zako.",
+        a: "Ingia, weka vipande kwenye kikapu, kisha lipa malipo ya awali kwa pesa za simu. Akaunti inahitajika kuweka oda.",
       },
       {
         q: "Je, nahitaji akaunti?",
@@ -407,7 +407,8 @@ export const sw: Dictionary = {
     placeOrder: "Weka oda na ulipe",
     placeOrderOffline: "Weka oda",
     placing: "Tunaweka oda yako…",
-    signInPrompt: "Una akaunti? Ingia ili taarifa zako zijazwe na ufuatilie oda hii.",
+    signInPrompt: "Ingia ili uweke oda. Taarifa zako na oda hii zinabaki kwenye akaunti yako.",
+    signInToOrder: "Ingia ili uweke oda",
     total: "Jumla",
     payNow: "Kulipa sasa",
     balanceLater: "Salio kabla ya kupelekewa",
@@ -496,7 +497,7 @@ export const sw: Dictionary = {
     loginTitle: "Ingia",
     loginIntro: "Ingia ili kufuatilia oda, kulipa salio na kulipa kwa haraka zaidi.",
     registerTitle: "Fungua akaunti",
-    registerIntro: "Akaunti inaweka kikapu, taarifa na oda zako mahali pamoja. Bado unaweza kulipa kama mgeni.",
+    registerIntro: "Akaunti inaweka kikapu, taarifa na oda zako mahali pamoja. Ingia kabla ya kuweka oda.",
     email: "Barua pepe",
     password: "Nenosiri",
     passwordHint: "Angalau herufi 8",
@@ -573,7 +574,7 @@ export const sw: Dictionary = {
       },
       {
         title: "Chaguo na haki zako",
-        body: "Unaweza kulipa kama mgeni bila akaunti. Ukiwa na akaunti, unaweza kubadilisha wasifu wako wakati wowote. Unaweza kutuomba kukuonyesha, kusahihisha au kufuta taarifa zako binafsi kwa kuwasiliana nasi; baadhi ya kumbukumbu za oda na malipo zinaweza kuhitajika kuhifadhiwa kwa sababu za kisheria.",
+        body: "Unaingia kabla ya kuweka oda. Unaweza kubadilisha wasifu wako wakati wowote. Unaweza kutuomba kukuonyesha, kusahihisha au kufuta taarifa zako binafsi kwa kuwasiliana nasi; baadhi ya kumbukumbu za oda na malipo zinaweza kuhitajika kuhifadhiwa kwa sababu za kisheria.",
       },
       {
         title: "Usalama",
@@ -666,7 +667,7 @@ export const sw: Dictionary = {
     howTitle: "Jinsi ya kuagiza",
     howSteps: [
       { title: "Chagua", body: "Tazama duka au tutumie ombi la samani maalum." },
-      { title: "Agiza", body: "Weka kwenye kikapu na ulipe kama mgeni au kwa akaunti." },
+      { title: "Agiza", body: "Ingia, weka kwenye kikapu, kisha ulipe kwa akaunti yako." },
       { title: "Lipa kianzio", body: "Tunathibitisha oda na kianzio; unapata risiti." },
       { title: "Pokea", body: "Tunatengeneza au kuandaa, kisha tunakuletea — au unachukua." },
     ],

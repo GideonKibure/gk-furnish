@@ -72,6 +72,7 @@ export const createCheckout = createServerFn({ method: "POST" })
   .middleware([optionalSupabaseAuth])
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data, context }) => {
+    if (!context.userId) throw new Error("Sign in to place an order.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { onlinePaymentsConfigured, startMobilePayment } = await import("@/lib/order-payments.server");
 

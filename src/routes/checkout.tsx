@@ -97,6 +97,12 @@ function CheckoutPage() {
   }, [addresses.length]);
 
   useEffect(() => {
+    if (sessionStorage.getItem("gk-checkout-start") !== "payment") return;
+    sessionStorage.removeItem("gk-checkout-start");
+    setStep(1);
+  }, []);
+
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
@@ -158,10 +164,18 @@ function CheckoutPage() {
   function next() {
     if (step === 0 && !validateDelivery()) return;
     if (step === 1 && !validatePayment()) return;
+    if (step === 1 && !validateDelivery()) {
+      setStep(0);
+      return;
+    }
     setStep((s) => Math.min(2, s + 1));
   }
 
   async function placeOrder() {
+    if (!user) {
+      void nav({ to: "/account/login", search: { next: "/checkout" } });
+      return;
+    }
     if (!validateDelivery()) {
       setStep(0);
       return;
@@ -456,33 +470,8 @@ function CheckoutPage() {
             {step === 1 && (
               <>
                 <section className="panel p-4 md:p-5">
-                  <h2 className="text-base font-bold">{t.steps.paymentPlan}</h2>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tierLabel}</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.steps.paymentPlan}>
-                    {(["advance", "full"] as const).map((kind) => (
-                      <label
-                        key={kind}
-                        className={cn(
-                          "cursor-pointer rounded-lg border px-4 py-3 transition-colors",
-                          choice === kind ? "border-gold bg-gold-tint" : "border-input bg-white hover:border-navy/30",
-                        )}
-                      >
-                        <input type="radio" name="payment_choice" className="sr-only" checked={choice === kind} onChange={() => setChoice(kind)} />
-                        <span className="block font-semibold text-navy">
-                          {kind === "advance" ? fill(t.checkout.advanceLabel, { percent: tier.percent }) : t.checkout.fullLabel}
-                        </span>
-                        <span className="mt-0.5 block text-sm text-muted-foreground">
-                          {kind === "advance"
-                            ? fill(t.checkout.advanceHint, { amount: formatAmount(advance), balance: formatAmount(Math.max(0, subtotal - advance)) })
-                            : fill(t.checkout.fullHint, { amount: formatAmount(subtotal) })}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {feeStatus === "pending" && <p className="mt-3 text-xs text-muted-foreground">{t.delivery.pendingNote}</p>}
-
                   {online ? (
-                    <div className="mt-4">
+                    <div>
                       <p className="text-sm font-semibold text-navy">{t.checkout.methodTitle}</p>
                       <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.checkout.methodTitle}>
                         {(["mobile", "cash"] as const).map((kind) => (
@@ -525,7 +514,7 @@ function CheckoutPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-lg bg-sand p-4">
+                    <div className="rounded-lg bg-sand p-4">
                       <p className="text-sm font-semibold text-navy">{t.steps.howToPay}</p>
                       <ol className="mt-2 space-y-1.5 text-sm text-navy/80">
                         {t.steps.offlineSteps.map((line, i) => (
@@ -537,6 +526,31 @@ function CheckoutPage() {
                       </ol>
                     </div>
                   )}
+
+                  <h2 className={cn("text-base font-bold", online ? "mt-6" : "")}>{t.steps.paymentPlan}</h2>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tierLabel}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.steps.paymentPlan}>
+                    {(["advance", "full"] as const).map((kind) => (
+                      <label
+                        key={kind}
+                        className={cn(
+                          "cursor-pointer rounded-lg border px-4 py-3 transition-colors",
+                          choice === kind ? "border-gold bg-gold-tint" : "border-input bg-white hover:border-navy/30",
+                        )}
+                      >
+                        <input type="radio" name="payment_choice" className="sr-only" checked={choice === kind} onChange={() => setChoice(kind)} />
+                        <span className="block font-semibold text-navy">
+                          {kind === "advance" ? fill(t.checkout.advanceLabel, { percent: tier.percent }) : t.checkout.fullLabel}
+                        </span>
+                        <span className="mt-0.5 block text-sm text-muted-foreground">
+                          {kind === "advance"
+                            ? fill(t.checkout.advanceHint, { amount: formatAmount(advance), balance: formatAmount(Math.max(0, subtotal - advance)) })
+                            : fill(t.checkout.fullHint, { amount: formatAmount(subtotal) })}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {feeStatus === "pending" && <p className="mt-3 text-xs text-muted-foreground">{t.delivery.pendingNote}</p>}
                 </section>
                 <PaymentPolicy />
               </>
@@ -611,12 +625,16 @@ function CheckoutPage() {
                   {step === 0 ? t.steps.continuePayment : t.steps.continueReview}
                   <ArrowRight className="h-4 w-4" />
                 </button>
+              ) : authReady && !user ? (
+                <Link to="/account/login" search={{ next: "/checkout" }} className="btn-base btn-gold btn-lg">
+                  {t.checkout.signInToOrder}
+                </Link>
               ) : (
                 <button
                   type="button"
                   className="btn-base btn-gold btn-lg"
                   onClick={() => void placeOrder()}
-                  disabled={busy || blocked || !cart.ready}
+                  disabled={busy || blocked || !cart.ready || !authReady}
                 >
                   {busy ? t.checkout.placing : online && payMethod === "mobile" ? t.checkout.placeOrder : t.checkout.placeOrderOffline}
                 </button>

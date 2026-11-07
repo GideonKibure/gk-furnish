@@ -281,7 +281,7 @@ export const en = {
     items: [
       {
         q: "How do I place an order?",
-        a: "Add pieces to your cart, go to checkout and pay the advance with mobile money. You can check out as a guest or create an account to follow your orders.",
+        a: "Sign in, add pieces to your cart, then check out and pay the advance with mobile money. An account is required to place an order.",
       },
       {
         q: "Do I need an account?",
@@ -405,7 +405,8 @@ export const en = {
     placeOrder: "Place order and pay",
     placeOrderOffline: "Place order",
     placing: "Placing your order…",
-    signInPrompt: "Have an account? Sign in to fill in your details and follow this order.",
+    signInPrompt: "Sign in to place an order. Your details and this order stay on your account.",
+    signInToOrder: "Sign in to place order",
     total: "Total",
     payNow: "To pay now",
     balanceLater: "Balance before delivery",
@@ -494,7 +495,7 @@ export const en = {
     loginTitle: "Sign in",
     loginIntro: "Sign in to follow your orders, pay balances and check out faster.",
     registerTitle: "Create an account",
-    registerIntro: "An account keeps your cart, details and orders in one place. Checking out as a guest still works.",
+    registerIntro: "An account keeps your cart, details and orders in one place. Sign in before you place an order.",
     email: "Email",
     password: "Password",
     passwordHint: "At least 8 characters",
@@ -571,7 +572,7 @@ export const en = {
       },
       {
         title: "Your choices and rights",
-        body: "You can check out as a guest without an account. If you have an account, you can update your profile at any time. You can ask us to show, correct or delete your personal information by contacting us; some order and payment records may need to be kept for legal reasons.",
+        body: "You sign in before placing an order. You can update your profile at any time. You can ask us to show, correct or delete your personal information by contacting us; some order and payment records may need to be kept for legal reasons.",
       },
       {
         title: "Security",
@@ -664,7 +665,7 @@ export const en = {
     howTitle: "How ordering works",
     howSteps: [
       { title: "Choose", body: "Browse the shop or send us a custom request." },
-      { title: "Order", body: "Add to cart and check out as a guest or with an account." },
+      { title: "Order", body: "Sign in, add to cart, and check out with your account." },
       { title: "Pay the advance", body: "We confirm your order and the advance; you get a receipt." },
       { title: "Receive", body: "We make or prepare it, then deliver — or you collect." },
     ],

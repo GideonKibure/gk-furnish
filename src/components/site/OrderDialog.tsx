@@ -36,6 +36,7 @@ export function useAddToCart() {
       color: choice.color,
     });
     if (buyNow) {
+      sessionStorage.setItem("gk-checkout-start", "payment");
       void nav({ to: "/checkout" });
       return;
     }
