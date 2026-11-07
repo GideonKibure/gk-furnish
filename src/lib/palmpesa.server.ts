@@ -4,8 +4,11 @@ import {
   assertPayableAmount,
   metaRecord,
   palmTransactionId,
+  phoneMatchesWallet,
   toPalmPhone,
+  walletById,
   type PalmCallback,
+  type WalletId,
 } from "@/lib/palmpesa";
 
 type SupabaseAdmin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
@@ -140,10 +143,15 @@ export async function startPalmPayment(
     phone: string;
     customerName: string;
     email: string | null;
+    wallet: WalletId;
   },
 ) {
   const phone = toPalmPhone(input.phone);
-  if (!phone) throw new Error("Enter a Tanzanian mobile money number, for example 07XXXXXXXX.");
+  const wallet = walletById(input.wallet);
+  if (!phone || !wallet) throw new Error("Enter a Tanzanian mobile money number, for example 07XXXXXXXX.");
+  if (!phoneMatchesWallet(phone, wallet.id)) {
+    throw new Error(`That number is not a ${wallet.label} number. Choose the wallet that matches this phone.`);
+  }
   const problem = assertPayableAmount(input.amount, input.balance);
   if (problem) throw new Error(problem);
   const callback = palmCallbackUrl();
@@ -162,13 +170,14 @@ export async function startPalmPayment(
     provider: "PalmPesa",
     payment_method: "mobile_money",
     status: "pending",
-    metadata: { source: "palmpesa", method: "Mobile money" },
+    metadata: { source: "palmpesa", method: wallet.label, wallet: wallet.id },
   });
 
   const transactionId = palmTransactionId(created.id);
   const metadata: Record<string, unknown> = {
     source: "palmpesa",
-    method: "Mobile money",
+    method: wallet.label,
+    wallet: wallet.id,
     transaction_id: transactionId,
   };
   await writeRow(supabaseAdmin, "update", created.id, {
@@ -277,5 +286,6 @@ export function readPalmMeta(metadata: unknown) {
     channel: typeof meta["channel"] === "string" ? meta["channel"] : "",
     failureReason: typeof meta["failure_reason"] === "string" ? meta["failure_reason"] : "",
     method: typeof meta["method"] === "string" ? meta["method"] : "",
+    wallet: typeof meta["wallet"] === "string" ? meta["wallet"] : "",
   };
 }

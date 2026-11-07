@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { optionalSupabaseAuth } from "@/integrations/supabase/customer-auth";
 import { composeOrderNotes, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
+import { walletById } from "@/lib/palmpesa";
 import {
   advanceAmount,
   advanceSettingsFrom,
@@ -41,6 +42,7 @@ const CheckoutInput = z
     notes: opt(1000),
     payment_choice: z.enum(["advance", "full"]),
     payment_method: z.enum(["mobile", "cash"]).default("mobile"),
+    wallet: z.enum(["mpesa", "airtel", "yas", "halopesa"]).optional(),
     payment_phone: phone.optional().or(z.literal("")),
     specs_agreed: z.literal(true),
   })
@@ -263,6 +265,7 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     const amount = chargeNow(data.payment_choice === "full" ? total : advanceRequired, total);
     const payOnline = data.payment_method === "mobile" && onlinePaymentsConfigured();
+    if (payOnline && !data.wallet) throw new Error("Choose M-Pesa, Airtel Money, Yas or HaloPesa.");
     let paymentId: string | null = null;
     let paymentError: string | null = null;
     if (payOnline) {
@@ -276,6 +279,7 @@ export const createCheckout = createServerFn({ method: "POST" })
           phone: paymentPhone,
           customerName: data.customer_name,
           email: data.email || context.email || null,
+          wallet: data.wallet ?? "mpesa",
         });
         await supabaseAdmin.from("orders").update({ payment_status: "pending" }).eq("id", order.id);
       } catch (err) {
@@ -365,6 +369,7 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
       failureReason: palmMeta.failureReason || null,
       reference: payment.receipt_number || palmMeta.reference || palmMeta.providerOrderId || null,
       canResend: payment.status === "pending" && Boolean(payment.snippe_reference) && palmMeta.source !== "palmpesa",
+      wallet: walletById(palmMeta.wallet)?.label ?? palmMeta.method ?? null,
       receiptNumber: payment.receipt_number,
       paidAt: payment.updated_at,
       order: {
@@ -416,6 +421,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
         paymentId: z.string().uuid().optional(),
         orderNumber: z.string().trim().max(40).optional(),
         kind: z.enum(["advance", "full"]),
+        wallet: z.enum(["mpesa", "airtel", "yas", "halopesa"]),
         phone,
       })
       .refine((d) => d.paymentId || d.orderNumber, "Order not found")
@@ -483,6 +489,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       phone: data.phone,
       customerName: order.customer_name,
       email: order.email,
+      wallet: data.wallet,
     });
     return { paymentId };
   });

@@ -9,8 +9,10 @@ import {
   decideCallback,
   isRepeatAdminPayment,
   parsePalmCallback,
+  phoneMatchesWallet,
   toPalmPhone,
   verifyPalmSignature,
+  walletForPhone,
   type LocalPayment,
   type PalmCallback,
 } from "./palmpesa.ts";
@@ -157,6 +159,15 @@ test("a guest with the private payment link can pay, and a stranger with only an
   assert.equal(canPayOrder({ userId: null, orderUserId: null, hasPaymentLink: true }), true);
   assert.equal(canPayOrder({ userId: "owner", orderUserId: "owner", hasPaymentLink: false }), true);
   assert.equal(canPayOrder({ userId: null, orderUserId: null, hasPaymentLink: false }), false);
+});
+
+test("each wallet only accepts its own phone prefixes", () => {
+  assert.equal(walletForPhone("0744123456"), "mpesa");
+  assert.equal(walletForPhone("0684123456"), "airtel");
+  assert.equal(walletForPhone("0712345678"), "yas");
+  assert.equal(walletForPhone("0624123456"), "halopesa");
+  assert.equal(phoneMatchesWallet("0744123456", "airtel"), false);
+  assert.equal(phoneMatchesWallet("0624123456", "halopesa"), true);
 });
 
 test("a network or API failure is not treated as a payment", () => {

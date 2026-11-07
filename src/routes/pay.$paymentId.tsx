@@ -4,12 +4,14 @@ import { CheckCircle2, Loader2, MessageCircle, Receipt, Smartphone, XCircle } fr
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/PageHeader";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
 import { formatPrice, waLink } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { getPaymentStatus, resendPaymentPrompt, startOrderPayment } from "@/lib/checkout.functions";
+import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
 import { downloadInvoice, downloadReceipt, receiptText, type ReceiptData } from "@/lib/invoice";
 
 export const Route = createFileRoute("/pay/$paymentId")({
@@ -31,6 +33,7 @@ function PayPage() {
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState("");
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
   const [showPhone, setShowPhone] = useState(false);
 
   useEffect(() => {
@@ -67,9 +70,14 @@ function PayPage() {
       toast.error(t.validation.phoneInvalid);
       return;
     }
+    if (!phoneMatchesWallet(number, wallet)) {
+      setShowPhone(true);
+      toast.error(t.checkout.walletMismatch);
+      return;
+    }
     setBusy(true);
     try {
-      const r = await start({ data: { paymentId, kind, phone: number } });
+      const r = await start({ data: { paymentId, kind, phone: number, wallet } });
       void nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t.validation.failed);
@@ -136,7 +144,7 @@ function PayPage() {
             <div>
               <Smartphone className="h-10 w-10 text-gold-ink" />
               <p className="mt-4 text-lg text-navy">
-                {fill(t.pay.body, { phone: data.phone, amount: formatPrice(data.amount) ?? "" })}
+                {fill(t.pay.body, { phone: data.phone, amount: formatPrice(data.amount) ?? "", wallet: data.wallet || "M-Pesa" })}
               </p>
               <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -237,8 +245,10 @@ function PayPage() {
           {data.status !== "pending" && o.balance > 0 && o.status !== "cancelled" && (
             <div className="mt-8 border-t border-border/70 pt-6">
               {(showPhone || data.status !== "completed") && (
-                <div className="mb-4 max-w-xs">
-                  <label className="field-label" htmlFor="pay-phone">{t.checkout.phone}</label>
+                <div className="mb-4 max-w-md">
+                  <p className="mb-2 text-sm font-semibold text-navy">{t.checkout.walletTitle}</p>
+                  <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                  <label className="field-label mt-4" htmlFor="pay-phone">{t.checkout.phone}</label>
                   <input
                     id="pay-phone"
                     type="tel"

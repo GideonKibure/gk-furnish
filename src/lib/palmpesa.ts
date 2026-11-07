@@ -4,6 +4,31 @@
  * Docs: https://documentation.palmpesa.co.tz/
  */
 
+export const WALLETS = [
+  { id: "mpesa", label: "M-Pesa", prefixes: ["74", "75", "76"] },
+  { id: "airtel", label: "Airtel Money", prefixes: ["68", "69", "78", "79"] },
+  { id: "yas", label: "Yas (Tigo Pesa)", prefixes: ["65", "67", "71"] },
+  { id: "halopesa", label: "HaloPesa", prefixes: ["61", "62"] },
+] as const;
+
+export type WalletId = (typeof WALLETS)[number]["id"];
+
+export function walletById(id: string) {
+  return WALLETS.find((wallet) => wallet.id === id) ?? null;
+}
+
+/** The wallet PalmPesa will prompt, from the Tanzanian mobile prefix. */
+export function walletForPhone(raw: string): WalletId | null {
+  const phone = toPalmPhone(raw);
+  if (!phone) return null;
+  const prefix = phone.slice(3, 5);
+  return WALLETS.find((wallet) => (wallet.prefixes as readonly string[]).includes(prefix))?.id ?? null;
+}
+
+export function phoneMatchesWallet(raw: string, wallet: WalletId) {
+  return walletForPhone(raw) === wallet;
+}
+
 export const PALMPESA_MIN_TZS = 100;
 export const PALMPESA_MAX_TZS = 100_000_000;
 export const ADMIN_REPEAT_WINDOW_MS = 120_000;

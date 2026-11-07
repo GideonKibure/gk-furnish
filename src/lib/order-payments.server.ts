@@ -45,6 +45,7 @@ export async function startMobilePayment(
     customerName: string;
     email: string | null;
     balance: number;
+    wallet: import("@/lib/palmpesa").WalletId;
   },
 ) {
   if (palmpesaConfigured()) {
@@ -62,7 +63,7 @@ export async function startMobilePayment(
       amount,
       phone,
       status: "pending",
-      metadata: { source: "snippe" },
+      metadata: { source: "snippe", wallet: input.wallet },
     })
     .select("id")
     .single();

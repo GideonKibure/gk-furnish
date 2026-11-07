@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { StatusPill } from "@/components/brand/StatusPill";
 import { AccountShell } from "@/components/site/AccountShell";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
 import { fill } from "@/i18n/fill";
@@ -14,6 +15,7 @@ import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
 import { getMyOrder } from "@/lib/account.functions";
 import { getCheckoutConfig, startOrderPayment } from "@/lib/checkout.functions";
+import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
 import { downloadInvoice, downloadReceipt, purposeLabel } from "@/lib/invoice";
 
 export const Route = createFileRoute("/account/orders/$number")({
@@ -34,6 +36,7 @@ function AccountOrderPage() {
   const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
   const [phone, setPhone] = useState("");
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -102,9 +105,13 @@ function AccountOrderPage() {
       toast.error(t.validation.phoneInvalid);
       return;
     }
+    if (!phoneMatchesWallet(num, wallet)) {
+      toast.error(t.checkout.walletMismatch);
+      return;
+    }
     setBusy(true);
     try {
-      const r = await start({ data: { orderNumber: o.order_number, kind, phone: num } });
+      const r = await start({ data: { orderNumber: o.order_number, kind, phone: num, wallet } });
       void nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t.validation.failed);
@@ -273,7 +280,9 @@ function AccountOrderPage() {
             {o.balance > 0 && o.status !== "cancelled" && config?.onlinePayment && (
               <div className="mt-4 space-y-3 border-t border-border pt-4">
                 <div>
-                  <label className="field-label" htmlFor="o-pay-phone">{t.checkout.phone}</label>
+                  <p className="mb-2 text-sm font-semibold text-navy">{t.checkout.walletTitle}</p>
+                  <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                  <label className="field-label mt-3" htmlFor="o-pay-phone">{t.checkout.phone}</label>
                   <input id="o-pay-phone" type="tel" className="field-input" placeholder={o.phone} value={phone} onChange={(e) => setPhone(e.target.value)} />
                 </div>
                 {advanceLeft > 0 && (

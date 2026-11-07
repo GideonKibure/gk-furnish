@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Stepper } from "@/components/brand/Stepper";
 import { DeliveryFields, type DeliveryValues } from "@/components/site/DeliveryFields";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
 import { fill } from "@/i18n/fill";
@@ -16,6 +17,7 @@ import { listMyAddresses, type SavedAddress } from "@/lib/addresses.functions";
 import { useCart } from "@/lib/cart";
 import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
 import { composeDeliveryLocation, deliveryFeeStatusFor, type FulfilmentMethod } from "@/lib/delivery";
+import { phoneMatchesWallet, walletById, type WalletId } from "@/lib/palmpesa";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
 import { isPurchasable } from "@/lib/product-display";
 import { siteSettingsQuery } from "@/lib/site-content";
@@ -56,6 +58,7 @@ function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
   const [payMethod, setPayMethod] = useState<"mobile" | "cash">("mobile");
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -146,6 +149,7 @@ function CheckoutPage() {
     if (online && payMethod === "mobile") {
       const payPhone = form.payment_phone.trim() || form.phone.trim();
       if (!phoneOk(payPhone)) errs["payment_phone"] = t.validation.phoneInvalid;
+      else if (!phoneMatchesWallet(payPhone, wallet)) errs["payment_phone"] = t.checkout.walletMismatch;
     }
     setErrors(errs);
     return !Object.keys(errs).length;
@@ -189,6 +193,7 @@ function CheckoutPage() {
           notes: form.notes.trim(),
           payment_choice: choice,
           payment_method: online && payMethod === "mobile" ? "mobile" : "cash",
+          ...(online && payMethod === "mobile" ? { wallet } : {}),
           payment_phone: online && payMethod === "mobile" ? form.payment_phone.trim() || form.phone.trim() : "",
           specs_agreed: true,
         },
@@ -498,7 +503,11 @@ function CheckoutPage() {
                       </div>
                       {payMethod === "mobile" ? (
                         <div className="mt-4">
-                          <label className="field-label" htmlFor="c-pay-phone">{t.checkout.phone} *</label>
+                          <p className="text-sm font-semibold text-navy">{t.checkout.walletTitle}</p>
+                          <div className="mt-2">
+                            <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                          </div>
+                          <label className="field-label mt-4" htmlFor="c-pay-phone">{t.checkout.phone} *</label>
                           <input
                             id="c-pay-phone"
                             type="tel"
@@ -559,7 +568,7 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value: online && payMethod === "mobile" ? t.checkout.methodMobile : t.checkout.cashReview,
+                      value: online && payMethod === "mobile" ? `${t.checkout.methodMobile} · ${walletById(wallet)?.label ?? ""}` : t.checkout.cashReview,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
