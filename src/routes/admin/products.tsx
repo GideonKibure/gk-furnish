@@ -601,7 +601,16 @@ function AdminProductsPage() {
               }),
         },
       });
-      toast.success(copying ? "Copy saved as a draft" : editing ? "Product updated" : "Product created");
+      const savedStatus = String(fd.get("status") ?? "active");
+      toast.success(
+        copying
+          ? savedStatus === "active"
+            ? "Copy is now in the shop"
+            : "Copy saved"
+          : editing
+            ? "Product updated"
+            : "Product created",
+      );
       if (saved.notice) toast.info(`SKU, status, discount and delivery fields were not saved. ${saved.notice}`, { duration: 10000 });
       closeForm();
       await refresh();
@@ -684,7 +693,7 @@ function AdminProductsPage() {
                 </h2>
                 {copying && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Change anything, then save. The copy starts as a draft, so it stays off the shop until you set it to Active.
+                    The copy keeps the original price, options, photos, stock and shop settings. Change the name or anything else, then save. It appears in the shop when its status is Active.
                   </p>
                 )}
               </div>
@@ -762,7 +771,7 @@ function AdminProductsPage() {
               </div>
               <div>
                 <label className="field-label">Status</label>
-                <select name="status" className="field-input" defaultValue={copying ? "draft" : prefill ? productStatus(prefill) : "active"}>
+                <select name="status" className="field-input" defaultValue={prefill ? productStatus(prefill) : "active"}>
                   <option value="active">Active — shown in the shop</option>
                   <option value="draft">Draft — hidden while you finish it</option>
                   <option value="archived">Archived — no longer sold</option>
@@ -1240,10 +1249,10 @@ function AdminProductsPage() {
 
             <div className="flex items-center gap-6 md:col-span-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_available" defaultChecked={copying ? false : prefill?.is_available ?? true} /> Available
+                <input type="checkbox" name="is_available" defaultChecked={prefill?.is_available ?? true} /> Available
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_featured" defaultChecked={copying ? false : prefill?.is_featured ?? false} /> Featured
+                <input type="checkbox" name="is_featured" defaultChecked={prefill?.is_featured ?? false} /> Featured
               </label>
             </div>
             <div className="flex gap-2 md:col-span-2">
