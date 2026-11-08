@@ -327,6 +327,13 @@ const ProductInput = z.object({
   /** Public URL of a video already uploaded for this product. */
   video_url: z.string().trim().max(800).optional().or(z.literal("")),
   clear_video: z.boolean().optional(),
+  /** Existing photo URLs to copy onto a new product. The files are duplicated so later edits do not affect the original. */
+  keep_image_urls: z
+    .array(z.object({ slot: z.number().int().min(0).max(1), url: z.string().trim().min(1).max(800) }))
+    .max(2)
+    .optional(),
+  /** Existing video URL to copy onto a new product. */
+  clone_video_url: z.string().trim().max(800).optional().or(z.literal("")),
   /** Catalogue fields added by migration 0007. Ignored until it has run. */
   extended: z
     .object({
@@ -359,6 +366,39 @@ async function uploadProductStorage(
   if (upErr) throw new Error(`Image upload failed: ${upErr.message}`);
   const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(path);
   return { path, url: pub.publicUrl };
+}
+
+async function availableSlug(
+  supabaseAdmin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  base: string,
+) {
+  const root = base.slice(0, 70) || `item-${Date.now()}`;
+  for (let n = 1; n < 40; n++) {
+    const slug = (n === 1 ? root : `${root}-${n}`).slice(0, 80);
+    const { data } = await supabaseAdmin.from("products").select("id").eq("slug", slug).maybeSingle();
+    if (!data) return slug;
+  }
+  return `${root.slice(0, 60)}-${Date.now()}`.slice(0, 80);
+}
+
+/** Copy a catalogue file so the new product does not share the original's storage object. */
+async function cloneProductFile(
+  supabaseAdmin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  url: string,
+) {
+  const path = storagePathFromPublicUrl(url);
+  if (!path) return null;
+  const { data, error } = await supabaseAdmin.storage.from("product-images").download(path);
+  if (error || !data) return null;
+  const ext = path.includes(".") ? path.split(".").pop() || "bin" : "bin";
+  const nextPath = `${crypto.randomUUID()}.${ext}`;
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("product-images")
+    .upload(nextPath, bytes, { contentType: data.type || "application/octet-stream", upsert: false });
+  if (upErr) return null;
+  const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(nextPath);
+  return pub.publicUrl;
 }
 
 function storagePathFromPublicUrl(url: string | null | undefined) {
@@ -522,11 +562,12 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       ? await supabaseAdmin.from("products").select("price,stock_quantity").eq("id", data.id).maybeSingle()
       : { data: null };
 
+    const requestedSlug = data.slug?.trim() || slugify(data.name);
     const payload = {
       category_id: data.category_id,
       name: data.name,
       name_sw: data.name_sw || null,
-      slug: data.slug?.trim() || slugify(data.name),
+      slug: data.id ? requestedSlug : await availableSlug(supabaseAdmin, requestedSlug),
       description: data.description || "",
       description_sw: data.description_sw || null,
       short_description: data.short_description || null,
@@ -577,9 +618,45 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
     }
+    if (result.error?.code === "23505" && /slug/i.test(result.error.message)) {
+      throw new Error("Another product already uses this web address. Change the slug and save again.");
+    }
     if (result.error || !result.data) throw new Error(result.error?.message ?? (data.id ? "Update failed" : "Create failed"));
     const productId = result.data.id;
     const slug = result.data.slug;
+
+    if (!data.id && data.keep_image_urls?.length) {
+      const replaced = new Set((data.angle_uploads ?? []).map((item) => item.slot));
+      for (const item of data.keep_image_urls) {
+        if (replaced.has(item.slot)) continue;
+        const url = await cloneProductFile(supabaseAdmin, item.url);
+        if (!url) continue;
+        const { error } = await supabaseAdmin.from("product_images").insert({
+          product_id: productId,
+          image_url: url,
+          alt_text: ANGLE_LABELS[item.slot as 0 | 1],
+          sort_order: item.slot,
+        });
+        if (error) throw new Error(error.message);
+      }
+      const primary = data.keep_image_urls.find((item) => item.slot === 0 && !replaced.has(0));
+      if (primary) {
+        const { data: copied } = await supabaseAdmin
+          .from("product_images")
+          .select("image_url")
+          .eq("product_id", productId)
+          .eq("sort_order", 0)
+          .maybeSingle();
+        if (copied?.image_url) {
+          await supabaseAdmin.from("products").update({ image_url: copied.image_url }).eq("id", productId);
+        }
+      }
+    }
+
+    let videoUrl = data.video_url;
+    if (!data.id && data.clone_video_url?.trim()) {
+      videoUrl = (await cloneProductFile(supabaseAdmin, data.clone_video_url)) ?? "";
+    }
 
     if (previous && Number(previous.price) !== data.price) {
       await writeAudit(supabaseAdmin, {
@@ -593,7 +670,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     }
 
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
-    await syncProductVideo(supabaseAdmin, productId, data.video_url, data.clear_video);
+    await syncProductVideo(supabaseAdmin, productId, videoUrl, data.clear_video);
 
     return { id: productId, slug, extendedSaved, notice: ext && !extendedSaved ? migrationNeeded("0007_storefront_prd_gaps.sql") : null };
   });

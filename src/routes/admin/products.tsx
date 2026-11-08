@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Archive, ArchiveRestore, Download, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Download, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import {
@@ -265,6 +265,7 @@ function AdminProductsPage() {
   const [tab, setTab] = useState<StatusTab>("all");
   const [cats, setCats] = useState<Cat[]>([]);
   const [editing, setEditing] = useState<ProductRow | null>(null);
+  const [copying, setCopying] = useState<ProductRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [featureRows, setFeatureRows] = useState<string[]>(["", "", ""]);
@@ -404,12 +405,22 @@ function AdminProductsPage() {
   function openCreate() {
     setCreating(true);
     setEditing(null);
+    setCopying(null);
     resetFormExtras(null);
   }
 
   function openEdit(p: ProductRow) {
     setEditing(p);
+    setCopying(null);
     setCreating(false);
+    resetFormExtras(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openDuplicate(p: ProductRow) {
+    setCopying(p);
+    setEditing(null);
+    setCreating(true);
     resetFormExtras(p);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -427,6 +438,7 @@ function AdminProductsPage() {
     });
     setCreating(false);
     setEditing(null);
+    setCopying(null);
   }
 
   function setVideoFile(file: File | null) {
@@ -579,9 +591,17 @@ function AdminProductsPage() {
           clear_angle_slots: clear_angle_slots.length ? clear_angle_slots : undefined,
           video_url,
           clear_video: Boolean(video.clear && !video.file),
+          ...(editing
+            ? {}
+            : {
+                keep_image_urls: angles.flatMap((slot, index) =>
+                  slot.existingUrl && !slot.file && !slot.clear ? [{ slot: index, url: slot.existingUrl }] : [],
+                ),
+                ...(video.existingUrl && !video.file && !video.clear ? { clone_video_url: video.existingUrl } : {}),
+              }),
         },
       });
-      toast.success(editing ? "Product updated" : "Product created");
+      toast.success(copying ? "Copy saved as a draft" : editing ? "Product updated" : "Product created");
       if (saved.notice) toast.info(`SKU, status, discount and delivery fields were not saved. ${saved.notice}`, { duration: 10000 });
       closeForm();
       await refresh();
@@ -593,6 +613,7 @@ function AdminProductsPage() {
   }
 
   const formOpen = creating || editing;
+  const prefill = editing ?? copying;
 
   const productColumns: Column<ProductRow>[] = [
     {
@@ -655,24 +676,37 @@ function AdminProductsPage() {
 
       {formOpen && (
         <AdminCard className="mb-6">
-          <form key={editing?.id ?? "new"} onSubmit={onSave} className="grid gap-3 md:grid-cols-2">
+          <form key={editing?.id ?? (copying ? `copy-${copying.id}` : "new")} onSubmit={onSave} className="grid gap-3 md:grid-cols-2">
             <div className="flex items-center justify-between gap-2 md:col-span-2">
-              <h2 className="text-base font-semibold text-navy">{editing ? `Edit ${editing.name}` : "New product"}</h2>
+              <div>
+                <h2 className="text-base font-semibold text-navy">
+                  {copying ? `Copy of ${copying.name}` : editing ? `Edit ${editing.name}` : "New product"}
+                </h2>
+                {copying && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Change anything, then save. The copy starts as a draft, so it stays off the shop until you set it to Active.
+                  </p>
+                )}
+              </div>
               <button type="button" className={btn("ghost", "sm")} onClick={closeForm} aria-label="Close form">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div>
               <label className="field-label">Name (EN) *</label>
-              <input name="name" required className="field-input" defaultValue={editing?.name ?? ""} />
+              <input name="name" required className="field-input" defaultValue={copying ? `${copying.name} (copy)` : prefill?.name ?? ""} />
             </div>
             <div>
               <label className="field-label">Name (SW)</label>
-              <input name="name_sw" className="field-input" defaultValue={editing?.name_sw ?? ""} />
+              <input
+                name="name_sw"
+                className="field-input"
+                defaultValue={copying ? (copying.name_sw ? `${copying.name_sw} (nakala)` : "") : prefill?.name_sw ?? ""}
+              />
             </div>
             <div>
               <label className="field-label">Slug</label>
-              <input name="slug" className="field-input" placeholder="auto from name" defaultValue={editing?.slug ?? ""} />
+              <input name="slug" className="field-input" placeholder="auto from name" defaultValue={copying ? "" : prefill?.slug ?? ""} />
             </div>
             <div>
               <label className="field-label">Category *</label>
@@ -680,7 +714,7 @@ function AdminProductsPage() {
                 name="category_id"
                 required
                 className="field-input"
-                defaultValue={editing?.category_id ?? cats[0]?.id}
+                defaultValue={prefill?.category_id ?? cats[0]?.id}
               >
                 {cats.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -698,7 +732,7 @@ function AdminProductsPage() {
                 step={100}
                 required
                 className="field-input"
-                defaultValue={editing?.price ?? 0}
+                defaultValue={prefill?.price ?? 0}
               />
             </div>
             <div>
@@ -709,7 +743,7 @@ function AdminProductsPage() {
                 min={0}
                 required
                 className="field-input"
-                defaultValue={editing?.stock_quantity ?? 0}
+                defaultValue={prefill?.stock_quantity ?? 0}
               />
             </div>
 
@@ -724,11 +758,11 @@ function AdminProductsPage() {
               )}
               <div>
                 <label className="field-label">SKU</label>
-                <input name="sku" className="field-input font-mono" placeholder="e.g. GK-CHR-001" defaultValue={editing?.sku ?? ""} />
+                <input name="sku" className="field-input font-mono" placeholder="e.g. GK-CHR-001" defaultValue={copying ? "" : prefill?.sku ?? ""} />
               </div>
               <div>
                 <label className="field-label">Status</label>
-                <select name="status" className="field-input" defaultValue={editing ? productStatus(editing) : "active"}>
+                <select name="status" className="field-input" defaultValue={copying ? "draft" : prefill ? productStatus(prefill) : "active"}>
                   <option value="active">Active — shown in the shop</option>
                   <option value="draft">Draft — hidden while you finish it</option>
                   <option value="archived">Archived — no longer sold</option>
@@ -736,30 +770,30 @@ function AdminProductsPage() {
               </div>
               <div>
                 <label className="field-label">Made by</label>
-                <select name="source_type" className="field-input" defaultValue={editing?.source_type ?? "in_house"}>
+                <select name="source_type" className="field-input" defaultValue={prefill?.source_type ?? "in_house"}>
                   <option value="in_house">In-house workshop</option>
                   <option value="partner">Partner maker</option>
                 </select>
               </div>
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-navy">
-                <input type="checkbox" name="is_customisable" defaultChecked={editing?.is_customisable ?? false} className="h-4 w-4 accent-[#14213D]" />
+                <input type="checkbox" name="is_customisable" defaultChecked={prefill?.is_customisable ?? false} className="h-4 w-4 accent-[#14213D]" />
                 Customers can ask for changes (customisable)
               </label>
               <div>
                 <label className="field-label">Finish (EN)</label>
-                <input name="finish" className="field-input" placeholder="e.g. Matte walnut varnish" defaultValue={editing?.finish ?? ""} />
+                <input name="finish" className="field-input" placeholder="e.g. Matte walnut varnish" defaultValue={prefill?.finish ?? ""} />
               </div>
               <div>
                 <label className="field-label">Finish (SW)</label>
-                <input name="finish_sw" className="field-input" placeholder="mf. Vanishi ya walnut" defaultValue={editing?.finish_sw ?? ""} />
+                <input name="finish_sw" className="field-input" placeholder="mf. Vanishi ya walnut" defaultValue={prefill?.finish_sw ?? ""} />
               </div>
               <div>
                 <label className="field-label">Care info (EN)</label>
-                <textarea name="care_info" rows={2} className="field-input" defaultValue={editing?.care_info ?? ""} />
+                <textarea name="care_info" rows={2} className="field-input" defaultValue={prefill?.care_info ?? ""} />
               </div>
               <div>
                 <label className="field-label">Care info (SW)</label>
-                <textarea name="care_info_sw" rows={2} className="field-input" defaultValue={editing?.care_info_sw ?? ""} />
+                <textarea name="care_info_sw" rows={2} className="field-input" defaultValue={prefill?.care_info_sw ?? ""} />
               </div>
               <div>
                 <label className="field-label">Old price (TSh)</label>
@@ -770,7 +804,7 @@ function AdminProductsPage() {
                   step={100}
                   className="field-input"
                   placeholder="Shown crossed out"
-                  defaultValue={editing?.compare_at_price ?? ""}
+                  defaultValue={prefill?.compare_at_price ?? ""}
                 />
                 <p className="mt-1 text-xs text-[#6B7280]">Must be higher than the price above. Leave empty when there is no offer.</p>
               </div>
@@ -783,12 +817,12 @@ function AdminProductsPage() {
                   max={90}
                   className="field-input"
                   placeholder="Optional, 1–90"
-                  defaultValue={editing?.discount_percent ?? ""}
+                  defaultValue={prefill?.discount_percent ?? ""}
                 />
                 <p className="mt-1 text-xs text-[#6B7280]">Leave empty to work it out from the old price.</p>
               </div>
               <label className="flex items-center gap-2 text-sm text-navy">
-                <input type="checkbox" name="free_delivery" defaultChecked={editing?.free_delivery ?? false} className="h-4 w-4 accent-[#14213D]" />
+                <input type="checkbox" name="free_delivery" defaultChecked={prefill?.free_delivery ?? false} className="h-4 w-4 accent-[#14213D]" />
                 Free delivery for this product
               </label>
               <div role="radiogroup" aria-label="Stock shown to customers" className="space-y-1.5">
@@ -798,7 +832,7 @@ function AdminProductsPage() {
                     type="radio"
                     name="stock_display"
                     value="label"
-                    defaultChecked={(editing?.stock_display ?? "label") !== "count"}
+                    defaultChecked={(prefill?.stock_display ?? "label") !== "count"}
                     className="accent-[#14213D]"
                   />
                   Show label: In stock / Made to order
@@ -808,7 +842,7 @@ function AdminProductsPage() {
                     type="radio"
                     name="stock_display"
                     value="count"
-                    defaultChecked={editing?.stock_display === "count"}
+                    defaultChecked={prefill?.stock_display === "count"}
                     className="accent-[#14213D]"
                   />
                   Show exact quantity
@@ -901,7 +935,7 @@ function AdminProductsPage() {
                                   min={0}
                                   step={100}
                                   className="field-input !h-9 min-w-28"
-                                  placeholder={String(editing?.price ?? 0)}
+                                  placeholder={String(prefill?.price ?? 0)}
                                   value={priceMap[key] ?? ""}
                                   onChange={(e) => setPriceMap((map) => ({ ...map, [key]: e.target.value }))}
                                   aria-label={`Price for ${[material.en, dimension.en].filter(Boolean).join(" and ") || "this option"}`}
@@ -921,12 +955,12 @@ function AdminProductsPage() {
               <input
                 name="short_description"
                 className="field-input"
-                defaultValue={editing?.short_description ?? ""}
+                defaultValue={prefill?.short_description ?? ""}
               />
             </div>
             <div>
               <label className="field-label">Description (EN)</label>
-              <textarea name="description" rows={3} className="field-input" defaultValue={editing?.description ?? ""} />
+              <textarea name="description" rows={3} className="field-input" defaultValue={prefill?.description ?? ""} />
             </div>
             <div>
               <label className="field-label">Description (SW)</label>
@@ -934,7 +968,7 @@ function AdminProductsPage() {
                 name="description_sw"
                 rows={3}
                 className="field-input"
-                defaultValue={editing?.description_sw ?? ""}
+                defaultValue={prefill?.description_sw ?? ""}
               />
             </div>
             <div className="md:col-span-2">
@@ -1071,7 +1105,7 @@ function AdminProductsPage() {
                 name="image_key"
                 className="field-input max-w-md"
                 placeholder="chairs, tables…"
-                defaultValue={editing?.image_key ?? ""}
+                defaultValue={prefill?.image_key ?? ""}
               />
             </div>
 
@@ -1131,7 +1165,7 @@ function AdminProductsPage() {
                             className="btn-base btn-outline-navy !h-9 w-full text-xs"
                             onClick={() => {
                               const source = a.file ?? a.existingUrl ?? shown;
-                              const base = `${editing?.slug || "product"}-${meta.label.toLowerCase().replace(/\s+/g, "-")}`;
+                              const base = `${prefill?.slug || "product"}-${meta.label.toLowerCase().replace(/\s+/g, "-")}`;
                               downloadToDevice(source, photoFileName(base, source)).catch(() => {
                                 toast.error("Could not download this photo");
                               });
@@ -1189,7 +1223,7 @@ function AdminProductsPage() {
                         onClick={() => {
                           const source = video.file ?? video.existingUrl ?? video.previewUrl;
                           if (!source) return;
-                          const base = `${editing?.slug || "product"}-video`;
+                          const base = `${prefill?.slug || "product"}-video`;
                           downloadToDevice(source, photoFileName(base, source)).catch(() => {
                             toast.error("Could not download this video");
                           });
@@ -1206,10 +1240,10 @@ function AdminProductsPage() {
 
             <div className="flex items-center gap-6 md:col-span-2">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_available" defaultChecked={editing?.is_available ?? true} /> Available
+                <input type="checkbox" name="is_available" defaultChecked={copying ? false : prefill?.is_available ?? true} /> Available
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_featured" defaultChecked={editing?.is_featured ?? false} /> Featured
+                <input type="checkbox" name="is_featured" defaultChecked={copying ? false : prefill?.is_featured ?? false} /> Featured
               </label>
             </div>
             <div className="flex gap-2 md:col-span-2">
@@ -1315,6 +1349,9 @@ function AdminProductsPage() {
       <div className="ml-auto flex flex-wrap justify-end gap-1.5">
         <button type="button" className={btn("outline", "sm")} onClick={() => openEdit(p)}>
           <Pencil className="h-3.5 w-3.5" /> Edit
+        </button>
+        <button type="button" className={btn("outline", "sm")} onClick={() => openDuplicate(p)}>
+          <Copy className="h-3.5 w-3.5" /> Duplicate
         </button>
         <button
           type="button"
