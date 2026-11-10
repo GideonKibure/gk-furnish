@@ -849,6 +849,16 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
       entity: "order",
       entityId: order.id,
     });
+    const { sendStageEmail } = await import("@/lib/mailjet.server");
+    await sendStageEmail({
+      email: order.email,
+      name: order.customer_name,
+      orderNumber: order.order_number,
+      fromStatus: order.status,
+      toStatus: data.status,
+      note: data.note ?? null,
+      trackingToken: order.tracking_token,
+    });
     return { ok: true };
   });
 
@@ -1316,6 +1326,19 @@ export const createAdminOrder = createServerFn({ method: "POST" })
 
     const { deductStockForSale } = await import("@/lib/order-payments.server");
     await deductStockForSale(supabaseAdmin, { productId: product.id, quantity: data.quantity, orderId: order.id, orderNumber: order.order_number });
+
+    const { data: tracked } = await supabaseAdmin.from("orders").select("tracking_token").eq("id", order.id).maybeSingle();
+    const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
+    await sendCustomerEmail({
+      email: data.email,
+      name: data.customer_name,
+      subject: `Order ${order.order_number} received`,
+      paragraphs: [
+        `Your order ${order.order_number} is placed with GK furnish.`,
+        `Amount due now: ${Math.max(0, withFee - amountPaid).toLocaleString("en-US")} TZS.`,
+      ],
+      link: orderTrackingLink(tracked?.tracking_token),
+    });
 
     return { id: order.id, orderNumber: order.order_number };
   });

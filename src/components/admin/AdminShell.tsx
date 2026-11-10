@@ -29,6 +29,7 @@ import {
   Star,
   Truck,
   Users,
+  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +61,7 @@ const NAV: NavGroup[] = [
     items: [
       { to: "/admin/products", label: "Products", icon: Package },
       { to: "/admin/categories", label: "Categories", icon: FolderTree },
+      { to: "/admin/services", label: "Services", icon: Wrench },
       { to: "/admin/reviews", label: "Reviews", icon: Star },
     ],
   },

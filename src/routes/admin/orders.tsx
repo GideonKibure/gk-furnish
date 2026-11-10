@@ -29,8 +29,7 @@ import { colorSwatch } from "@/lib/color-swatches";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import {
-  ORDER_STATUSES,
-  ORDER_STATUSES_0008,
+  customerStageWrite,
   ORDER_STATUSES_BY_ACTION,
   ORDER_TABS,
   PAYMENT_STATE_LABELS,
@@ -112,11 +111,12 @@ function matches(o: OrderRow, q: string) {
   );
 }
 
-/** Statuses offered in the select: no action-only ones, and 0008 statuses only once it has run. */
-function selectableStatuses(o: { status: string }, has0008: boolean) {
-  return ORDER_STATUSES.filter(
-    (s) => s === o.status || (!ORDER_STATUSES_BY_ACTION.includes(s) && (has0008 || !ORDER_STATUSES_0008.includes(s))),
-  );
+const STAGE_WRITES = ["pending", "confirmed", "in_production", "completed"] as const;
+
+/** The four shared stages, plus Cancelled or Refunded when the order is already there. */
+function selectableStatuses(o: { status: string }) {
+  if ((ORDER_STATUSES_BY_ACTION as readonly string[]).includes(o.status)) return [...STAGE_WRITES, o.status];
+  return [...STAGE_WRITES];
 }
 
 function feePending(o: OrderRow) {
@@ -375,7 +375,6 @@ function OrderDetail({
   const remove = useServerFn(deleteAdminOrder);
   const [busy, setBusy] = useState<string | null>(null);
   const items = o.order_items ?? [];
-  const has0008 = o.cancel_reason !== undefined;
 
   async function run(key: string, task: () => Promise<unknown>, success: string) {
     setBusy(key);
@@ -411,14 +410,14 @@ function OrderDetail({
             <span className="mb-1 block text-xs font-semibold text-[#374151]">Order status</span>
             <select
               className="h-10 w-full rounded-lg border border-[#E5E5E5] bg-white px-3 text-sm text-navy"
-              value={o.status}
+              value={customerStageWrite(o.status)}
               disabled={busy !== null}
               onChange={(e) => {
                 const status = e.target.value as OrderStatus;
                 void run("status", () => update({ data: { id: o.id, status } }), `Status changed to ${orderStatusLabel(status)}`);
               }}
             >
-              {selectableStatuses(o, has0008).map((s) => (
+              {selectableStatuses(o).map((s) => (
                 <option key={s} value={s}>
                   {orderStatusLabel(s)}
                 </option>
@@ -426,8 +425,8 @@ function OrderDetail({
             </select>
           </label>
           <p className="w-full text-xs text-[#6B7280]">
-            Production needs the advance and agreed specifications. Out for delivery, delivered and completed need the delivery fee
-            confirmed and the balance cleared. Cancel with a reason below; refunds are recorded per payment.
+            In production needs the advance and agreed specifications. Received needs the delivery fee confirmed and the balance cleared.
+            Cancel with a reason below; refunds are recorded per payment.
           </p>
           {o.cancel_reason && <p className="w-full text-xs font-medium text-[#991B1B]">Cancelled: {o.cancel_reason}</p>}
         </div>
@@ -678,7 +677,7 @@ function NewOrderForm({
         <div>
           <label className="field-label">Order status</label>
           <select name="status" className="field-input" defaultValue="confirmed">
-            {selectableStatuses({ status: "confirmed" }, false).map((s) => (
+            {selectableStatuses({ status: "confirmed" }).map((s) => (
               <option key={s} value={s}>
                 {orderStatusLabel(s)}
               </option>

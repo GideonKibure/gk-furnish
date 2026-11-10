@@ -25,7 +25,7 @@ import { ProductGrid } from "@/components/site/ProductCard";
 import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
-import { approvedReviewsQuery, categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
+import { approvedReviewsQuery, categoriesQuery, productsQuery, ratingSummaryQuery, servicesQuery } from "@/lib/catalog";
 import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { categoryImageSlot } from "@/lib/site-images";
 import { seo } from "@/lib/seo";
@@ -149,6 +149,7 @@ function Home() {
   const { data: cats } = useSuspenseQuery(categoriesQuery);
   const { data: sections = [] } = useQuery(pageSectionsQuery);
   const { data: reviews = [] } = useQuery(approvedReviewsQuery());
+  const { data: services = [] } = useQuery(servicesQuery);
   const { data: settings } = useQuery(siteSettingsQuery);
   const site = settingsToSite(settings);
   const heroTitle = sectionText(sections, "home", "hero_title", lang, t.home.heroTitle);
@@ -280,12 +281,8 @@ function Home() {
       {/* How ordering works */}
       <section className="bg-navy text-white">
         <div className="container-page section-y">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-6">
             <h2 className="section-title !text-white">{t.home2.howTitle}</h2>
-            <Link to="/process" className="inline-flex items-center gap-1 text-sm font-semibold text-gold hover:underline">
-              {t.home2.howCta}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
           <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {t.home2.howSteps.map((step, i) => {
@@ -304,6 +301,25 @@ function Home() {
           </ol>
         </div>
       </section>
+
+      {services.length > 0 && (
+        <section className="container-page section-y">
+          <SectionTitle title={t.home2.servicesTitle} />
+          <p className="-mt-3 mb-5 max-w-2xl text-sm text-muted-foreground">{t.home2.servicesSubtitle}</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((service) => (
+              <article key={service.id} className="panel p-5">
+                <h3 className="text-base font-bold text-navy">{localized(lang, service.name, service.name_sw)}</h3>
+                {(service.description || service.description_sw) && (
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {localized(lang, service.description ?? "", service.description_sw)}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Testimonials: only approved, verified-buyer reviews */}
       {reviews.length > 0 && (

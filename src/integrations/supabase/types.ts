@@ -53,6 +53,42 @@ export type Database = {
         }
         Relationships: []
       }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          description_sw: string | null
+          id: string
+          is_published: boolean
+          name: string
+          name_sw: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          description_sw?: string | null
+          id?: string
+          is_published?: boolean
+          name: string
+          name_sw?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          description_sw?: string | null
+          id?: string
+          is_published?: boolean
+          name?: string
+          name_sw?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           color: string

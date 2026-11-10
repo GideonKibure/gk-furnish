@@ -306,6 +306,25 @@ export async function completePayment(
       details.provider ? ` via ${details.provider}` : ""
     }${mismatch}. Receipt ${receipt}.`,
   );
+  const { data: order } = await supabaseAdmin
+    .from("orders")
+    .select("order_number,customer_name,email,tracking_token")
+    .eq("id", payment.order_id)
+    .maybeSingle();
+  if (order?.email) {
+    const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
+    const purpose = payment.purpose === "full" ? "full payment" : payment.purpose === "balance" ? "balance" : "advance";
+    await sendCustomerEmail({
+      email: order.email,
+      name: order.customer_name,
+      subject: `Receipt ${receipt} for order ${order.order_number}`,
+      paragraphs: [
+        `GK furnish confirmed your ${purpose} of ${Math.round(received).toLocaleString("en-US")} TZS.`,
+        `Receipt ${receipt} for order ${order.order_number}.`,
+      ],
+      link: orderTrackingLink(order.tracking_token),
+    });
+  }
 }
 
 export async function failPayment(supabaseAdmin: SupabaseAdmin, paymentId: string, status: "failed" | "expired", metadata?: unknown) {

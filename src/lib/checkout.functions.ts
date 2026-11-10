@@ -236,6 +236,19 @@ export const createCheckout = createServerFn({ method: "POST" })
     }
 
     const trackingToken = order.tracking_token || null;
+    const dueNow = data.payment_choice === "full" ? total : advanceRequired;
+    const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
+    await sendCustomerEmail({
+      email: baseOrder.email,
+      name: data.customer_name,
+      subject: `Order ${order.order_number} received`,
+      paragraphs: [
+        `Your order ${order.order_number} is placed.`,
+        `Amount due now: ${dueNow.toLocaleString("en-US")} TZS (${data.payment_choice === "full" ? "full payment" : "advance"}). Pay using the numbers on your order page, then send the transaction ID. The order stays unpaid until GK furnish confirms it.`,
+        deliveryFeeStatus === "pending" ? "The delivery fee will be confirmed with you before delivery." : "",
+      ],
+      link: orderTrackingLink(trackingToken),
+    });
     await Promise.all([
       notify({
         audience: "customer",

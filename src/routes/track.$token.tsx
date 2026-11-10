@@ -37,18 +37,13 @@ export const Route = createFileRoute("/track/$token")({
   component: TrackPage,
 });
 
-const FLOW = [
-  "pending",
-  "confirmed",
-  "in_production",
-  "ready",
-  "out_for_delivery",
-  "completed",
-] as const;
+const FLOW = ["pending", "confirmed", "in_production", "completed"] as const;
 
 function stepIndex(status: string) {
+  if (status === "awaiting_payment") return 0;
   if (status === "processing") return 1;
-  if (status === "delivered") return 5;
+  if (status === "ready") return 2;
+  if (status === "out_for_delivery" || status === "delivered") return 3;
   const i = (FLOW as readonly string[]).indexOf(status);
   return i < 0 ? 0 : i;
 }
@@ -158,7 +153,7 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
           {stopped ? (
             <p className="mt-3 text-sm text-danger">{statusLabel(t, order.status)}</p>
           ) : (
-            <ol className="mt-4 grid gap-3 sm:grid-cols-6">
+            <ol className="mt-4 grid gap-3 sm:grid-cols-4">
               {FLOW.map((s, i) => (
                 <li
                   key={s}

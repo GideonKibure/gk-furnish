@@ -67,6 +67,21 @@ export const ratingSummaryQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
+/** Published workshop services. Empty until migration 0011 has been run. */
+export const servicesQuery = queryOptions({
+  queryKey: ["services"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("services")
+      .select("id,name,name_sw,description,description_sw,sort_order")
+      .eq("is_published", true)
+      .order("sort_order")
+      .order("name");
+    if (error) return [];
+    return data ?? [];
+  },
+});
+
 export const productsQuery = queryOptions({
   queryKey: ["products", "with-angles"],
   queryFn: async () => {

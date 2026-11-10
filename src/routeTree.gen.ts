@@ -51,6 +51,7 @@ import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminResetRouteImport } from './routes/admin/reset'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminServicesRouteImport } from './routes/admin/services'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSuppliersRouteImport } from './routes/admin/suppliers'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -277,6 +278,11 @@ const AdminReviewsRoute = AdminReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminServicesRoute = AdminServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -394,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -452,6 +459,7 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -512,6 +520,7 @@ export interface FileRoutesById {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -573,6 +582,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
+    | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
     | '/auth/callback'
@@ -631,6 +641,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
+    | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
     | '/auth/callback'
@@ -690,6 +701,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/reset'
     | '/admin/reviews'
+    | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
     | '/auth/callback'
@@ -1041,6 +1053,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReviewsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/services': {
+      id: '/admin/services'
+      path: '/services'
+      fullPath: '/admin/services'
+      preLoaderRoute: typeof AdminServicesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/settings'
@@ -1171,6 +1190,7 @@ interface AdminRouteChildren {
   AdminReportsRoute: typeof AdminReportsRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminServicesRoute: typeof AdminServicesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSuppliersRoute: typeof AdminSuppliersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -1198,6 +1218,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminReportsRoute: AdminReportsRoute,
   AdminResetRoute: AdminResetRoute,
   AdminReviewsRoute: AdminReviewsRoute,
+  AdminServicesRoute: AdminServicesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSuppliersRoute: AdminSuppliersRoute,
   AdminIndexRoute: AdminIndexRoute,

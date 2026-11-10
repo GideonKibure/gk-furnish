@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
-import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
+import { isMissingSchema, migrationNeeded, readOptional } from "@/lib/db-compat";
 import { categoryImageSlot, SITE_IMAGES_PAGE } from "@/lib/site-images";
 
 const MIGRATION = "0007_storefront_prd_gaps.sql";
@@ -181,6 +181,61 @@ export const deleteAdminReview = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("product_reviews").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+const SERVICES_MIGRATION = "0011_services.sql";
+
+const ServiceInput = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(120),
+  name_sw: z.string().trim().max(120).optional().or(z.literal("")),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  description_sw: z.string().trim().max(2000).optional().or(z.literal("")),
+  sort_order: z.number().int().min(0).max(10_000),
+  is_published: z.boolean(),
+});
+
+/** Every service, including hidden ones. */
+export const listAdminServices = createServerFn({ method: "GET" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return readOptional(SERVICES_MIGRATION, [], () =>
+      supabaseAdmin.from("services").select("*").order("sort_order").order("name"),
+    );
+  });
+
+export const upsertAdminService = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => ServiceInput.parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const body = {
+      name: data.name,
+      name_sw: data.name_sw || null,
+      description: data.description || null,
+      description_sw: data.description_sw || null,
+      sort_order: data.sort_order,
+      is_published: data.is_published,
+      updated_at: new Date().toISOString(),
+    };
+    const result = data.id
+      ? await supabaseAdmin.from("services").update(body).eq("id", data.id).select("id").single()
+      : await supabaseAdmin.from("services").insert(body).select("id").single();
+    if (result.error && isMissingSchema(result.error)) throw new Error(migrationNeeded(SERVICES_MIGRATION));
+    if (result.error || !result.data) throw new Error(result.error?.message ?? "Could not save the service");
+    return { id: result.data.id };
+  });
+
+export const deleteAdminService = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("services").delete().eq("id", data.id);
+    if (error && isMissingSchema(error)) throw new Error(migrationNeeded(SERVICES_MIGRATION));
     if (error) throw new Error(error.message);
     return { ok: true };
   });

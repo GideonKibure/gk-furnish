@@ -24,16 +24,33 @@ export const ORDER_STATUSES_0008: readonly string[] = ["awaiting_payment", "proc
 /** Statuses only reachable through their own action (cancel with a reason, refund flow). */
 export const ORDER_STATUSES_BY_ACTION: readonly string[] = ["cancelled", "refunded"];
 
+/** The four stages the customer and the admin orders screen share. Older statuses fold into these. */
+export const CUSTOMER_STAGES = [
+  { id: "ordered", label: "Ordered", write: "pending", statuses: ["pending", "awaiting_payment"] },
+  { id: "paid", label: "Paid", write: "confirmed", statuses: ["confirmed", "processing"] },
+  { id: "production", label: "In production", write: "in_production", statuses: ["in_production", "ready"] },
+  { id: "received", label: "Received", write: "completed", statuses: ["out_for_delivery", "delivered", "completed"] },
+] as const;
+
+export function customerStage(status: string) {
+  return CUSTOMER_STAGES.find((stage) => (stage.statuses as readonly string[]).includes(status)) ?? null;
+}
+
+/** Status written when the admin picks a stage. Older values display as that stage without being rewritten. */
+export function customerStageWrite(status: string) {
+  return customerStage(status)?.write ?? status;
+}
+
 const ORDER_LABELS: Record<string, string> = {
-  pending: "Pending",
-  awaiting_payment: "Awaiting payment",
-  confirmed: "Confirmed",
-  processing: "Processing",
+  pending: "Ordered",
+  awaiting_payment: "Ordered",
+  confirmed: "Paid",
+  processing: "Paid",
   in_production: "In production",
-  ready: "Ready",
-  out_for_delivery: "Out for delivery",
-  delivered: "Delivered",
-  completed: "Completed",
+  ready: "In production",
+  out_for_delivery: "Received",
+  delivered: "Received",
+  completed: "Received",
   cancelled: "Cancelled",
   refunded: "Refunded",
 };
@@ -68,10 +85,10 @@ export function orderStatusTone(status: string): PillTone {
 /** Status tabs on the orders list, grouping the order statuses. */
 export const ORDER_TABS = [
   { id: "all", label: "All", statuses: null },
-  { id: "pending", label: "Pending", statuses: ["pending", "awaiting_payment", "confirmed"] },
-  { id: "processing", label: "Processing", statuses: ["processing", "in_production", "ready"] },
-  { id: "delivery", label: "Out for delivery", statuses: ["out_for_delivery"] },
-  { id: "completed", label: "Completed", statuses: ["delivered", "completed"] },
+  { id: "ordered", label: "Ordered", statuses: ["pending", "awaiting_payment"] },
+  { id: "paid", label: "Paid", statuses: ["confirmed", "processing"] },
+  { id: "production", label: "In production", statuses: ["in_production", "ready"] },
+  { id: "received", label: "Received", statuses: ["out_for_delivery", "delivered", "completed"] },
   { id: "cancelled", label: "Cancelled", statuses: ["cancelled", "refunded"] },
 ] as const;
 export type OrderTab = (typeof ORDER_TABS)[number]["id"];
