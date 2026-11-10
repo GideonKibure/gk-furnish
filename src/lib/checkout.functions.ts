@@ -51,12 +51,19 @@ const CheckoutInput = z
     { message: "Delivery address is required", path: ["address_line"] },
   );
 
+/** Phone prompts are on only when the server is set to PalmPesa and has its token. */
+async function palmPaymentsOn() {
+  if (process.env["PAYMENT_MODE"] !== "palmpesa") return false;
+  const { palmpesaConfigured } = await import("@/lib/palmpesa.server");
+  return palmpesaConfigured();
+}
+
 /** Public checkout settings. Online wallet charges stay off while the owner confirms payments by hand. */
 export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
   return {
-    onlinePayment: false,
+    onlinePayment: await palmPaymentsOn(),
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
   };
 });
@@ -237,6 +244,32 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     const trackingToken = order.tracking_token || null;
     const dueNow = data.payment_choice === "full" ? total : advanceRequired;
+    const amount = chargeNow(dueNow, total);
+    const online = await palmPaymentsOn();
+    let paymentId: string | null = null;
+    let paymentError: string | null = null;
+    if (online && data.payment_method === "mobile") {
+      if (!data.wallet) paymentError = "Choose a mobile money wallet.";
+      else if (amount <= 0) paymentError = "This order has nothing to pay right now.";
+      else {
+        try {
+          const { startPalmPayment } = await import("@/lib/palmpesa.server");
+          paymentId = await startPalmPayment(supabaseAdmin, {
+            orderId: order.id,
+            orderNumber: order.order_number,
+            purpose: data.payment_choice === "full" ? "full" : "advance",
+            amount,
+            balance: total,
+            phone: paymentPhone,
+            customerName: data.customer_name,
+            email: baseOrder.email,
+            wallet: data.wallet,
+          });
+        } catch (err) {
+          paymentError = err instanceof Error ? err.message : "We could not send the payment prompt.";
+        }
+      }
+    }
     const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
     await sendCustomerEmail({
       email: baseOrder.email,
@@ -244,7 +277,9 @@ export const createCheckout = createServerFn({ method: "POST" })
       subject: `Order ${order.order_number} received`,
       paragraphs: [
         `Your order ${order.order_number} is placed.`,
-        `Amount due now: ${dueNow.toLocaleString("en-US")} TZS (${data.payment_choice === "full" ? "full payment" : "advance"}). Pay using the numbers on your order page, then send the transaction ID. The order stays unpaid until GK furnish confirms it.`,
+        paymentId
+          ? `Amount due now: ${amount.toLocaleString("en-US")} TZS. Approve the payment prompt on your phone. The order stays unpaid until that payment is confirmed.`
+          : `Amount due now: ${dueNow.toLocaleString("en-US")} TZS (${data.payment_choice === "full" ? "full payment" : "advance"}). Pay using the numbers on your order page, then send the transaction ID. The order stays unpaid until GK furnish confirms it.`,
         deliveryFeeStatus === "pending" ? "The delivery fee will be confirmed with you before delivery." : "",
       ],
       link: orderTrackingLink(trackingToken),
@@ -274,13 +309,12 @@ export const createCheckout = createServerFn({ method: "POST" })
       }),
     ]);
 
-    const amount = chargeNow(data.payment_choice === "full" ? total : advanceRequired, total);
-    const paymentId: string | null = null;
-    const paymentError: string | null = null;
     await noteOrderHistory(supabaseAdmin, {
       orderId: order.id,
       status: "pending",
-      note: "Order placed. The customer pays using the workshop instructions, then submits the transaction ID. The order stays unpaid until GK furnish confirms it.",
+      note: paymentId
+        ? "A mobile money prompt was sent. The order stays unpaid until PalmPesa confirms the payment."
+        : "Order placed. The customer pays using the workshop instructions, then submits the transaction ID. The order stays unpaid until GK furnish confirms it.",
       actor: "Customer",
       statusChanged: false,
     });
@@ -290,7 +324,7 @@ export const createCheckout = createServerFn({ method: "POST" })
       trackingToken,
       paymentId,
       paymentError,
-      onlinePayment: false,
+      onlinePayment: Boolean(paymentId),
       subtotal,
       deliveryFeeStatus,
       total,
@@ -410,16 +444,17 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       .object({
         paymentId: z.string().uuid().optional(),
         orderNumber: z.string().trim().max(40).optional(),
+        trackingToken: z.string().uuid().optional(),
         kind: z.enum(["advance", "full"]),
         wallet: z.enum(["mpesa", "airtel", "yas", "halopesa"]),
         phone,
       })
-      .refine((d) => d.paymentId || d.orderNumber, "Order not found")
+      .refine((d) => d.paymentId || d.orderNumber || d.trackingToken, "Order not found")
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     // Set PAYMENT_MODE=palmpesa on the server to charge wallets again. Until then the workshop confirms each payment.
-    if (process.env["PAYMENT_MODE"] !== "palmpesa") {
+    if (!(await palmPaymentsOn())) {
       throw new Error("Open your order link, pay the number shown, and send the transaction ID. GK furnish confirms it before the order is paid.");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -427,9 +462,15 @@ export const startOrderPayment = createServerFn({ method: "POST" })
     const { startMobilePayment } = await import("@/lib/order-payments.server");
 
     let orderId: string | null = null;
-    if (data.paymentId) {
+    let viaPrivateLink = false;
+    if (data.trackingToken) {
+      const { data: byToken } = await supabaseAdmin.from("orders").select("id").eq("tracking_token", data.trackingToken).maybeSingle();
+      orderId = byToken?.id ?? null;
+      viaPrivateLink = Boolean(orderId);
+    } else if (data.paymentId) {
       const { data: link } = await supabaseAdmin.from("payments").select("order_id").eq("id", data.paymentId).maybeSingle();
       orderId = link?.order_id ?? null;
+      viaPrivateLink = Boolean(orderId);
     } else if (data.orderNumber && context.userId) {
       const { data: own } = await supabaseAdmin
         .from("orders")
@@ -450,7 +491,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       !canPayOrder({
         userId: context.userId,
         orderUserId: order?.user_id ?? null,
-        hasPaymentLink: Boolean(data.paymentId),
+        hasPaymentLink: viaPrivateLink,
       })
     ) {
       throw new Error("Order not found");

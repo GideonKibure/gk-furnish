@@ -155,13 +155,22 @@ function CheckoutPage() {
   }
 
   function next() {
-    if (step === 0 && !validateDelivery()) return;
+    if (step === 0) {
+      if (!validateDelivery()) return;
+      setStep(online ? 1 : 2);
+      return;
+    }
+    if (!validatePayment()) return;
     setStep(2);
   }
 
   async function placeOrder() {
     if (!validateDelivery()) {
       setStep(0);
+      return;
+    }
+    if (online && payMethod === "mobile" && !validatePayment()) {
+      setStep(1);
       return;
     }
     if (!agreed) {
@@ -197,11 +206,15 @@ function CheckoutPage() {
         },
       });
       await cart.clear();
+      if (r.paymentId) {
+        void nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } });
+        return;
+      }
+      if (r.paymentError) toast.error(r.paymentError);
       if (r.trackingToken) {
         void nav({ to: "/track/$token", params: { token: r.trackingToken } });
         return;
       }
-      if (r.paymentError) toast.error(r.paymentError);
       void nav({
         to: "/order-success",
         search: {
@@ -311,9 +324,9 @@ function CheckoutPage() {
         </div>
         <Stepper
           className="mt-4 max-w-xl"
-          steps={[t.steps.delivery, t.steps.review]}
-          current={step === 0 ? 0 : 1}
-          onStepClick={(index) => setStep(index === 0 ? 0 : 2)}
+          steps={online ? [t.steps.delivery, t.steps.payment, t.steps.review] : [t.steps.delivery, t.steps.review]}
+          current={online ? step : step === 0 ? 0 : 1}
+          onStepClick={(index) => setStep(online ? index : index === 0 ? 0 : 2)}
         />
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -566,7 +579,10 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value: t.checkout.offline,
+                      value:
+                        online && payMethod === "mobile"
+                          ? `${walletById(wallet)?.label ?? t.checkout.methodMobile} · ${form.payment_phone.trim() || form.phone.trim()}`
+                          : t.checkout.offline,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
@@ -594,7 +610,7 @@ function CheckoutPage() {
 
             <div className="flex flex-wrap-reverse items-center justify-between gap-3 [&>*:last-child]:max-sm:w-full">
               {step > 0 ? (
-                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(0)}>
+                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(online && step === 2 ? 1 : 0)}>
                   <ArrowLeft className="h-4 w-4" />
                   {t.steps.back}
                 </button>
@@ -606,7 +622,7 @@ function CheckoutPage() {
               )}
               {step < 2 ? (
                 <button type="button" className="btn-base btn-gold btn-lg" onClick={next} disabled={blocked}>
-                  {t.steps.continueReview}
+                  {step === 0 && online ? t.steps.continuePayment : t.steps.continueReview}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               ) : (

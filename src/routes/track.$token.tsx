@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
@@ -16,9 +16,11 @@ import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StatusPill } from "@/components/brand/StatusPill";
 import { RequestDetails } from "@/components/site/RequestDetails";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { PAYMENT_METHODS, type PaymentMethodId } from "@/config/payment-methods";
 import { formatAmount, waLink } from "@/config/site";
-import { submitPaymentProof } from "@/lib/checkout.functions";
+import { getCheckoutConfig, startOrderPayment, submitPaymentProof } from "@/lib/checkout.functions";
+import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
@@ -50,11 +52,19 @@ function stepIndex(status: string) {
 
 function OrderTracking({ order, token }: { order: TrackedOrder; token: string }) {
   const { t } = useLang();
+  const nav = useNavigate();
   const queryClient = useQueryClient();
   const sendProof = useServerFn(submitPaymentProof);
+  const startPay = useServerFn(startOrderPayment);
+  const loadConfig = useServerFn(getCheckoutConfig);
+  const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
+  const online = Boolean(config?.onlinePayment);
   const [method, setMethod] = useState<PaymentMethodId>("mpesa");
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
+  const [payPhone, setPayPhone] = useState("");
   const [tx, setTx] = useState("");
   const [busy, setBusy] = useState(false);
+  const [promptBusy, setPromptBusy] = useState(false);
   const due = Math.max(order.advanceRequired - order.paid, 0) > 0 && order.paid < order.advanceRequired
     ? Math.min(order.balance, Math.max(order.advanceRequired - order.paid, 0))
     : order.balance;
@@ -81,7 +91,40 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
       <div className="space-y-4">
         {order.balance > 0 && order.status !== "cancelled" && (
           <section className="panel p-4 md:p-5">
-            <h2 className="text-base font-bold">{t.track.howToPay}</h2>
+            {online && (
+              <form
+                className="mb-6 grid gap-3 border-b border-border pb-6"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!phoneMatchesWallet(payPhone, wallet)) {
+                    toast.error(t.checkout.walletMismatch);
+                    return;
+                  }
+                  const advanceLeft = Math.max(0, order.advanceRequired - order.paid);
+                  setPromptBusy(true);
+                  void startPay({
+                    data: {
+                      trackingToken: token,
+                      kind: advanceLeft > 0 ? "advance" : "full",
+                      phone: payPhone.trim(),
+                      wallet,
+                    },
+                  })
+                    .then((result) => nav({ to: "/pay/$paymentId", params: { paymentId: result.paymentId } }))
+                    .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
+                    .finally(() => setPromptBusy(false));
+                }}
+              >
+                <h2 className="text-base font-bold">{t.track.promptTitle}</h2>
+                <p className="text-sm text-muted-foreground">{t.track.promptBody}</p>
+                <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                <label className="field-label" htmlFor="pay-phone">{t.track.promptPhone}</label>
+                <input id="pay-phone" type="tel" inputMode="tel" className="field-input" placeholder="07…" value={payPhone} onChange={(e) => setPayPhone(e.target.value)} />
+                <p className="text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
+                <button type="submit" className="btn-base btn-gold" disabled={promptBusy || due <= 0}>{t.track.sendPrompt}</button>
+              </form>
+            )}
+            <h2 className="text-base font-bold">{online ? t.track.manualTitle : t.track.howToPay}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t.track.paySteps}</p>
             <p className="mt-3 text-sm text-navy">
               {t.track.amountDue}: <strong>{formatAmount(due)}</strong>
