@@ -679,6 +679,11 @@ export const sw: Dictionary = {
     servicesTitle: "Huduma",
     servicesSubtitle: "Kazi tunazoweza kukufanyia, zaidi ya samani (fenicha) zilizo dukani.",
     servicesEmpty: "Huduma zitaonekana hapa karakana ikizichapisha.",
+    servicesAsk: "Uliza kuhusu hii",
+    servicesAskMessage: "Habari GK Furnish, nataka kuuliza kuhusu {name}.",
+    servicesOwn: "Eleza kipande chako",
+    servicesNext: "Huduma inayofuata",
+    servicesPrevious: "Huduma iliyotangulia",
     howTitle: "Jinsi ya kuagiza",
     howSteps: [
       { title: "Chagua", body: "Tazama duka au tutumie ombi la samani (fenicha) maalum." },

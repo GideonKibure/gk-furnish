@@ -600,6 +600,33 @@
   animation: hero-letter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.service-card {
+  animation: service-card-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.service-media img,
+.service-media video {
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.service-card:hover .service-media img,
+.service-card:hover .service-media video,
+.service-card:focus-within .service-media img,
+.service-card:focus-within .service-media video {
+  transform: scale(1.045);
+}
+
+@keyframes service-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes hero-letter {
   from {
     opacity: 0;
@@ -837,6 +864,9 @@
   .reveal,
   .hero-slide,
   .hero-letter,
+  .service-card,
+  .service-media img,
+  .service-media video,
   .nav-progress-bar,
   .offer-banner,
   .offer-banner.is-leaving,

@@ -677,6 +677,11 @@ export const en = {
     servicesTitle: "Services",
     servicesSubtitle: "Work the workshop can do for you, beyond the pieces in the shop.",
     servicesEmpty: "Services will appear here when the workshop publishes them.",
+    servicesAsk: "Ask about this",
+    servicesAskMessage: "Hello GK Furnish, I would like to ask about {name}.",
+    servicesOwn: "Describe your own piece",
+    servicesNext: "Next service",
+    servicesPrevious: "Previous service",
     howTitle: "How ordering works",
     howSteps: [
       { title: "Choose", body: "Browse the shop or send us a custom request." },
