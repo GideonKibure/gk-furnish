@@ -140,7 +140,7 @@ export const sw: Dictionary = {
     size: "Ukubwa unaopendelea",
     material: "Mbao / malighafi",
     neededBy: "Tarehe unayohitaji agizo likamilike",
-    completionNote: "Agizo likiwekwa, litakamilika ndani ya saa 48.",
+    completionNote: "Agizo likiwekwa, litakamilika ndani ya saa {hours}.",
     location: "Mahali pa kupeleka",
     notes: "Maelezo ya ziada",
     submit: "Tuma agizo",
@@ -296,7 +296,7 @@ export const sw: Dictionary = {
       },
       {
         q: "Agizo linachukua muda gani?",
-        a: "Agizo likiwekwa, linakamilika ndani ya saa 48.",
+        a: "Agizo likiwekwa, linakamilika ndani ya saa {hours}.",
       },
       {
         q: "Mnapeleka samani (fenicha)?",

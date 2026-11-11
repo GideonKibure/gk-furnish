@@ -3,7 +3,7 @@ import { balanceDue } from "@/lib/payment-policy";
 import { decideCallback, type LocalPayment } from "@/lib/palmpesa";
 import { fetchPalmPayment, palmpesaConfigured, readPalmMeta, startPalmPayment } from "@/lib/palmpesa.server";
 import { toSnippePhone } from "@/config/payments";
-import { SITE } from "@/config/site";
+import { formatAmount, SITE } from "@/config/site";
 
 type SupabaseAdmin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
@@ -308,21 +308,28 @@ export async function completePayment(
   );
   const { data: order } = await supabaseAdmin
     .from("orders")
-    .select("order_number,customer_name,email,tracking_token")
+    .select("order_number,customer_name,email,tracking_token,amount_due,total_amount")
     .eq("id", payment.order_id)
     .maybeSingle();
   if (order?.email) {
     const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
     const purpose = payment.purpose === "full" ? "full payment" : payment.purpose === "balance" ? "balance" : "advance";
+    const remaining = Math.max(0, Math.round(Number(order.amount_due ?? order.total_amount ?? 0)));
     await sendCustomerEmail({
       email: order.email,
       name: order.customer_name,
       subject: `Receipt ${receipt} for order ${order.order_number}`,
+      preview: remaining > 0 ? `${formatAmount(remaining)} remains before handover.` : "This order is paid in full.",
+      headline: remaining > 0 ? "Payment received" : "You're paid in full",
       paragraphs: [
-        `GK furnish confirmed your ${purpose} of ${Math.round(received).toLocaleString("en-US")} TZS.`,
-        `Receipt ${receipt} for order ${order.order_number}.`,
+        `This confirms your ${purpose} for order ${order.order_number}. Keep the receipt number with your records.`,
+        remaining > 0
+          ? `${formatAmount(remaining)} is still due. Clear it before handover so the piece can leave with you.`
+          : "Nothing else is due on this order. We'll tell you when it is ready to deliver or collect.",
       ],
+      highlight: { label: `Receipt ${receipt}`, value: formatAmount(received) },
       link: orderTrackingLink(order.tracking_token),
+      linkLabel: "View your order",
     });
   }
 }

@@ -12,9 +12,10 @@ import { useAuthUser } from "@/hooks/use-auth";
 import { sessionContact } from "@/hooks/use-customer-name";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { getMyProfile } from "@/lib/account.functions";
+import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { STANDARD_COLORS } from "@/lib/color-swatches";
-import { pageSectionsQuery } from "@/lib/site-content";
+import { pageSectionsQuery, siteSettingsQuery, completionHours } from "@/lib/site-content";
 import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
 import { submitCustomOrder } from "@/lib/orders.functions";
 import { seo } from "@/lib/seo";
@@ -44,6 +45,7 @@ function toBase64(file: File) {
 
 function Custom() {
   const { t } = useLang();
+  const { data: settings } = useQuery(siteSettingsQuery);
   const nav = useNavigate();
   const { user } = useAuthUser();
   const loadProfile = useServerFn(getMyProfile);
@@ -442,7 +444,7 @@ function Custom() {
                     onChange={(e) => setNeededBy(e.target.value)}
                     className="field-input"
                   />
-                  <p className="mt-1.5 text-xs text-muted-foreground">{t.order.completionNote}</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">{fill(t.order.completionNote, { hours: completionHours(settings) })}</p>
                   {fieldErr("needed_by")}
                 </div>
 

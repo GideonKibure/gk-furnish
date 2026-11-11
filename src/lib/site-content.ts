@@ -7,6 +7,15 @@ export type SiteSettings = Database["public"]["Tables"]["site_settings"]["Row"];
 export type PageSection = Database["public"]["Tables"]["page_sections"]["Row"];
 export type OfferPopup = Database["public"]["Tables"]["offer_popups"]["Row"];
 
+/** Hours shown to customers for how long an order takes. 48 until the setting is saved. */
+export const DEFAULT_COMPLETION_HOURS = 48;
+
+export function completionHours(settings: { order_completion_hours?: number | null } | null | undefined) {
+  const hours = Number(settings?.order_completion_hours);
+  if (!Number.isFinite(hours) || hours < 1) return DEFAULT_COMPLETION_HOURS;
+  return Math.min(720, Math.round(hours));
+}
+
 export function settingsToSite(s: SiteSettings | null | undefined) {
   if (!s) return SITE;
   return {

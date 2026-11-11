@@ -158,7 +158,9 @@ function useAdminEmail() {
 
 function Logo({ className }: { className?: string }) {
   return (
-    <img src="/brand/gk-furnish-logo.png" alt="" width={812} height={908} className={cn("w-auto shrink-0 object-contain", className)} />
+    <span className="logo-slot">
+      <img src="/brand/gk-furnish-logo.png" alt="" width={812} height={908} className={cn("logo-mark w-auto shrink-0 object-contain", className)} />
+    </span>
   );
 }
 
@@ -514,7 +516,7 @@ function MobileDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="flex w-[86%] max-w-[20rem] flex-col gap-0 border-r-0 bg-white p-0 lg:hidden">
         <div className="relative overflow-hidden border-b border-[#F0F0F0] px-5 pb-5 pt-6">
-          <Logo className="h-16" />
+          <Logo className="h-14" />
           <SheetTitle className="mt-3 text-lg font-bold text-navy">{SITE.name}</SheetTitle>
           <SheetDescription className="truncate text-sm text-[#6B7280]">{email || "Admin portal"}</SheetDescription>
         </div>
@@ -604,7 +606,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className={cn("admin-shell min-h-dvh bg-[#F5F6F8] text-navy", LEGACY_OVERRIDES)}>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-navy text-white lg:flex">
         <Link to="/admin" className="flex items-center gap-3 px-5 py-5">
-          <Logo className="h-12" />
+          <Logo className="h-11" />
           <span className="min-w-0">
             <span className="block truncate text-base font-bold tracking-tight">{SITE.name.toUpperCase()}</span>
             <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-gold">Admin portal</span>
@@ -637,7 +639,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
             <Link to="/admin" className="flex min-w-0 items-center gap-2 lg:hidden">
-              <Logo className="h-10" />
+              <Logo className="h-9" />
               <span className="truncate text-sm font-bold text-navy">{SITE.name.toUpperCase()}</span>
             </Link>
             <div className="hidden max-w-md flex-1 md:ml-4 md:block lg:ml-0">

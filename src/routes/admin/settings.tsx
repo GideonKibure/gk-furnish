@@ -7,6 +7,7 @@ import { AdminCard, AdminPageHeader } from "@/components/admin/admin-ui";
 import { getAdminSiteSettings, updateAdminSiteSettings, updateAdvanceTiers } from "@/lib/content.functions";
 import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { advanceSettingsFrom } from "@/lib/payment-policy";
+import { DEFAULT_COMPLETION_HOURS } from "@/lib/site-content";
 
 export const Route = createFileRoute("/admin/settings")({
   head: () => ({ meta: [{ title: "Site settings — Admin" }, { name: "robots", content: "noindex" }] }),
@@ -99,12 +100,16 @@ function AdminSettingsPage() {
           mpesa_enabled: fd.get("mpesa_enabled") === "on",
           airtel_enabled: fd.get("airtel_enabled") === "on",
           nmb_enabled: fd.get("nmb_enabled") === "on",
+          order_completion_hours: Math.min(720, Math.max(1, Math.round(Number(fd.get("order_completion_hours")) || DEFAULT_COMPLETION_HOURS))),
         },
       });
       setRow(updated);
       toast.success("Settings saved");
       if (updated.mpesa_enabled === undefined) {
         toast.info("The payment switches were not saved. Run drizzle/migrations/0017_payment_method_toggles.sql in the Supabase SQL editor.", { duration: 10000 });
+      }
+      if (updated.order_completion_hours === undefined) {
+        toast.info("The completion time was not saved. Run drizzle/migrations/0021_order_completion_hours.sql in the Supabase SQL editor.", { duration: 10000 });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -166,6 +171,22 @@ function AdminSettingsPage() {
           {row.collection_address !== undefined && (
             <Field name="collection_address" label="Collection address (shown for collection orders)" value={row.collection_address} span />
           )}
+          <div className="sm:col-span-2">
+            <label className="field-label" htmlFor="order_completion_hours">
+              Order completion time (hours)
+            </label>
+            <input
+              id="order_completion_hours"
+              name="order_completion_hours"
+              type="number"
+              min={1}
+              max={720}
+              step={1}
+              className="field-input max-w-xs"
+              defaultValue={row.order_completion_hours ?? DEFAULT_COMPLETION_HOURS}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Shown on checkout, the order confirmation, and the FAQ. 48 means within 48 hours.</p>
+          </div>
         </SettingsGroup>
 
         <SettingsGroup

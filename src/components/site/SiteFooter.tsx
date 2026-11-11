@@ -33,14 +33,16 @@ export function SiteFooter() {
       <div className="container-page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div>
-            <img
-              src="/brand/gk-furnish-logo.png"
-              alt={SITE.name}
-              width={812}
-              height={908}
-              decoding="async"
-              className="h-28 w-auto"
-            />
+            <span className="logo-slot">
+              <img
+                src="/brand/gk-furnish-logo.png"
+                alt={SITE.name}
+                width={812}
+                height={908}
+                decoding="async"
+                className="logo-mark h-20 w-auto"
+              />
+            </span>
             <p className="mt-3 max-w-[11rem] text-xs leading-snug text-white/60">{t.shell.tagline}</p>
           </div>
           <p className="mt-4 max-w-xs text-sm text-white/70">{blurb}</p>

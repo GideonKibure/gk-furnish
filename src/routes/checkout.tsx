@@ -21,7 +21,7 @@ import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
 import { isPurchasable } from "@/lib/product-display";
-import { siteSettingsQuery } from "@/lib/site-content";
+import { siteSettingsQuery, completionHours } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
@@ -457,6 +457,7 @@ function CheckoutPage() {
                     <div>
                       <label className="field-label" htmlFor="c-needed">{t.order.neededBy}</label>
                       <input id="c-needed" type="date" min={todayIso()} className="field-input" value={form.needed_by} onChange={set("needed_by")} aria-invalid={Boolean(errors["needed_by"])} />
+                      <p className="mt-1.5 text-xs text-muted-foreground">{fill(t.order.completionNote, { hours: completionHours(settings) })}</p>
                       {err("needed_by")}
                     </div>
                     <div className="sm:col-span-2">

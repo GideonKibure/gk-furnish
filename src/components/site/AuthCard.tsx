@@ -46,7 +46,9 @@ export function AuthCard({ title, intro, children }: { title: string; intro?: st
         <div className="grid w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-white shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
           <div className="hidden flex-col justify-between bg-navy p-8 text-white md:flex">
             <div>
-              <img src="/brand/gk-furnish-logo.png" alt="GK furnish" width={812} height={908} className="h-28 w-auto" />
+              <span className="logo-slot">
+                <img src="/brand/gk-furnish-logo.png" alt="GK furnish" width={812} height={908} className="logo-mark h-20 w-auto" />
+              </span>
               <span className="mt-3 block max-w-[12rem] text-xs leading-snug text-white/60">{t.shell.tagline}</span>
             </div>
             <div>

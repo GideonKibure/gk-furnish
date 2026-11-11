@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { formatAmount } from "@/config/site";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
 import { QUOTE_VALID_DAYS, quoteDateAfter, withQuoteAdvanceNote, type QuoteLine, type SavedQuote } from "@/lib/custom-quotes";
 import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
@@ -1392,15 +1393,22 @@ export const createAdminOrder = createServerFn({ method: "POST" })
 
     const { data: tracked } = await supabaseAdmin.from("orders").select("tracking_token").eq("id", order.id).maybeSingle();
     const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
+    const dueNow = Math.max(0, withFee - amountPaid);
     await sendCustomerEmail({
       email: data.email,
       name: data.customer_name,
-      subject: `Order ${order.order_number} received`,
+      subject: `Your GK furnish order ${order.order_number} is ready to follow`,
+      preview: dueNow > 0 ? `${formatAmount(dueNow)} is due before we start.` : "Your order is recorded with us.",
+      headline: dueNow > 0 ? "Your order is in — this is what's left" : "Your order is recorded",
       paragraphs: [
-        `Your order ${order.order_number} is placed with GK furnish.`,
-        `Amount due now: ${Math.max(0, withFee - amountPaid).toLocaleString("en-US")} TZS.`,
+        `Order ${order.order_number} is saved under your name. We make the piece in Mbeya once payment and the specifications are agreed.`,
+        dueNow > 0
+          ? "Pay the amount below, then send a screenshot and the sender's name. We confirm it before production starts."
+          : "Nothing else is due right now. We'll use your order page to keep you posted.",
       ],
+      highlight: { label: dueNow > 0 ? "Amount due now" : "Order", value: dueNow > 0 ? formatAmount(dueNow) : order.order_number },
       link: orderTrackingLink(tracked?.tracking_token),
+      linkLabel: dueNow > 0 ? "Open your order and pay" : "View your order",
     });
 
     return { id: order.id, orderNumber: order.order_number };

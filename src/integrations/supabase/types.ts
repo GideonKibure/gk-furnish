@@ -949,6 +949,7 @@ export type Database = {
           nmb_account_name: string | null
           nmb_account_number: string | null
           nmb_enabled: boolean
+          order_completion_hours: number
           facebook_url: string | null
           id: number
           instagram_url: string | null
@@ -982,6 +983,7 @@ export type Database = {
           nmb_account_name?: string | null
           nmb_account_number?: string | null
           nmb_enabled?: boolean
+          order_completion_hours?: number
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
@@ -1011,6 +1013,7 @@ export type Database = {
           nmb_account_name?: string | null
           nmb_account_number?: string | null
           nmb_enabled?: boolean
+          order_completion_hours?: number
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null

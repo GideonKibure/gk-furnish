@@ -138,7 +138,7 @@ export const en = {
     size: "Preferred size",
     material: "Material",
     neededBy: "Date you need it completed",
-    completionNote: "Once your order is placed, it will be completed within 48 hours.",
+    completionNote: "Once your order is placed, it will be completed within {hours} hours.",
     location: "Delivery location",
     notes: "Additional notes",
     submit: "Submit order",
@@ -294,7 +294,7 @@ export const en = {
       },
       {
         q: "How long does an order take?",
-        a: "Once your order is placed, it will be completed within 48 hours.",
+        a: "Once your order is placed, it will be completed within {hours} hours.",
       },
       {
         q: "Do you deliver?",

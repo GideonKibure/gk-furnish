@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Copy, Download, MapPinned, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { formatPrice, waLink } from "@/config/site";
+import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { downloadInvoice } from "@/lib/invoice";
+import { completionHours, siteSettingsQuery } from "@/lib/site-content";
 
 const S = z.object({
   ref: z.string().catch(""),
@@ -45,6 +48,8 @@ export const Route = createFileRoute("/order-success")({
 function Success() {
   const s = Route.useSearch();
   const { t } = useLang();
+  const { data: settings } = useQuery(siteSettingsQuery);
+  const completionNote = fill(t.order.completionNote, { hours: completionHours(settings) });
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
   const trackPath = s.track ? `/track/${s.track}` : "";
@@ -109,7 +114,7 @@ function Success() {
               ))}
           </dl>
           {s.delivery === "pending" && <p className="mt-3 text-xs text-muted-foreground">{t.delivery.pendingNote}</p>}
-          {!s.custom && <p className="mt-2 text-xs text-muted-foreground">{t.order.completionNote}</p>}
+          {!s.custom && <p className="mt-2 text-xs text-muted-foreground">{completionNote}</p>}
           {s.msg && <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-navy/80">{s.msg}</p>}
         </div>
 

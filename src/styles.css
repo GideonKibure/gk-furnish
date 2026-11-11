@@ -860,6 +860,46 @@
   box-shadow: 0 0 0 3px rgb(252 163 17 / 0.35);
 }
 
+@keyframes logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.logo-slot {
+  display: inline-flex;
+  animation: logo-float 4.2s ease-in-out 0.75s infinite;
+}
+
+.logo-mark {
+  transform-origin: center;
+  animation: logo-in 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: transform 0.25s ease;
+}
+
+.logo-slot:hover {
+  animation-play-state: paused;
+}
+
+.logo-slot:hover .logo-mark {
+  transform: scale(1.05);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .hero-slide,
@@ -873,7 +913,9 @@
   .offer-banner-progress-bar,
   .offer-banner-spacer,
   .price-filter-fill,
-  .price-filter-thumb {
+  .price-filter-thumb,
+  .logo-slot,
+  .logo-mark {
     animation: none !important;
     transition: none !important;
   }

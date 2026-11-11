@@ -72,7 +72,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
       >
         <div className="container-page flex h-14 items-center gap-3 lg:h-[4.5rem] lg:gap-6">
           <Link to={signedIn ? "/products" : "/"} className="flex min-w-0 shrink-0 items-center" aria-label="GK Furnish">
-            <BrandLogo showWordmark={false} markClassName="h-11 lg:h-16" />
+            <BrandLogo showWordmark={false} markClassName="h-10 lg:h-12" />
           </Link>
 
           <nav aria-label="Primary" className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">

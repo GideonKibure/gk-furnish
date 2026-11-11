@@ -23,14 +23,16 @@ export function BrandLogo({
 }: BrandLogoProps) {
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
-      <img
-        src="/brand/gk-furnish-logo.png"
-        alt=""
-        width={812}
-        height={908}
-        className={cn("h-12 w-auto shrink-0 object-contain", markClassName)}
-        decoding="async"
-      />
+      <span className="logo-slot">
+        <img
+          src="/brand/gk-furnish-logo.png"
+          alt=""
+          width={812}
+          height={908}
+          className={cn("logo-mark h-10 w-auto shrink-0 object-contain", markClassName)}
+          decoding="async"
+        />
+      </span>
       {(showWordmark || tagline) && (
         <span className="flex min-w-0 flex-col leading-none">
           {showWordmark && (

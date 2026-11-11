@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { formatAmount } from "@/config/site";
 import { optionalSupabaseAuth } from "@/integrations/supabase/customer-auth";
 import { composeOrderNotes, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { walletById } from "@/lib/palmpesa";
@@ -264,16 +265,25 @@ export const createCheckout = createServerFn({ method: "POST" })
         ? "bank"
         : "mobile money";
     const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
+    const who = data.customer_name.trim().split(/\s+/)[0];
     await sendCustomerEmail({
       email: baseOrder.email,
       name: data.customer_name,
-      subject: `Order ${order.order_number} received`,
+      subject: who && who.length > 1 ? `${who}, your order ${order.order_number} is placed` : `Your order ${order.order_number} is placed`,
+      preview: `Pay ${formatAmount(dueNow)} and send the screenshot so we can start.`,
+      headline: "One payment lets us start",
       paragraphs: [
-        `Your order ${order.order_number} is placed.`,
-        `Amount due now: ${dueNow.toLocaleString("en-US")} TZS (${data.payment_choice === "full" ? "full payment" : "advance"}). Pay by ${channel} using the numbers on your order page, then send a screenshot and the sender's name. The order stays unpaid until GK furnish confirms it.`,
-        deliveryFeeStatus === "pending" ? "The delivery fee will be confirmed with you before delivery." : "",
+        `Order ${order.order_number} is saved. You chose a piece made in our Mbeya workshop.`,
+        `Pay by ${channel} using the numbers on your order page, then send a screenshot and the name of the person who sent the money.`,
+        "We confirm that payment before production starts. You get a receipt, and the balance is cleared before we hand the piece over.",
+        deliveryFeeStatus === "pending" ? "We'll confirm the delivery fee with you before the piece leaves the workshop. Collecting it yourself is free." : "",
       ],
+      highlight: {
+        label: data.payment_choice === "full" ? "Pay in full now" : "Advance to pay now",
+        value: formatAmount(dueNow),
+      },
       link: orderTrackingLink(trackingToken),
+      linkLabel: "Open your order and pay",
     });
     await Promise.all([
       notify({

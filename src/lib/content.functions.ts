@@ -48,6 +48,7 @@ const SettingsInput = z.object({
   mpesa_enabled: z.boolean().optional(),
   airtel_enabled: z.boolean().optional(),
   nmb_enabled: z.boolean().optional(),
+  order_completion_hours: z.number().int().min(1).max(720).optional(),
 });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
@@ -82,9 +83,13 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
       ...(data.airtel_enabled === undefined ? {} : { airtel_enabled: data.airtel_enabled }),
       ...(data.nmb_enabled === undefined ? {} : { nmb_enabled: data.nmb_enabled }),
     };
-    const write = (body: typeof base & Partial<typeof extras> & Partial<typeof toggles>) =>
+    const completion = data.order_completion_hours === undefined ? {} : { order_completion_hours: data.order_completion_hours };
+    const write = (body: typeof base & Partial<typeof extras> & Partial<typeof toggles> & Partial<typeof completion>) =>
       supabaseAdmin.from("site_settings").upsert(body).select("*").single();
-    let result = await write({ ...base, ...extras, ...toggles });
+    let result = await write({ ...base, ...extras, ...toggles, ...completion });
+    if (result.error && isMissingSchema(result.error) && (result.error.message ?? "").includes("order_completion_hours")) {
+      result = await write({ ...base, ...extras, ...toggles });
+    }
     if (result.error && isMissingSchema(result.error)) {
       const withoutToggles = await write({ ...base, ...extras });
       result = withoutToggles.error && isMissingSchema(withoutToggles.error) ? await write(base) : withoutToggles;

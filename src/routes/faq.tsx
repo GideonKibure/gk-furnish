@@ -6,7 +6,8 @@ import { useLang } from "@/i18n/LanguageProvider";
 import { PageHeader } from "@/components/site/PageHeader";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
 import { en } from "@/i18n/en";
-import { pageSectionsQuery, sectionText } from "@/lib/site-content";
+import { fill } from "@/i18n/fill";
+import { pageSectionsQuery, sectionText, siteSettingsQuery, completionHours, DEFAULT_COMPLETION_HOURS } from "@/lib/site-content";
 import { seo } from "@/lib/seo";
 
 const FAQ_LD = JSON.stringify({
@@ -15,7 +16,7 @@ const FAQ_LD = JSON.stringify({
   mainEntity: en.faq.items.map((f) => ({
     "@type": "Question",
     name: f.q,
-    acceptedAnswer: { "@type": "Answer", text: f.a },
+    acceptedAnswer: { "@type": "Answer", text: fill(f.a, { hours: DEFAULT_COMPLETION_HOURS }) },
   })),
 });
 
@@ -34,6 +35,8 @@ export const Route = createFileRoute("/faq")({
 function Faq() {
   const { t, lang } = useLang();
   const { data: sections = [] } = useQuery(pageSectionsQuery);
+  const { data: settings } = useQuery(siteSettingsQuery);
+  const hours = completionHours(settings);
   const subtitle = sectionText(sections, "faq", "subtitle", lang, t.faq.subtitle);
   return (
     <>
@@ -43,7 +46,7 @@ function Faq() {
           {t.faq.items.map((f, i) => (
             <AccordionItem key={i} value={String(i)} className="border-0">
               <AccordionTrigger className="text-left text-[0.95rem] font-semibold text-navy hover:no-underline">{f.q}</AccordionTrigger>
-              <AccordionContent className="text-sm leading-relaxed text-muted-foreground">{f.a}</AccordionContent>
+              <AccordionContent className="text-sm leading-relaxed text-muted-foreground">{fill(f.a, { hours })}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
