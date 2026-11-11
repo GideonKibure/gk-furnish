@@ -22,6 +22,8 @@ import { CategoryTile } from "@/components/brand/CategoryTile";
 import { FeatureBadges } from "@/components/brand/FeatureBadges";
 import { StarRating } from "@/components/brand/StarRating";
 import { SectionTitle } from "@/components/site/PageHeader";
+import { ServiceMedia } from "@/components/site/ServiceMedia";
+import { formatAmount } from "@/config/site";
 import { ProductGrid } from "@/components/site/ProductCard";
 import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
 import { useSiteImages } from "@/hooks/use-site-images";
@@ -314,16 +316,27 @@ function Home() {
           <SectionTitle title={t.home2.servicesTitle} />
           <p className="-mt-3 mb-5 max-w-2xl text-sm text-muted-foreground">{t.home2.servicesSubtitle}</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => (
-              <article key={service.id} className="panel p-5">
-                <h3 className="text-base font-bold text-navy">{localized(lang, service.name, service.name_sw)}</h3>
-                {(service.description || service.description_sw) && (
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {localized(lang, service.description ?? "", service.description_sw)}
-                  </p>
-                )}
-              </article>
-            ))}
+            {services.map((service) => {
+              const name = localized(lang, service.name, service.name_sw);
+              return (
+                <Link key={service.id} to="/services" hash={service.id} className="panel overflow-hidden transition-shadow hover:shadow-md">
+                  {service.media_url && (
+                    <ServiceMedia url={service.media_url} kind={service.media_kind} alt={name} className="aspect-[4/3] w-full object-cover" />
+                  )}
+                  <div className="p-5">
+                    <h3 className="text-base font-bold text-navy">{name}</h3>
+                    {service.price_tzs != null && service.price_tzs > 0 && (
+                      <p className="mt-1 font-bold tabular-nums text-gold-ink">{formatAmount(service.price_tzs)}</p>
+                    )}
+                    {(service.description || service.description_sw) && (
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {localized(lang, service.description ?? "", service.description_sw)}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

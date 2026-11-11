@@ -86,6 +86,8 @@ export const listAdminPayments = createServerFn({ method: "GET" })
         amount: Number(p.amount),
         source: meta["source"] === "manual" ? ("Submitted by customer" as const) : meta["source"] === "admin" ? ("Recorded by admin" as const) : palm ? ("Online (PalmPesa)" as const) : p.snippe_reference ? ("Online (Snippe)" as const) : ("Other" as const),
         method: (typeof meta["method"] === "string" ? meta["method"] : null) ?? (palm || p.snippe_reference ? "Mobile money" : p.provider),
+        senderName: typeof meta["sender_name"] === "string" ? meta["sender_name"] : null,
+        proofUrl: typeof meta["proof_url"] === "string" ? meta["proof_url"] : null,
         reference,
         purposeKind: p.purpose,
       };

@@ -69,6 +69,7 @@ export function SiteFooter() {
             {!signedIn && (
               <li><Link to="/about" className={link}>{t.nav.about}</Link></li>
             )}
+            <li><Link to="/services" className={link}>{t.nav.services}</Link></li>
             <li><Link to="/process" className={link}>{t.nav.process}</Link></li>
             <li><Link to="/gallery" className={link}>{t.nav.gallery}</Link></li>
             <li><Link to="/faq" className={link}>{t.nav.faq}</Link></li>

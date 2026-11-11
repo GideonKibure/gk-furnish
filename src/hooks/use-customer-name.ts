@@ -4,13 +4,23 @@ import { useServerFn } from "@tanstack/react-start";
 import { useAuthUser } from "@/hooks/use-auth";
 import { getMyProfile } from "@/lib/account.functions";
 
+/** Name, phone and email stored on the sign-in account, before the profile row has loaded. */
+export function sessionContact(user: User | null) {
+  if (!user) return { name: "", phone: "", email: "" };
+  const meta = user.user_metadata;
+  const named = meta["full_name"] ?? meta["name"];
+  const phone = meta["phone"];
+  return {
+    name: typeof named === "string" ? named.trim() : "",
+    phone: typeof phone === "string" ? phone.trim() : "",
+    email: user.email?.trim() ?? "",
+  };
+}
+
 /** Name stored at sign-up or by Google, before the profile row has loaded. */
 export function sessionName(user: User | null): string {
   if (!user) return "";
-  const meta = user.user_metadata;
-  const named = meta["full_name"] ?? meta["name"];
-  if (typeof named === "string" && named.trim()) return named.trim();
-  return user.email?.split("@")[0] ?? "";
+  return sessionContact(user).name || user.email?.split("@")[0] || "";
 }
 
 /** First letter of the customer's name, for the gold profile mark. */

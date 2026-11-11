@@ -1,13 +1,17 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, ImagePlus, MessageCircle, Phone, Sparkles } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { telLink, waLink } from "@/config/site";
+import { useAuthUser } from "@/hooks/use-auth";
+import { sessionContact } from "@/hooks/use-customer-name";
 import { useSiteImages } from "@/hooks/use-site-images";
+import { getMyProfile } from "@/lib/account.functions";
 import { useLang } from "@/i18n/LanguageProvider";
 import { STANDARD_COLORS } from "@/lib/color-swatches";
 import { pageSectionsQuery } from "@/lib/site-content";
@@ -41,7 +45,17 @@ function toBase64(file: File) {
 function Custom() {
   const { t } = useLang();
   const nav = useNavigate();
+  const { user } = useAuthUser();
+  const loadProfile = useServerFn(getMyProfile);
   const send = useServerFn(submitCustomOrder);
+  const { data: profile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    queryFn: () => loadProfile(),
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
+  const [contact, setContact] = useState({ full_name: "", phone: "", email: "", delivery_location: "" });
+  const filled = useRef({ name: "", phone: "", email: "", location: "" });
   const { image } = useSiteImages();
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -56,6 +70,22 @@ function Custom() {
   const [bedSize, setBedSize] = useState("");
   const [neededBy, setNeededBy] = useState("");
   const bed = /\bbed\b|\bkitanda\b/i.test(furnitureType);
+
+  useEffect(() => {
+    if (!user) return;
+    const session = sessionContact(user);
+    const name = profile?.full_name?.trim() || session.name;
+    const phone = profile?.phone?.trim() || session.phone;
+    const email = profile?.email?.trim() || session.email;
+    const location = profile?.default_location?.trim() || "";
+    setContact((current) => ({
+      full_name: current.full_name && current.full_name !== filled.current.name ? current.full_name : name,
+      phone: current.phone && current.phone !== filled.current.phone ? current.phone : phone,
+      email: current.email && current.email !== filled.current.email ? current.email : email,
+      delivery_location: current.delivery_location && current.delivery_location !== filled.current.location ? current.delivery_location : location,
+    }));
+    filled.current = { name, phone, email, location };
+  }, [user, profile]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -214,28 +244,28 @@ function Custom() {
                   <label className="field-label" htmlFor="full_name">
                     {t.custom.fullName} *
                   </label>
-                  <input id="full_name" name="full_name" className="field-input" autoComplete="name" />
+                  <input id="full_name" name="full_name" className="field-input" autoComplete="name" value={contact.full_name} onChange={(e) => setContact((c) => ({ ...c, full_name: e.target.value }))} />
                   {fieldErr("full_name")}
                 </div>
                 <div>
                   <label className="field-label" htmlFor="phone">
                     {t.custom.phone} *
                   </label>
-                  <input id="phone" name="phone" type="tel" className="field-input" placeholder="+255…" autoComplete="tel" />
+                  <input id="phone" name="phone" type="tel" className="field-input" placeholder="+255…" autoComplete="tel" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
                   {fieldErr("phone")}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="email">
                     {t.custom.email}
                   </label>
-                  <input id="email" name="email" type="email" className="field-input" autoComplete="email" />
+                  <input id="email" name="email" type="email" className="field-input" autoComplete="email" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
                   {fieldErr("email")}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="field-label" htmlFor="delivery_location">
                     {t.custom.location} *
                   </label>
-                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, area, street, building…" />
+                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, area, street, building…" value={contact.delivery_location} onChange={(e) => setContact((c) => ({ ...c, delivery_location: e.target.value }))} />
                   {fieldErr("delivery_location")}
                 </div>
 

@@ -163,6 +163,12 @@ function AdminPaymentsPage() {
         <div>
           <p className="text-navy">{purposeLabel(p.purpose)}</p>
           <p className="text-xs text-[#6B7280]">{p.method ?? p.source}</p>
+          {p.senderName ? <p className="text-xs text-[#6B7280]">Sender: {p.senderName}</p> : null}
+          {p.proofUrl ? (
+            <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gold-ink hover:underline">
+              Screenshot
+            </a>
+          ) : null}
         </div>
       ),
     },

@@ -67,18 +67,62 @@ export const ratingSummaryQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
+export type WorkshopService = {
+  id: string;
+  name: string;
+  name_sw: string | null;
+  description: string | null;
+  description_sw: string | null;
+  sort_order: number;
+  price_tzs: number | null;
+  media_url: string | null;
+  media_kind: "image" | "video" | null;
+};
+
+function asService(row: {
+  id: string;
+  name: string;
+  name_sw: string | null;
+  description: string | null;
+  description_sw: string | null;
+  sort_order: number;
+  price_tzs?: number | null;
+  media_url?: string | null;
+  media_kind?: string | null;
+}): WorkshopService {
+  const kind = row.media_kind === "video" || row.media_kind === "image" ? row.media_kind : null;
+  return {
+    id: row.id,
+    name: row.name,
+    name_sw: row.name_sw,
+    description: row.description,
+    description_sw: row.description_sw,
+    sort_order: row.sort_order,
+    price_tzs: row.price_tzs == null ? null : Number(row.price_tzs),
+    media_url: row.media_url ?? null,
+    media_kind: kind,
+  };
+}
+
 /** Published workshop services. Empty until migration 0011 has been run. */
 export const servicesQuery = queryOptions({
   queryKey: ["services"],
-  queryFn: async () => {
-    const { data, error } = await supabase
+  queryFn: async (): Promise<WorkshopService[]> => {
+    const full = await supabase
+      .from("services")
+      .select("id,name,name_sw,description,description_sw,sort_order,price_tzs,media_url,media_kind")
+      .eq("is_published", true)
+      .order("sort_order")
+      .order("name");
+    if (!full.error) return (full.data ?? []).map(asService);
+    const basic = await supabase
       .from("services")
       .select("id,name,name_sw,description,description_sw,sort_order")
       .eq("is_published", true)
       .order("sort_order")
       .order("name");
-    if (error) return [];
-    return data ?? [];
+    if (basic.error) return [];
+    return (basic.data ?? []).map(asService);
   },
 });
 

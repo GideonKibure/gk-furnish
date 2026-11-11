@@ -18,10 +18,14 @@ export const getMyProfile = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     const email = typeof context.claims["email"] === "string" ? context.claims["email"] : "";
+    const meta = context.claims["user_metadata"];
+    const saved = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
+    const savedName = typeof saved["full_name"] === "string" ? saved["full_name"] : typeof saved["name"] === "string" ? saved["name"] : "";
+    const savedPhone = typeof saved["phone"] === "string" ? saved["phone"] : "";
     return {
       email,
-      full_name: data?.full_name ?? "",
-      phone: data?.phone ?? "",
+      full_name: data?.full_name?.trim() || savedName.trim(),
+      phone: data?.phone?.trim() || savedPhone.trim(),
       default_location: data?.default_location ?? "",
     };
   });

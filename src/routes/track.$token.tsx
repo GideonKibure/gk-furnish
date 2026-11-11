@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
@@ -15,12 +15,11 @@ import { toast } from "sonner";
 import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StatusPill } from "@/components/brand/StatusPill";
+import { PayInstructions } from "@/components/site/PayInstructions";
 import { RequestDetails } from "@/components/site/RequestDetails";
-import { WalletPicker } from "@/components/site/WalletPicker";
-import { PAYMENT_METHODS, type PaymentMethodId } from "@/config/payment-methods";
 import { formatAmount, waLink } from "@/config/site";
-import { getCheckoutConfig, startOrderPayment, submitPaymentProof } from "@/lib/checkout.functions";
-import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
+import { getCheckoutConfig, submitPaymentProof } from "@/lib/checkout.functions";
+import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
@@ -52,19 +51,14 @@ function stepIndex(status: string) {
 
 function OrderTracking({ order, token }: { order: TrackedOrder; token: string }) {
   const { t } = useLang();
-  const nav = useNavigate();
   const queryClient = useQueryClient();
   const sendProof = useServerFn(submitPaymentProof);
-  const startPay = useServerFn(startOrderPayment);
   const loadConfig = useServerFn(getCheckoutConfig);
   const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
-  const online = Boolean(config?.onlinePayment);
-  const [method, setMethod] = useState<PaymentMethodId>("mpesa");
-  const [wallet, setWallet] = useState<WalletId>("mpesa");
-  const [payPhone, setPayPhone] = useState("");
-  const [tx, setTx] = useState("");
+  const [method, setMethod] = useState<"mpesa" | "airtel" | "bank">("mpesa");
+  const [sender, setSender] = useState("");
+  const [shot, setShot] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [promptBusy, setPromptBusy] = useState(false);
   const due = Math.max(order.advanceRequired - order.paid, 0) > 0 && order.paid < order.advanceRequired
     ? Math.min(order.balance, Math.max(order.advanceRequired - order.paid, 0))
     : order.balance;
@@ -91,94 +85,91 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
       <div className="space-y-4">
         {order.balance > 0 && order.status !== "cancelled" && (
           <section className="panel p-4 md:p-5">
-            {online && (
-              <form
-                className="mb-6 grid gap-3 border-b border-border pb-6"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!phoneMatchesWallet(payPhone, wallet)) {
-                    toast.error(t.checkout.walletMismatch);
-                    return;
-                  }
-                  const advanceLeft = Math.max(0, order.advanceRequired - order.paid);
-                  setPromptBusy(true);
-                  void startPay({
-                    data: {
-                      trackingToken: token,
-                      kind: advanceLeft > 0 ? "advance" : "full",
-                      phone: payPhone.trim(),
-                      wallet,
-                    },
-                  })
-                    .then((result) => nav({ to: "/pay/$paymentId", params: { paymentId: result.paymentId } }))
-                    .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
-                    .finally(() => setPromptBusy(false));
-                }}
-              >
-                <h2 className="text-base font-bold">{t.track.promptTitle}</h2>
-                <p className="text-sm text-muted-foreground">{t.track.promptBody}</p>
-                <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
-                <label className="field-label" htmlFor="pay-phone">{t.track.promptPhone}</label>
-                <input id="pay-phone" type="tel" inputMode="tel" className="field-input" placeholder="07…" value={payPhone} onChange={(e) => setPayPhone(e.target.value)} />
-                <p className="text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
-                <button type="submit" className="btn-base btn-gold" disabled={promptBusy || due <= 0}>{t.track.sendPrompt}</button>
-              </form>
-            )}
-            <h2 className="text-base font-bold">{online ? t.track.manualTitle : t.track.howToPay}</h2>
+            <h2 className="text-base font-bold">{t.track.howToPay}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t.track.paySteps}</p>
-            <p className="mt-3 text-sm text-navy">
-              {t.track.amountDue}: <strong>{formatAmount(due)}</strong>
-            </p>
-            <p className="text-sm text-navy">Order {order.number}</p>
-            <ul className="mt-3 space-y-2">
-              {PAYMENT_METHODS.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-                  <span><strong className="text-navy">{item.label}</strong> · {item.accountName} · {item.account}</span>
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-gold-ink"
-                    onClick={() => void navigator.clipboard?.writeText(item.account).then(() => toast.success(t.track.copied))}
-                  >
-                    {t.track.copy}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <PayInstructions
+              accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS}
+              channel={method === "bank" ? "bank" : "mobile"}
+              amount={due}
+              orderNumber={order.number}
+            />
             {waiting && <p className="mt-3 text-sm font-semibold text-gold-ink">{t.track.awaiting}</p>}
             <form
               className="mt-4 grid gap-3"
               onSubmit={(e) => {
                 e.preventDefault();
+                if (sender.trim().length < 2) {
+                  toast.error(t.track.senderName);
+                  return;
+                }
+                if (!shot || !["image/jpeg", "image/png", "image/webp"].includes(shot.type) || shot.size > 5_000_000) {
+                  toast.error(t.track.proofImage);
+                  return;
+                }
                 setBusy(true);
-                void sendProof({ data: { token, method, amount: Math.round(due), transactionId: tx.trim() } })
-                  .then(async () => {
-                    toast.success(t.track.proofSent);
-                    setTx("");
-                    await queryClient.invalidateQueries({ queryKey: ["tracking", token] });
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const raw = String(reader.result ?? "");
+                  const base64 = raw.slice(raw.indexOf(",") + 1);
+                  void sendProof({
+                    data: {
+                      token,
+                      method,
+                      amount: Math.round(due),
+                      senderName: sender.trim(),
+                      screenshot: { name: shot.name, type: shot.type as "image/jpeg" | "image/png" | "image/webp", base64 },
+                    },
                   })
-                  .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
-                  .finally(() => setBusy(false));
+                    .then(async () => {
+                      toast.success(t.track.proofSent);
+                      setSender("");
+                      setShot(null);
+                      await queryClient.invalidateQueries({ queryKey: ["tracking", token] });
+                    })
+                    .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
+                    .finally(() => setBusy(false));
+                };
+                reader.onerror = () => {
+                  setBusy(false);
+                  toast.error(t.track.proofImage);
+                };
+                reader.readAsDataURL(shot);
               }}
             >
-              <div className="grid grid-cols-2 gap-2">
-                {PAYMENT_METHODS.map((item) => (
+              <p className="text-sm font-semibold text-navy">{t.track.howPaid}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["mpesa", t.track.mpesaLipa],
+                    ["airtel", t.track.airtel],
+                    ["bank", t.track.nmb],
+                  ] as const
+                ).map(([id, label]) => (
                   <button
-                    key={item.id}
+                    key={id}
                     type="button"
-                    className={cn("rounded-lg border px-3 py-2 text-sm font-semibold", method === item.id ? "border-gold bg-gold-tint text-navy" : "border-input")}
-                    onClick={() => setMethod(item.id)}
+                    className={cn("rounded-lg border px-3 py-2 text-sm font-semibold", method === id ? "border-gold bg-gold-tint text-navy" : "border-input")}
+                    onClick={() => setMethod(id)}
                   >
-                    {item.label}
+                    {label}
                   </button>
                 ))}
               </div>
-              <label className="field-label" htmlFor="tx">{t.track.transactionId}</label>
-              <input id="tx" className="field-input" value={tx} onChange={(e) => setTx(e.target.value)} placeholder="ABC123456" />
-              <p className="text-xs text-muted-foreground">{t.track.transactionHint}</p>
+              <label className="field-label" htmlFor="sender">{t.track.senderName}</label>
+              <input id="sender" className="field-input" value={sender} onChange={(e) => setSender(e.target.value)} />
+              <label className="field-label" htmlFor="shot">{t.track.screenshot}</label>
+              <input
+                id="shot"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="field-input"
+                onChange={(e) => setShot(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-muted-foreground">{t.track.proofImage}</p>
               <button type="submit" className="btn-base btn-gold" disabled={busy || due <= 0}>{t.track.iHavePaid}</button>
               <a
                 className="btn-base btn-outline-navy"
-                href={waLink(`Order ${order.number}. I paid ${formatAmount(due)} by ${method}. Transaction ID: ${tx.trim() || "(not yet)"}.`)}
+                href={waLink(`Order ${order.number}. I paid ${formatAmount(due)} by ${method}. Sender: ${sender.trim() || "(not yet)"}.`)}
                 target="_blank"
                 rel="noreferrer"
               >

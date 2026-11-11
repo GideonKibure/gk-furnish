@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Sparkles,
   UserRound,
+  Wrench,
 } from "lucide-react";
 import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
@@ -28,6 +29,7 @@ type MenuLink = {
   to:
     | "/"
     | "/products"
+    | "/services"
     | "/categories"
     | "/custom-order"
     | "/gallery"
@@ -60,6 +62,7 @@ export function MobileMenuSheet({
   const links: MenuLink[] = [
     { to: "/", label: t.nav.home, icon: Home, exact: true },
     { to: "/products", label: t.shell.shop, icon: ShoppingBag },
+    { to: "/services", label: t.nav.services, icon: Wrench },
     { to: "/categories", label: t.nav.categories, icon: LayoutGrid },
     { to: "/custom-order", label: t.nav.custom, icon: Sparkles },
     { to: "/gallery", label: t.nav.gallery, icon: Images },

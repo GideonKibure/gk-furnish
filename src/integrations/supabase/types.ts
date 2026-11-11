@@ -60,8 +60,11 @@ export type Database = {
           description_sw: string | null
           id: string
           is_published: boolean
+          media_kind: string | null
+          media_url: string | null
           name: string
           name_sw: string | null
+          price_tzs: number | null
           sort_order: number
           updated_at: string
         }
@@ -71,8 +74,11 @@ export type Database = {
           description_sw?: string | null
           id?: string
           is_published?: boolean
+          media_kind?: string | null
+          media_url?: string | null
           name: string
           name_sw?: string | null
+          price_tzs?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -82,8 +88,11 @@ export type Database = {
           description_sw?: string | null
           id?: string
           is_published?: boolean
+          media_kind?: string | null
+          media_url?: string | null
           name?: string
           name_sw?: string | null
+          price_tzs?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -893,8 +902,14 @@ export type Database = {
           advance_large_items: number
           advance_large_percent: number
           advance_standard_percent: number
+          airtel_name: string | null
+          airtel_number: string | null
           collection_address: string | null
           email: string | null
+          mpesa_lipa_name: string | null
+          mpesa_lipa_number: string | null
+          nmb_account_name: string | null
+          nmb_account_number: string | null
           facebook_url: string | null
           id: number
           instagram_url: string | null
@@ -913,12 +928,18 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          airtel_name?: string | null
+          airtel_number?: string | null
           collection_address?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: number
           instagram_url?: string | null
           location?: string | null
+          mpesa_lipa_name?: string | null
+          mpesa_lipa_number?: string | null
+          nmb_account_name?: string | null
+          nmb_account_number?: string | null
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
@@ -933,12 +954,18 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          airtel_name?: string | null
+          airtel_number?: string | null
           collection_address?: string | null
           email?: string | null
           facebook_url?: string | null
           id?: number
           instagram_url?: string | null
           location?: string | null
+          mpesa_lipa_name?: string | null
+          mpesa_lipa_number?: string | null
+          nmb_account_name?: string | null
+          nmb_account_number?: string | null
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null

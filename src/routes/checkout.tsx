@@ -2,22 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, ArrowRight, MapPin, Pencil, Store, Truck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Stepper } from "@/components/brand/Stepper";
 import { DeliveryFields, type DeliveryValues } from "@/components/site/DeliveryFields";
+import { PayInstructions } from "@/components/site/PayInstructions";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
-import { WalletPicker } from "@/components/site/WalletPicker";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
+import { sessionContact } from "@/hooks/use-customer-name";
 import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { getMyProfile } from "@/lib/account.functions";
 import { listMyAddresses, type SavedAddress } from "@/lib/addresses.functions";
 import { useCart } from "@/lib/cart";
 import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
-import { composeDeliveryLocation, deliveryFeeStatusFor, type FulfilmentMethod } from "@/lib/delivery";
-import { phoneMatchesWallet, walletById, type WalletId } from "@/lib/palmpesa";
+import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation, type FulfilmentMethod } from "@/lib/delivery";
+import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
 import { isPurchasable } from "@/lib/product-display";
 import { siteSettingsQuery } from "@/lib/site-content";
@@ -46,6 +47,12 @@ function CheckoutPage() {
   const loadConfig = useServerFn(getCheckoutConfig);
   const { data: settings } = useQuery(siteSettingsQuery);
   const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
+  const { data: profile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    queryFn: () => loadProfile(),
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  });
   const { data: saved } = useQuery({
     queryKey: ["my-addresses", user?.id],
     queryFn: () => loadAddresses(),
@@ -53,12 +60,9 @@ function CheckoutPage() {
     retry: false,
   });
   const addresses: SavedAddress[] = saved?.addresses ?? [];
-  const online = Boolean(config?.onlinePayment);
-
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
-  const [payMethod, setPayMethod] = useState<"mobile" | "cash">("mobile");
-  const [wallet, setWallet] = useState<WalletId>("mpesa");
+  const [payMethod, setPayMethod] = useState<"mobile" | "bank">("mobile");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -75,20 +79,27 @@ function CheckoutPage() {
     payment_phone: "",
   });
 
+  const filled = useRef({ name: "", phone: "", email: "", location: "" });
+
   useEffect(() => {
     if (!user) return;
-    loadProfile()
-      .then((p) =>
-        setForm((f) => ({
-          ...f,
-          customer_name: f.customer_name || p.full_name,
-          phone: f.phone || p.phone,
-          payment_phone: f.payment_phone || p.phone,
-          email: f.email || p.email,
-        })),
-      )
-      .catch(() => undefined);
-  }, [user?.id]);
+    const session = sessionContact(user);
+    const name = profile?.full_name?.trim() || session.name;
+    const phone = profile?.phone?.trim() || session.phone;
+    const email = profile?.email?.trim() || session.email;
+    const location = profile?.default_location?.trim() || "";
+    setForm((current) => ({
+      ...current,
+      customer_name: current.customer_name && current.customer_name !== filled.current.name ? current.customer_name : name,
+      phone: current.phone && current.phone !== filled.current.phone ? current.phone : phone,
+      payment_phone: current.payment_phone && current.payment_phone !== filled.current.phone ? current.payment_phone : phone,
+      email: current.email && current.email !== filled.current.email ? current.email : email,
+    }));
+    if (!addressId && location && location !== filled.current.location) {
+      setPlace((current) => (current.region || current.district || current.address_line ? current : placeFromProfileLocation(location)));
+    }
+    filled.current = { name, phone, email, location };
+  }, [user, profile, addressId]);
 
   useEffect(() => {
     if (addressId || !addresses.length) return;
@@ -143,34 +154,18 @@ function CheckoutPage() {
     return !Object.keys(errs).length;
   }
 
-  function validatePayment() {
-    const errs: Record<string, string> = {};
-    if (online && payMethod === "mobile") {
-      const payPhone = form.payment_phone.trim() || form.phone.trim();
-      if (!phoneOk(payPhone)) errs["payment_phone"] = t.validation.phoneInvalid;
-      else if (!phoneMatchesWallet(payPhone, wallet)) errs["payment_phone"] = t.checkout.walletMismatch;
-    }
-    setErrors(errs);
-    return !Object.keys(errs).length;
-  }
-
   function next() {
     if (step === 0) {
       if (!validateDelivery()) return;
-      setStep(online ? 1 : 2);
+      setStep(1);
       return;
     }
-    if (!validatePayment()) return;
     setStep(2);
   }
 
   async function placeOrder() {
     if (!validateDelivery()) {
       setStep(0);
-      return;
-    }
-    if (online && payMethod === "mobile" && !validatePayment()) {
-      setStep(1);
       return;
     }
     if (!agreed) {
@@ -199,9 +194,8 @@ function CheckoutPage() {
           needed_by: form.needed_by,
           notes: form.notes.trim(),
           payment_choice: choice,
-          payment_method: online && payMethod === "mobile" ? "mobile" : "cash",
-          ...(online && payMethod === "mobile" ? { wallet } : {}),
-          payment_phone: online && payMethod === "mobile" ? form.payment_phone.trim() || form.phone.trim() : "",
+          payment_method: payMethod,
+          payment_phone: form.phone.trim(),
           specs_agreed: true,
         },
       });
@@ -324,9 +318,9 @@ function CheckoutPage() {
         </div>
         <Stepper
           className="mt-4 max-w-xl"
-          steps={online ? [t.steps.delivery, t.steps.payment, t.steps.review] : [t.steps.delivery, t.steps.review]}
-          current={online ? step : step === 0 ? 0 : 1}
-          onStepClick={(index) => setStep(online ? index : index === 0 ? 0 : 2)}
+          steps={[t.steps.delivery, t.steps.payment, t.steps.review]}
+          current={step}
+          onStepClick={(index) => setStep(index)}
         />
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -467,64 +461,29 @@ function CheckoutPage() {
             {step === 1 && (
               <>
                 <section className="panel p-4 md:p-5">
-                  {online ? (
-                    <div>
-                      <p className="text-sm font-semibold text-navy">{t.checkout.methodTitle}</p>
-                      <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.checkout.methodTitle}>
-                        {(["mobile", "cash"] as const).map((kind) => (
-                          <label
-                            key={kind}
-                            className={cn(
-                              "cursor-pointer rounded-lg border px-4 py-3 transition-colors",
-                              payMethod === kind ? "border-gold bg-gold-tint" : "border-input bg-white hover:border-navy/30",
-                            )}
-                          >
-                            <input type="radio" name="payment_method" className="sr-only" checked={payMethod === kind} onChange={() => setPayMethod(kind)} />
-                            <span className="block font-semibold text-navy">{kind === "mobile" ? t.checkout.methodMobile : t.checkout.methodCash}</span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              {kind === "mobile" ? t.checkout.methodMobileHint : t.checkout.methodCashHint}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                      {payMethod === "mobile" ? (
-                        <div className="mt-4">
-                          <p className="text-sm font-semibold text-navy">{t.checkout.walletTitle}</p>
-                          <div className="mt-2">
-                            <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
-                          </div>
-                          <label className="field-label mt-4" htmlFor="c-pay-phone">{t.checkout.phone} *</label>
-                          <input
-                            id="c-pay-phone"
-                            type="tel"
-                            inputMode="tel"
-                            className="field-input"
-                            placeholder={form.phone || "07…"}
-                            value={form.payment_phone}
-                            onChange={set("payment_phone")}
-                          />
-                          <p className="mt-1.5 text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
-                          {err("payment_phone")}
-                        </div>
-                      ) : (
-                        <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-navy">{t.checkout.methodCashHint}</p>
-                      )}
+                  <div>
+                    <p className="text-sm font-semibold text-navy">{t.checkout.methodTitle}</p>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.checkout.methodTitle}>
+                      {(["mobile", "bank"] as const).map((kind) => (
+                        <label
+                          key={kind}
+                          className={cn(
+                            "cursor-pointer rounded-lg border px-4 py-3 transition-colors",
+                            payMethod === kind ? "border-gold bg-gold-tint" : "border-input bg-white hover:border-navy/30",
+                          )}
+                        >
+                          <input type="radio" name="payment_method" className="sr-only" checked={payMethod === kind} onChange={() => setPayMethod(kind)} />
+                          <span className="block font-semibold text-navy">{kind === "mobile" ? t.checkout.methodMobile : t.checkout.methodBank}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {kind === "mobile" ? t.checkout.methodMobileHint : t.checkout.methodBankHint}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="rounded-lg bg-sand p-4">
-                      <p className="text-sm font-semibold text-navy">{t.steps.howToPay}</p>
-                      <ol className="mt-2 space-y-1.5 text-sm text-navy/80">
-                        {t.steps.offlineSteps.map((line, i) => (
-                          <li key={line} className="flex gap-2">
-                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-gold text-[0.7rem] font-bold text-navy">{i + 1}</span>
-                            {line}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
+                    <PayInstructions accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS} channel={payMethod} amount={payNow} />
+                  </div>
 
-                  <h2 className={cn("text-base font-bold", online ? "mt-6" : "")}>{t.steps.paymentPlan}</h2>
+                  <h2 className="mt-6 text-base font-bold">{t.steps.paymentPlan}</h2>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tierLabel}</p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.steps.paymentPlan}>
                     {(["advance", "full"] as const).map((kind) => (
@@ -579,10 +538,7 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value:
-                        online && payMethod === "mobile"
-                          ? `${walletById(wallet)?.label ?? t.checkout.methodMobile} · ${form.payment_phone.trim() || form.phone.trim()}`
-                          : t.checkout.offline,
+                      value: payMethod === "bank" ? t.checkout.methodBank : t.checkout.methodMobile,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
@@ -610,7 +566,7 @@ function CheckoutPage() {
 
             <div className="flex flex-wrap-reverse items-center justify-between gap-3 [&>*:last-child]:max-sm:w-full">
               {step > 0 ? (
-                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(online && step === 2 ? 1 : 0)}>
+                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(step - 1)}>
                   <ArrowLeft className="h-4 w-4" />
                   {t.steps.back}
                 </button>
@@ -622,7 +578,7 @@ function CheckoutPage() {
               )}
               {step < 2 ? (
                 <button type="button" className="btn-base btn-gold btn-lg" onClick={next} disabled={blocked}>
-                  {step === 0 && online ? t.steps.continuePayment : t.steps.continueReview}
+                  {step === 0 ? t.steps.continuePayment : t.steps.continueReview}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               ) : (

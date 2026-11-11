@@ -21,6 +21,7 @@ import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProcessRouteImport } from './routes/process'
+import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AccountIndexRouteImport } from './routes/account.index'
 import { Route as AccountAddressesRouteImport } from './routes/account.addresses'
@@ -126,6 +127,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const ProcessRoute = ProcessRouteImport.update({
   id: '/process',
   path: '/process',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServicesRoute = ServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -372,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/order-success': typeof OrderSuccessRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account/addresses': typeof AccountAddressesRoute
   '/account/forgot': typeof AccountForgotRoute
@@ -431,6 +438,7 @@ export interface FileRoutesByTo {
   '/order-success': typeof OrderSuccessRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account/addresses': typeof AccountAddressesRoute
   '/account/forgot': typeof AccountForgotRoute
@@ -492,6 +500,7 @@ export interface FileRoutesById {
   '/order-success': typeof OrderSuccessRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account/addresses': typeof AccountAddressesRoute
   '/account/forgot': typeof AccountForgotRoute
@@ -554,6 +563,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/privacy'
     | '/process'
+    | '/services'
     | '/sitemap.xml'
     | '/account/addresses'
     | '/account/forgot'
@@ -613,6 +623,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/privacy'
     | '/process'
+    | '/services'
     | '/sitemap.xml'
     | '/account/addresses'
     | '/account/forgot'
@@ -673,6 +684,7 @@ export interface FileRouteTypes {
     | '/order-success'
     | '/privacy'
     | '/process'
+    | '/services'
     | '/sitemap.xml'
     | '/account/addresses'
     | '/account/forgot'
@@ -734,6 +746,7 @@ export interface RootRouteChildren {
   OrderSuccessRoute: typeof OrderSuccessRoute
   PrivacyRoute: typeof PrivacyRoute
   ProcessRoute: typeof ProcessRoute
+  ServicesRoute: typeof ServicesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AccountAddressesRoute: typeof AccountAddressesRoute
   AccountForgotRoute: typeof AccountForgotRoute
@@ -841,6 +854,13 @@ declare module '@tanstack/react-router' {
       path: '/process'
       fullPath: '/process'
       preLoaderRoute: typeof ProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/services': {
+      id: '/services'
+      path: '/services'
+      fullPath: '/services'
+      preLoaderRoute: typeof ServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -1239,6 +1259,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrderSuccessRoute: OrderSuccessRoute,
   PrivacyRoute: PrivacyRoute,
   ProcessRoute: ProcessRoute,
+  ServicesRoute: ServicesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AccountAddressesRoute: AccountAddressesRoute,
   AccountForgotRoute: AccountForgotRoute,

@@ -12,7 +12,7 @@ import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileMenuSheet } from "./MobileMenuSheet";
 
 type NavLink = {
-  to: "/" | "/products" | "/categories" | "/custom-order" | "/about" | "/contact";
+  to: "/" | "/products" | "/services" | "/categories" | "/custom-order" | "/about" | "/contact";
   label: string;
   match: (pathname: string) => boolean;
 };
@@ -38,16 +38,22 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
     setMenuOpen(false);
   }, [pathname]);
 
-  const links: NavLink[] = [
-    { to: "/products", label: t.shell.shop, match: (p) => p.startsWith("/products") },
-    { to: "/categories", label: t.nav.categories, match: (p) => p.startsWith("/categories") },
-    { to: "/custom-order", label: t.nav.custom, match: (p) => p.startsWith("/custom-order") },
-    { to: "/contact", label: t.nav.contact, match: (p) => p.startsWith("/contact") },
-  ];
-  if (!signedIn) {
-    links.unshift({ to: "/", label: t.nav.home, match: (p) => p === "/" });
-    links.splice(4, 0, { to: "/about", label: t.nav.about, match: (p) => p.startsWith("/about") });
-  }
+  const shop: NavLink = { to: "/products", label: t.shell.shop, match: (p) => p.startsWith("/products") };
+  const services: NavLink = { to: "/services", label: t.nav.services, match: (p) => p.startsWith("/services") };
+  const categories: NavLink = { to: "/categories", label: t.nav.categories, match: (p) => p.startsWith("/categories") };
+  const custom: NavLink = { to: "/custom-order", label: t.nav.custom, match: (p) => p.startsWith("/custom-order") };
+  const contact: NavLink = { to: "/contact", label: t.nav.contact, match: (p) => p.startsWith("/contact") };
+  const links: NavLink[] = signedIn
+    ? [shop, services, categories, custom, contact]
+    : [
+        { to: "/", label: t.nav.home, match: (p) => p === "/" },
+        shop,
+        services,
+        categories,
+        custom,
+        { to: "/about", label: t.nav.about, match: (p) => p.startsWith("/about") },
+        contact,
+      ];
 
   return (
     <>

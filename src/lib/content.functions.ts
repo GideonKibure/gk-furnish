@@ -39,6 +39,12 @@ const SettingsInput = z.object({
   tiktok_url: z.string().trim().max(500).optional().or(z.literal("")),
   /** Where customers collect orders (migration 0007). */
   collection_address: z.string().trim().max(300).optional(),
+  mpesa_lipa_number: z.string().trim().max(40).optional(),
+  mpesa_lipa_name: z.string().trim().max(120).optional(),
+  nmb_account_number: z.string().trim().max(40).optional(),
+  nmb_account_name: z.string().trim().max(120).optional(),
+  airtel_number: z.string().trim().max(40).optional(),
+  airtel_name: z.string().trim().max(120).optional(),
 });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
@@ -59,10 +65,18 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
       tiktok_url: data.tiktok_url || null,
       updated_at: new Date().toISOString(),
     };
-    const write = (body: typeof base & { collection_address?: string | null }) =>
+    const extras = {
+      ...(data.collection_address === undefined ? {} : { collection_address: data.collection_address || null }),
+      ...(data.mpesa_lipa_number === undefined ? {} : { mpesa_lipa_number: data.mpesa_lipa_number || null }),
+      ...(data.mpesa_lipa_name === undefined ? {} : { mpesa_lipa_name: data.mpesa_lipa_name || null }),
+      ...(data.nmb_account_number === undefined ? {} : { nmb_account_number: data.nmb_account_number || null }),
+      ...(data.nmb_account_name === undefined ? {} : { nmb_account_name: data.nmb_account_name || null }),
+      ...(data.airtel_number === undefined ? {} : { airtel_number: data.airtel_number || null }),
+      ...(data.airtel_name === undefined ? {} : { airtel_name: data.airtel_name || null }),
+    };
+    const write = (body: typeof base & Partial<typeof extras>) =>
       supabaseAdmin.from("site_settings").upsert(body).select("*").single();
-    let result =
-      data.collection_address === undefined ? await write(base) : await write({ ...base, collection_address: data.collection_address || null });
+    let result = await write({ ...base, ...extras });
     if (result.error && isMissingSchema(result.error)) result = await write(base);
     if (result.error || !result.data) throw new Error(result.error?.message ?? "Save failed");
     return result.data;

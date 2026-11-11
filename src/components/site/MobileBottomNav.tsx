@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, LayoutGrid, ShoppingBag, ShoppingCart, UserRound } from "lucide-react";
+import { Home, LayoutGrid, ShoppingBag, ShoppingCart, UserRound, Wrench } from "lucide-react";
 import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { CartCountBadge } from "./HeaderActions";
 import { UserMark } from "./UserMark";
 
-/** Fixed 4-tab bar for phones and tablets: Home, Shop, Cart, Account. */
+/** Fixed tab bar for phones and tablets. */
 export function MobileBottomNav() {
   const { t } = useLang();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -33,6 +33,13 @@ export function MobileBottomNav() {
       active: pathname.startsWith("/products") || (!signedIn && pathname.startsWith("/categories")),
     },
     {
+      key: "services",
+      to: "/services" as const,
+      label: t.nav.services,
+      icon: Wrench,
+      active: pathname.startsWith("/services"),
+    },
+    {
       key: "cart",
       to: "/cart" as const,
       label: t.shell.cart,
@@ -51,7 +58,7 @@ export function MobileBottomNav() {
 
   return (
     <nav aria-label={t.nav.menu} className="tabbar lg:hidden">
-      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4">
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
         {tabs.map(({ key, to, label, icon: Icon, active, badge }) => (
           <li key={key}>
             <Link

@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { AdminCard, AdminPageHeader } from "@/components/admin/admin-ui";
 import { getAdminSiteSettings, updateAdminSiteSettings, updateAdvanceTiers } from "@/lib/content.functions";
+import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { advanceSettingsFrom } from "@/lib/payment-policy";
 
 export const Route = createFileRoute("/admin/settings")({
@@ -89,6 +90,12 @@ function AdminSettingsPage() {
           facebook_url: String(fd.get("facebook_url") ?? ""),
           tiktok_url: String(fd.get("tiktok_url") ?? ""),
           ...(fd.has("collection_address") ? { collection_address: String(fd.get("collection_address") ?? "") } : {}),
+          mpesa_lipa_number: String(fd.get("mpesa_lipa_number") ?? ""),
+          mpesa_lipa_name: String(fd.get("mpesa_lipa_name") ?? ""),
+          nmb_account_number: String(fd.get("nmb_account_number") ?? ""),
+          nmb_account_name: String(fd.get("nmb_account_name") ?? ""),
+          airtel_number: String(fd.get("airtel_number") ?? ""),
+          airtel_name: String(fd.get("airtel_name") ?? ""),
         },
       });
       setRow(updated);
@@ -153,6 +160,19 @@ function AdminSettingsPage() {
           {row.collection_address !== undefined && (
             <Field name="collection_address" label="Collection address (shown for collection orders)" value={row.collection_address} span />
           )}
+        </SettingsGroup>
+
+        <SettingsGroup
+          icon={<Wallet className="h-4 w-4" />}
+          title="Payment accounts"
+          description="Numbers and names the customer sees when they pay. Leave the NMB number blank until you have it."
+        >
+          <Field name="mpesa_lipa_number" label="M-Pesa Lipa number" value={row.mpesa_lipa_number || DEFAULT_PAY_ACCOUNTS.mpesaNumber} />
+          <Field name="mpesa_lipa_name" label="M-Pesa Lipa name" value={row.mpesa_lipa_name || DEFAULT_PAY_ACCOUNTS.mpesaName} />
+          <Field name="airtel_number" label="Airtel number" value={row.airtel_number || DEFAULT_PAY_ACCOUNTS.airtelNumber} />
+          <Field name="airtel_name" label="Airtel name" value={row.airtel_name || DEFAULT_PAY_ACCOUNTS.airtelName} />
+          <Field name="nmb_account_number" label="NMB account number" value={row.nmb_account_number} />
+          <Field name="nmb_account_name" label="NMB account name" value={row.nmb_account_name || DEFAULT_PAY_ACCOUNTS.nmbName} />
         </SettingsGroup>
 
         <SettingsGroup

@@ -186,6 +186,7 @@ export const deleteAdminReview = createServerFn({ method: "POST" })
   });
 
 const SERVICES_MIGRATION = "0011_services.sql";
+const SERVICE_MEDIA_MIGRATION = "0014_service_price_media.sql";
 
 const ServiceInput = z.object({
   id: z.string().uuid().optional(),
@@ -195,7 +196,32 @@ const ServiceInput = z.object({
   description_sw: z.string().trim().max(2000).optional().or(z.literal("")),
   sort_order: z.number().int().min(0).max(10_000),
   is_published: z.boolean(),
+  price_tzs: z.number().int().min(0).max(1_000_000_000).nullable(),
+  media_url: z.string().trim().max(1000).optional().or(z.literal("")),
+  media_kind: z.enum(["image", "video"]).nullable(),
+  clear_media: z.boolean().optional(),
 });
+
+function serviceMediaPath(url: string | null | undefined) {
+  if (!url) return null;
+  const marker = "/product-images/";
+  const at = url.indexOf(marker);
+  if (at < 0) return null;
+  return url.slice(at + marker.length).split("?")[0] ?? null;
+}
+
+/** Signed upload for a service photo or video. Admin only. */
+export const signServiceMediaUpload = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ ext: z.enum(["jpg", "png", "webp", "mp4", "webm"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const path = `services/${crypto.randomUUID()}.${data.ext}`;
+    const { data: signed, error } = await supabaseAdmin.storage.from("product-images").createSignedUploadUrl(path);
+    if (error || !signed) throw new Error(error?.message ?? "Could not prepare the upload");
+    const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(path);
+    return { path, token: signed.token, publicUrl: pub.publicUrl };
+  });
 
 /** Every service, including hidden ones. */
 export const listAdminServices = createServerFn({ method: "GET" })
@@ -212,6 +238,10 @@ export const upsertAdminService = createServerFn({ method: "POST" })
   .inputValidator((d) => ServiceInput.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const previous = data.id
+      ? await supabaseAdmin.from("services").select("media_url").eq("id", data.id).maybeSingle()
+      : { data: null };
+    const mediaUrl = data.clear_media ? null : data.media_url || null;
     const body = {
       name: data.name,
       name_sw: data.name_sw || null,
@@ -219,13 +249,23 @@ export const upsertAdminService = createServerFn({ method: "POST" })
       description_sw: data.description_sw || null,
       sort_order: data.sort_order,
       is_published: data.is_published,
+      price_tzs: data.price_tzs,
+      media_url: mediaUrl,
+      media_kind: mediaUrl ? data.media_kind : null,
       updated_at: new Date().toISOString(),
     };
     const result = data.id
       ? await supabaseAdmin.from("services").update(body).eq("id", data.id).select("id").single()
       : await supabaseAdmin.from("services").insert(body).select("id").single();
-    if (result.error && isMissingSchema(result.error)) throw new Error(migrationNeeded(SERVICES_MIGRATION));
+    if (result.error && isMissingSchema(result.error)) {
+      const message = result.error.message ?? "";
+      const tableMissing = /relation .*services.* does not exist/i.test(message);
+      throw new Error(migrationNeeded(tableMissing ? SERVICES_MIGRATION : SERVICE_MEDIA_MIGRATION));
+    }
     if (result.error || !result.data) throw new Error(result.error?.message ?? "Could not save the service");
+    const oldPath = serviceMediaPath(previous.data?.media_url);
+    const nextPath = serviceMediaPath(mediaUrl);
+    if (oldPath && oldPath !== nextPath) await supabaseAdmin.storage.from("product-images").remove([oldPath]);
     return { id: result.data.id };
   });
 

@@ -55,6 +55,14 @@ export const TZ_REGIONS = [
   "Zanzibar Urban West",
 ] as const;
 
+/** Split a profile location such as "Mbeya, Iyunga" into the checkout address fields. */
+export function placeFromProfileLocation(text: string): { region: string; district: string; address_line: string } {
+  const parts = text.split(",").map((part) => part.trim()).filter(Boolean);
+  const region = TZ_REGIONS.find((item) => parts.some((part) => part.toLowerCase() === item.toLowerCase())) ?? "";
+  const rest = parts.filter((part) => part.toLowerCase() !== region.toLowerCase());
+  return { region, district: "", address_line: rest.join(", ") || (region ? "" : text.trim()) };
+}
+
 export function composeDeliveryLocation(parts: {
   method: FulfilmentMethod;
   region?: string;
