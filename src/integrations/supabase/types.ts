@@ -1108,6 +1108,7 @@ export type Database = {
           free_delivery_region: string | null
           free_delivery_regions: string[]
           id: string
+          item_condition: string
           image_key: string | null
           image_url: string | null
           is_available: boolean
@@ -1149,6 +1150,7 @@ export type Database = {
           free_delivery_region?: string | null
           free_delivery_regions?: string[]
           id?: string
+          item_condition?: string
           image_key?: string | null
           image_url?: string | null
           is_available?: boolean
@@ -1190,6 +1192,7 @@ export type Database = {
           free_delivery_region?: string | null
           free_delivery_regions?: string[]
           id?: string
+          item_condition?: string
           image_key?: string | null
           image_url?: string | null
           is_available?: boolean

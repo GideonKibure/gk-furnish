@@ -732,6 +732,8 @@ export const en = {
     freeDeliveryIn: "Free delivery in {region}",
     freeDeliveryCountry: "Free delivery across Tanzania",
     availableIn: "Available in {region}",
+    conditionNew: "New",
+    conditionUsed: "Used",
     customisable: "Size and finish can be customised",
     deliveryNote: "Delivery fee is confirmed after you order. Collection is free.",
     inHouse: "Made in our Mbeya workshop",

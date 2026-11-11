@@ -82,6 +82,7 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
           )}
         </Link>
         <div className="pointer-events-none absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
+          <ConditionBadge condition={product.item_condition} />
           <DiscountBadge percent={percent} />
         </div>
         <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5">
@@ -139,6 +140,17 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
       </div>
       {open && <OrderDialog product={product} open={open} onOpenChange={setOpen} />}
     </article>
+  );
+}
+
+export function ConditionBadge({ condition }: { condition: string | null | undefined }) {
+  const { t } = useLang();
+  if (condition !== "new" && condition !== "used") return null;
+  const used = condition === "used";
+  return (
+    <span className={used ? "inline-flex items-center rounded-md bg-navy px-2 py-0.5 text-xs font-extrabold tracking-wide text-white" : "discount-badge"}>
+      {used ? t.pdp.conditionUsed : t.pdp.conditionNew}
+    </span>
   );
 }
 

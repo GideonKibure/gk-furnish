@@ -734,6 +734,8 @@ export const sw: Dictionary = {
     freeDeliveryIn: "Usafirishaji bure {region}",
     freeDeliveryCountry: "Usafirishaji bure Tanzania nzima",
     availableIn: "Inapatikana {region}",
+    conditionNew: "Mpya",
+    conditionUsed: "Iliyotumika",
     customisable: "Ukubwa na umaliziaji vinaweza kubadilishwa",
     deliveryNote: "Gharama ya usafirishaji inathibitishwa baada ya kuagiza. Kuchukua ni bure.",
     inHouse: "Imetengenezwa katika karakana yetu Mbeya",

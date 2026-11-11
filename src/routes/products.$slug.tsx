@@ -10,7 +10,7 @@ import { StarRating } from "@/components/brand/StarRating";
 import { StockLabel } from "@/components/brand/StockLabel";
 import { missingChoices, OrderDialog, useAddToCart } from "@/components/site/OrderDialog";
 import { ProductEngagement } from "@/components/site/ProductEngagement";
-import { ProductGrid } from "@/components/site/ProductCard";
+import { ConditionBadge, ProductGrid } from "@/components/site/ProductCard";
 import { ProductReviews } from "@/components/site/ProductReviews";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { ZoomGallery } from "@/components/site/ZoomGallery";
@@ -202,6 +202,7 @@ function Detail() {
               <span className="price-text text-2xl md:text-[1.75rem]">{price ?? t.common.priceOnRequest}</span>
               {oldPrice && <span className="text-base text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
               <DiscountBadge percent={percent} />
+              <ConditionBadge condition={p.item_condition} />
             </div>
             {chosenPrice == null && pricesVary && priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
 

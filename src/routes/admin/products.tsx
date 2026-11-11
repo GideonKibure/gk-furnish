@@ -626,6 +626,7 @@ function AdminProductsPage() {
             ...freeDeliveryInput(fd),
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
+            item_condition: fd.get("item_condition") === "used" ? "used" : "new",
           },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
@@ -901,6 +902,14 @@ function AdminProductsPage() {
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-[#6B7280]">Shown on the product card so customers can see where this piece is available.</p>
+              </div>
+              <div>
+                <label className="field-label">Condition</label>
+                <select name="item_condition" className="field-input" defaultValue={prefill?.item_condition === "used" ? "used" : "new"}>
+                  <option value="new">New</option>
+                  <option value="used">Used</option>
+                </select>
+                <p className="mt-1 text-xs text-[#6B7280]">Shown as a badge on the product card.</p>
               </div>
               <FreeDeliveryFields product={prefill} />
               <div role="radiogroup" aria-label="Stock shown to customers" className="space-y-1.5">
@@ -1396,6 +1405,7 @@ function AdminProductsPage() {
         </span>
         {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
         {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
+        {p.item_condition === "used" ? <StatusPill tone="neutral">Used</StatusPill> : p.item_condition === "new" ? <StatusPill tone="success">New</StatusPill> : null}
         {freeDeliveryPill(p)}
       </p>
     );

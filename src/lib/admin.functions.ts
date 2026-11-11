@@ -353,6 +353,7 @@ const ProductInput = z.object({
       free_delivery_country: z.boolean(),
       stock_display: z.enum(["label", "count"]),
       available_region: z.enum(TZ_REGIONS).nullable(),
+      item_condition: z.enum(["new", "used"]),
     })
     .optional(),
 });
@@ -606,6 +607,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
           free_delivery_country: ext.free_delivery_country,
           stock_display: ext.stock_display,
           available_region: ext.available_region,
+          item_condition: ext.item_condition,
         }
       : {};
 
@@ -614,9 +616,10 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       free_delivery_region: freeRegion,
       free_delivery_regions: freeRegions,
       free_delivery_country: freeCountry,
+      item_condition: itemCondition,
       ...extendedCore
     } = extended;
-    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean) {
+    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean, includeCondition: boolean) {
       const body = !includeExtended
         ? payload
         : {
@@ -625,6 +628,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
             ...(includeRegion ? { available_region: listedRegion } : {}),
             ...(includeFreeRegion ? { free_delivery_region: freeRegion } : {}),
             ...(includePlaces ? { free_delivery_regions: freeRegions, free_delivery_country: freeCountry } : {}),
+            ...(includeCondition ? { item_condition: itemCondition ?? "new" } : {}),
           };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
@@ -635,14 +639,19 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     let includeRegion = Boolean(ext);
     let includeFreeRegion = Boolean(ext);
     let includePlaces = Boolean(ext);
-    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces);
+    let includeCondition = Boolean(ext);
+    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces, includeCondition);
     let extendedSaved = Boolean(ext);
     let regionSaved = Boolean(ext);
     let freeRegionSaved = Boolean(ext);
     let placesSaved = Boolean(ext);
-    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 4; attempt += 1) {
+    let conditionSaved = Boolean(ext);
+    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 5; attempt += 1) {
       const message = result.error.message ?? "";
-      if (includePlaces && (message.includes("free_delivery_regions") || message.includes("free_delivery_country"))) {
+      if (includeCondition && message.includes("item_condition")) {
+        includeCondition = false;
+        conditionSaved = false;
+      } else if (includePlaces && (message.includes("free_delivery_regions") || message.includes("free_delivery_country"))) {
         includePlaces = false;
         placesSaved = false;
       } else if (includeFreeRegion && message.includes("free_delivery_region")) {
@@ -652,14 +661,15 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
         includeRegion = false;
         regionSaved = false;
       } else {
-        result = await write(false, false, false, false);
+        result = await write(false, false, false, false, false);
         extendedSaved = false;
         regionSaved = false;
         freeRegionSaved = false;
         placesSaved = false;
+        conditionSaved = false;
         break;
       }
-      result = await write(true, includeRegion, includeFreeRegion, includePlaces);
+      result = await write(true, includeRegion, includeFreeRegion, includePlaces, includeCondition);
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
@@ -723,6 +733,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       ext && extendedSaved && !regionSaved ? migrationNeeded("0016_product_available_region.sql") : "",
       ext && extendedSaved && !freeRegionSaved ? migrationNeeded("0018_free_delivery_region.sql") : "",
       ext && extendedSaved && !placesSaved ? migrationNeeded("0019_free_delivery_places.sql") : "",
+      ext && extendedSaved && !conditionSaved ? migrationNeeded("0020_product_condition.sql") : "",
     ].filter(Boolean).join(" ");
     return { id: productId, slug, extendedSaved, notice };
   });
