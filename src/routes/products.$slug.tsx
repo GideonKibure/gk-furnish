@@ -27,6 +27,7 @@ import {
   publicFeatures,
   selectedOptionPrice,
 } from "@/lib/order-options";
+import { freeDeliveryPlaces, joinPlaces } from "@/lib/delivery";
 import { compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { absoluteUrl, seo } from "@/lib/seo";
@@ -84,6 +85,17 @@ export const Route = createFileRoute("/products/$slug")({
 });
 
 type Tab = "description" | "specs" | "care" | "reviews";
+
+function freeDeliveryText(
+  product: Parameters<typeof freeDeliveryPlaces>[0],
+  lang: string,
+  copy: { freeDelivery: string; freeDeliveryIn: string; freeDeliveryCountry: string; deliveryNote: string },
+) {
+  const places = freeDeliveryPlaces(product);
+  if (places.country) return copy.freeDeliveryCountry;
+  if (places.regions.length) return fill(copy.freeDeliveryIn, { region: joinPlaces(places.regions, lang === "sw" ? "na" : "and") });
+  return product.free_delivery ? copy.freeDelivery : copy.deliveryNote;
+}
 
 function Detail() {
   const { slug } = Route.useParams();
@@ -274,11 +286,7 @@ function Detail() {
             <div className="mt-4 space-y-2 rounded-xl bg-sand p-3.5 text-sm text-navy/80">
               <p className="flex items-start gap-2">
                 <Truck className="mt-0.5 h-4 w-4 shrink-0 text-navy" />
-                {p.free_delivery_region
-                  ? fill(t.pdp.freeDeliveryIn, { region: p.free_delivery_region })
-                  : p.free_delivery
-                    ? t.pdp.freeDelivery
-                    : t.pdp.deliveryNote}
+                {freeDeliveryText(p, lang, t.pdp)}
               </p>
               {p.is_customisable && (
                 <p className="flex items-start gap-2">

@@ -204,6 +204,8 @@ export const createCheckout = createServerFn({ method: "POST" })
                 finish: product.finish ?? null,
                 free_delivery: product.free_delivery ?? false,
                 free_delivery_region: product.free_delivery_region ?? null,
+                free_delivery_regions: product.free_delivery_regions ?? [],
+                free_delivery_country: product.free_delivery_country ?? false,
               },
             };
           }),

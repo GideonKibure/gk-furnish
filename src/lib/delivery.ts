@@ -9,16 +9,11 @@ export type DeliveryFeeStatus = "pending" | "confirmed" | "free";
 
 export function deliveryFeeStatusFor(
   method: FulfilmentMethod,
-  items: { free_delivery?: boolean | null; free_delivery_region?: string | null }[],
+  items: FreeDeliveryItem[],
   destinationRegion?: string | null,
 ): Exclude<DeliveryFeeStatus, "confirmed"> {
   if (method === "collection") return "free";
-  const destination = destinationRegion?.trim().toLowerCase() ?? "";
-  const allFree = items.length > 0 && items.every((item) => {
-    const region = item.free_delivery_region?.trim();
-    if (region) return Boolean(destination) && region.toLowerCase() === destination;
-    return item.free_delivery === true;
-  });
+  const allFree = items.length > 0 && items.every((item) => deliveredFreeIn(item, destinationRegion));
   return allFree ? "free" : "pending";
 }
 
@@ -60,6 +55,39 @@ export const TZ_REGIONS = [
   "Unguja South",
   "Zanzibar Urban West",
 ] as const;
+
+export type FreeDeliveryItem = {
+  free_delivery?: boolean | null;
+  free_delivery_region?: string | null;
+  free_delivery_regions?: string[] | null;
+  free_delivery_country?: boolean | null;
+};
+
+/** Regions where this product is delivered free. A country covers every Tanzania region. */
+export function freeDeliveryPlaces(item: FreeDeliveryItem): { country: boolean; regions: string[] } {
+  if (item.free_delivery_country) return { country: true, regions: [] };
+  const allowed = new Set<string>(TZ_REGIONS);
+  const listed = [...new Set((item.free_delivery_regions ?? []).map((region) => region.trim()).filter((region) => allowed.has(region)))];
+  if (listed.length) return { country: false, regions: listed };
+  const single = item.free_delivery_region?.trim() ?? "";
+  if (single && allowed.has(single)) return { country: false, regions: [single] };
+  return { country: false, regions: [] };
+}
+
+/** True when this item ships free to the customer's region. A chosen region is required for region-specific free delivery. */
+export function deliveredFreeIn(item: FreeDeliveryItem, destinationRegion?: string | null) {
+  const places = freeDeliveryPlaces(item);
+  const destination = destinationRegion?.trim().toLowerCase() ?? "";
+  if (places.country) return TZ_REGIONS.some((region) => region.toLowerCase() === destination);
+  if (places.regions.length) return places.regions.some((region) => region.toLowerCase() === destination);
+  return item.free_delivery === true;
+}
+
+export function joinPlaces(regions: string[], andWord: string) {
+  if (regions.length <= 1) return regions[0] ?? "";
+  if (regions.length === 2) return `${regions[0]} ${andWord} ${regions[1]}`;
+  return `${regions.slice(0, -1).join(", ")} ${andWord} ${regions[regions.length - 1]}`;
+}
 
 /** Split a profile location such as "Mbeya, Iyunga" into the checkout address fields. */
 export function placeFromProfileLocation(text: string): { region: string; district: string; address_line: string } {

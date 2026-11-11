@@ -730,6 +730,7 @@ export const en = {
       "Wipe with a soft, dry cloth. Keep away from standing water and direct heat, and lift rather than drag when moving.",
     freeDelivery: "Free delivery",
     freeDeliveryIn: "Free delivery in {region}",
+    freeDeliveryCountry: "Free delivery across Tanzania",
     availableIn: "Available in {region}",
     customisable: "Size and finish can be customised",
     deliveryNote: "Delivery fee is confirmed after you order. Collection is free.",

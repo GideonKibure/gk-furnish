@@ -349,6 +349,8 @@ const ProductInput = z.object({
       discount_percent: z.number().int().min(1).max(90).nullable(),
       free_delivery: z.boolean(),
       free_delivery_region: z.enum(TZ_REGIONS).nullable(),
+      free_delivery_regions: z.array(z.enum(TZ_REGIONS)).max(TZ_REGIONS.length),
+      free_delivery_country: z.boolean(),
       stock_display: z.enum(["label", "count"]),
       available_region: z.enum(TZ_REGIONS).nullable(),
     })
@@ -598,15 +600,23 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
           care_info_sw: ext.care_info_sw || null,
           compare_at_price: ext.compare_at_price && ext.compare_at_price > data.price ? ext.compare_at_price : null,
           discount_percent: ext.discount_percent,
-          free_delivery: ext.free_delivery,
-          free_delivery_region: ext.free_delivery_region,
+          free_delivery: ext.free_delivery_country || ext.free_delivery_regions.length > 0,
+          free_delivery_region: ext.free_delivery_country ? null : ext.free_delivery_regions[0] ?? null,
+          free_delivery_regions: ext.free_delivery_country ? [] : ext.free_delivery_regions,
+          free_delivery_country: ext.free_delivery_country,
           stock_display: ext.stock_display,
           available_region: ext.available_region,
         }
       : {};
 
-    const { available_region: listedRegion, free_delivery_region: freeRegion, ...extendedCore } = extended;
-    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean) {
+    const {
+      available_region: listedRegion,
+      free_delivery_region: freeRegion,
+      free_delivery_regions: freeRegions,
+      free_delivery_country: freeCountry,
+      ...extendedCore
+    } = extended;
+    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean) {
       const body = !includeExtended
         ? payload
         : {
@@ -614,6 +624,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
             ...extendedCore,
             ...(includeRegion ? { available_region: listedRegion } : {}),
             ...(includeFreeRegion ? { free_delivery_region: freeRegion } : {}),
+            ...(includePlaces ? { free_delivery_regions: freeRegions, free_delivery_country: freeCountry } : {}),
           };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
@@ -621,41 +632,34 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       return supabaseAdmin.from("products").insert(body).select("id,slug").single();
     }
 
-    let result = await write(Boolean(ext), Boolean(ext), Boolean(ext));
+    let includeRegion = Boolean(ext);
+    let includeFreeRegion = Boolean(ext);
+    let includePlaces = Boolean(ext);
+    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces);
     let extendedSaved = Boolean(ext);
     let regionSaved = Boolean(ext);
     let freeRegionSaved = Boolean(ext);
-    if (result.error && ext && isMissingSchema(result.error)) {
+    let placesSaved = Boolean(ext);
+    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 4; attempt += 1) {
       const message = result.error.message ?? "";
-      const missingFree = message.includes("free_delivery_region");
-      const missingListed = message.includes("available_region");
-      if (missingFree || missingListed) {
-        result = await write(true, !missingListed, !missingFree);
-        if (!result.error) {
-          regionSaved = !missingListed;
-          freeRegionSaved = !missingFree;
-        } else if (isMissingSchema(result.error)) {
-          const again = result.error.message ?? "";
-          const stillFree = again.includes("free_delivery_region");
-          const stillListed = again.includes("available_region");
-          if (stillFree || stillListed) {
-            result = await write(true, false, false);
-            regionSaved = false;
-            freeRegionSaved = false;
-          }
-          if (result.error && isMissingSchema(result.error)) {
-            result = await write(false, false, false);
-            extendedSaved = false;
-            regionSaved = false;
-            freeRegionSaved = false;
-          }
-        }
+      if (includePlaces && (message.includes("free_delivery_regions") || message.includes("free_delivery_country"))) {
+        includePlaces = false;
+        placesSaved = false;
+      } else if (includeFreeRegion && message.includes("free_delivery_region")) {
+        includeFreeRegion = false;
+        freeRegionSaved = false;
+      } else if (includeRegion && message.includes("available_region")) {
+        includeRegion = false;
+        regionSaved = false;
       } else {
-        result = await write(false, false, false);
+        result = await write(false, false, false, false);
         extendedSaved = false;
         regionSaved = false;
         freeRegionSaved = false;
+        placesSaved = false;
+        break;
       }
+      result = await write(true, includeRegion, includeFreeRegion, includePlaces);
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
@@ -718,6 +722,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       ext && !extendedSaved ? migrationNeeded("0007_storefront_prd_gaps.sql") : "",
       ext && extendedSaved && !regionSaved ? migrationNeeded("0016_product_available_region.sql") : "",
       ext && extendedSaved && !freeRegionSaved ? migrationNeeded("0018_free_delivery_region.sql") : "",
+      ext && extendedSaved && !placesSaved ? migrationNeeded("0019_free_delivery_places.sql") : "",
     ].filter(Boolean).join(" ");
     return { id: productId, slug, extendedSaved, notice };
   });

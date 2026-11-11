@@ -1104,7 +1104,9 @@ export type Database = {
           finish: string | null
           finish_sw: string | null
           free_delivery: boolean
+          free_delivery_country: boolean
           free_delivery_region: string | null
+          free_delivery_regions: string[]
           id: string
           image_key: string | null
           image_url: string | null
@@ -1143,7 +1145,9 @@ export type Database = {
           finish?: string | null
           finish_sw?: string | null
           free_delivery?: boolean
+          free_delivery_country?: boolean
           free_delivery_region?: string | null
+          free_delivery_regions?: string[]
           id?: string
           image_key?: string | null
           image_url?: string | null
@@ -1182,7 +1186,9 @@ export type Database = {
           finish?: string | null
           finish_sw?: string | null
           free_delivery?: boolean
+          free_delivery_country?: boolean
           free_delivery_region?: string | null
+          free_delivery_regions?: string[]
           id?: string
           image_key?: string | null
           image_url?: string | null

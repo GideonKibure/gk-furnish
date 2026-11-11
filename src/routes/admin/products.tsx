@@ -27,7 +27,7 @@ import {
   updateProductStock,
   upsertAdminProduct,
 } from "@/lib/admin.functions";
-import { TZ_REGIONS } from "@/lib/delivery";
+import { freeDeliveryPlaces, TZ_REGIONS } from "@/lib/delivery";
 import { humanize, productStatusTone } from "@/lib/ops/status";
 import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
@@ -48,6 +48,61 @@ import {
   type OptionPrice,
 } from "@/lib/order-options";
 import { PRODUCT_ANGLE_SLOTS, productGalleryItems, productImageSrc, productVideoSrc, sortedProductImages } from "@/lib/product-image";
+
+function freeDeliveryInput(fd: FormData) {
+  const country = fd.get("free_delivery_country") === "on";
+  const regions = country ? [] : TZ_REGIONS.filter((region) => fd.getAll("free_delivery_regions").includes(region));
+  return {
+    free_delivery_country: country,
+    free_delivery_regions: regions,
+    free_delivery_region: regions[0] ?? null,
+    free_delivery: country || regions.length > 0,
+  };
+}
+
+function freeDeliveryPill(product: Parameters<typeof freeDeliveryPlaces>[0]) {
+  const places = freeDeliveryPlaces(product);
+  if (places.country) return <StatusPill tone="info">Free in Tanzania</StatusPill>;
+  if (!places.regions.length) return product.free_delivery ? <StatusPill tone="info">Free delivery</StatusPill> : null;
+  const label = places.regions.length > 2 ? `${places.regions.slice(0, 2).join(", ")} +${places.regions.length - 2}` : places.regions.join(", ");
+  return <StatusPill tone="info">Free in {label}</StatusPill>;
+}
+
+function FreeDeliveryFields({ product }: { product: Parameters<typeof freeDeliveryPlaces>[0] | null | undefined }) {
+  const places = freeDeliveryPlaces(product ?? {});
+  const [country, setCountry] = useState(places.country);
+  return (
+    <div className="md:col-span-2">
+      <p className="field-label">Free delivery</p>
+      <label className="mt-1 flex items-center gap-2 text-sm font-semibold text-navy">
+        <input
+          type="checkbox"
+          name="free_delivery_country"
+          checked={country}
+          onChange={(event) => setCountry(event.target.checked)}
+          className="h-4 w-4 accent-[#14213D]"
+        />
+        All of Tanzania
+      </label>
+      <div className={`mt-2 grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-lg border border-[#E5E5E5] bg-white p-3 sm:grid-cols-3 ${country ? "pointer-events-none opacity-50" : ""}`}>
+        {TZ_REGIONS.map((region) => (
+          <label key={region} className="flex items-center gap-2 text-sm text-navy">
+            <input
+              type="checkbox"
+              name="free_delivery_regions"
+              value={region}
+              defaultChecked={places.regions.includes(region)}
+              disabled={country}
+              className="h-4 w-4 accent-[#14213D]"
+            />
+            {region}
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-[#6B7280]">Shown on the product page. Tick the regions, or choose all of Tanzania.</p>
+    </div>
+  );
+}
 
 function padFeatures(list: string[] | null | undefined) {
   const cleaned = publicFeatures(list).map((s) => s.trim()).filter(Boolean);
@@ -568,8 +623,7 @@ function AdminProductsPage() {
             care_info_sw: String(fd.get("care_info_sw") ?? ""),
             compare_at_price: compareAt && compareAt > 0 ? compareAt : null,
             discount_percent: discount == null ? null : Math.round(discount),
-            free_delivery_region: TZ_REGIONS.find((region) => region === String(fd.get("free_delivery_region") ?? "")) ?? null,
-            free_delivery: TZ_REGIONS.some((region) => region === String(fd.get("free_delivery_region") ?? "")),
+            ...freeDeliveryInput(fd),
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
           },
@@ -848,18 +902,7 @@ function AdminProductsPage() {
                 </select>
                 <p className="mt-1 text-xs text-[#6B7280]">Shown on the product card so customers can see where this piece is available.</p>
               </div>
-              <div>
-                <label className="field-label">Free delivery in</label>
-                <select name="free_delivery_region" className="field-input" defaultValue={prefill?.free_delivery_region ?? ""}>
-                  <option value="">Not free</option>
-                  {TZ_REGIONS.map((region) => (
-                    <option key={region} value={region}>
-                      {region}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-[#6B7280]">Shown on the product page. Delivery is free only when the customer is in this region.</p>
-              </div>
+              <FreeDeliveryFields product={prefill} />
               <div role="radiogroup" aria-label="Stock shown to customers" className="space-y-1.5">
                 <p className="field-label !mb-1">Stock shown to customers</p>
                 <label className="flex items-center gap-2 text-sm text-navy">
@@ -1353,11 +1396,7 @@ function AdminProductsPage() {
         </span>
         {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
         {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
-        {p.free_delivery_region ? (
-          <StatusPill tone="info">Free in {p.free_delivery_region}</StatusPill>
-        ) : p.free_delivery ? (
-          <StatusPill tone="info">Free delivery</StatusPill>
-        ) : null}
+        {freeDeliveryPill(p)}
       </p>
     );
   }
