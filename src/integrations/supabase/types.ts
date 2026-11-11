@@ -894,6 +894,42 @@ export type Database = {
           },
         ]
       }
+      site_visits: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          landing_path: string
+          last_path: string
+          last_seen_at: string
+          started_at: string
+          user_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          id: string
+          landing_path: string
+          last_path: string
+          last_seen_at?: string
+          started_at?: string
+          user_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          landing_path?: string
+          last_path?: string
+          last_seen_at?: string
+          started_at?: string
+          user_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           advance_custom_percent: number

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CreditCard,
   ExternalLink,
+  Eye,
   Factory,
   FileText,
   FolderTree,
@@ -46,7 +47,10 @@ type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean; s
 type NavGroup = { label: string; items: NavItem[] };
 
 const NAV: NavGroup[] = [
-  { label: "Overview", items: [{ to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true }] },
+  { label: "Overview", items: [
+    { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { to: "/admin/visits", label: "Visitors", icon: Eye },
+  ] },
   {
     label: "Sales",
     items: [

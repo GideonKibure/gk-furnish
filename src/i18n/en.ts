@@ -557,7 +557,7 @@ export const en = {
       },
       {
         title: "Information we collect",
-        body: "When you order, request a custom piece, create an account or contact us, we collect your name, phone number, email address, delivery location, the furniture you choose (size, material, colour, quantity), notes and photos you send, and your mobile money number for payments. If you sign in with Google, we receive your name, email address and profile photo from Google. We also keep an anonymous visitor ID in your browser to count product views and likes.",
+        body: "When you order, request a custom piece, create an account or contact us, we collect your name, phone number, email address, delivery location, the furniture you choose (size, material, colour, quantity), notes and photos you send, and your mobile money number for payments. If you sign in with Google, we receive your name, email address and profile photo from Google. We also keep an anonymous visitor ID in your browser to count product views and likes, and to record how long a visit stays on the site. Only the site owner can see those visit records.",
       },
       {
         title: "How we use your information",

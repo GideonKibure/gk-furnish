@@ -55,6 +55,7 @@ import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminServicesRouteImport } from './routes/admin/services'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSuppliersRouteImport } from './routes/admin/suppliers'
+import { Route as AdminVisitsRouteImport } from './routes/admin/visits'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CategoriesIndexRouteImport } from './routes/categories.index'
 import { Route as CategoriesSlugRouteImport } from './routes/categories.$slug'
@@ -299,6 +300,11 @@ const AdminSuppliersRoute = AdminSuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminVisitsRoute = AdminVisitsRouteImport.update({
+  id: '/visits',
+  path: '/visits',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -410,6 +416,7 @@ export interface FileRoutesByFullPath {
   '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
+  '/admin/visits': typeof AdminVisitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -470,6 +477,7 @@ export interface FileRoutesByTo {
   '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
+  '/admin/visits': typeof AdminVisitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -532,6 +540,7 @@ export interface FileRoutesById {
   '/admin/services': typeof AdminServicesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/suppliers': typeof AdminSuppliersRoute
+  '/admin/visits': typeof AdminVisitsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/categories/$slug': typeof CategoriesSlugRoute
   '/pay/$paymentId': typeof PayPaymentIdRoute
@@ -595,6 +604,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
+    | '/admin/visits'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -655,6 +665,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
+    | '/admin/visits'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -716,6 +727,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/settings'
     | '/admin/suppliers'
+    | '/admin/visits'
     | '/auth/callback'
     | '/categories/$slug'
     | '/pay/$paymentId'
@@ -1094,6 +1106,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSuppliersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/visits': {
+      id: '/admin/visits'
+      path: '/visits'
+      fullPath: '/admin/visits'
+      preLoaderRoute: typeof AdminVisitsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -1213,6 +1232,7 @@ interface AdminRouteChildren {
   AdminServicesRoute: typeof AdminServicesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSuppliersRoute: typeof AdminSuppliersRoute
+  AdminVisitsRoute: typeof AdminVisitsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -1241,6 +1261,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminServicesRoute: AdminServicesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSuppliersRoute: AdminSuppliersRoute,
+  AdminVisitsRoute: AdminVisitsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

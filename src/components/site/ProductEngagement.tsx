@@ -5,21 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
 import { productsQuery, type Product } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
-
-const VISITOR_KEY = "gk-product-visitor";
-
-function visitorId() {
-  try {
-    const stored = window.localStorage.getItem(VISITOR_KEY);
-    if (stored && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(stored)) return stored;
-    const id = crypto.randomUUID();
-    window.localStorage.setItem(VISITOR_KEY, id);
-    return id;
-  } catch {
-    // Private browsing may disallow persistent storage; counts still work for this page.
-    return crypto.randomUUID();
-  }
-}
+import { visitorId } from "@/lib/visitor";
 
 function useEngagement(product: Product, trackView: boolean) {
   const queryClient = useQueryClient();

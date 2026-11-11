@@ -10,6 +10,7 @@ import { SiteFooter, WhatsAppFab } from "@/components/site/SiteFooter";
 import { OfferBanner } from "@/components/site/OfferBanner";
 import { CartProvider } from "@/lib/cart";
 import { NavigationProgress } from "@/components/site/NavigationProgress";
+import { SiteVisitTracker } from "@/components/site/SiteVisitTracker";
 import { SITE } from "@/config/site";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
@@ -108,6 +109,7 @@ function RootComponent() {
             </main>
             <SiteFooter />
             <WhatsAppFab />
+            <SiteVisitTracker />
           </CartProvider>
         )}
         <Toaster position="top-center" />

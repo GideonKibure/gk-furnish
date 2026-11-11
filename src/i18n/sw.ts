@@ -559,7 +559,7 @@ export const sw: Dictionary = {
       },
       {
         title: "Taarifa tunazokusanya",
-        body: "Unapoagiza, kuomba kipande maalum, kufungua akaunti au kuwasiliana nasi, tunakusanya jina lako, namba ya simu, barua pepe, mahali pa kupelekewa, samani (fenicha) unazochagua (ukubwa, mbao, rangi, idadi), maelezo na picha unazotuma, na namba yako ya pesa za simu kwa ajili ya malipo. Ukiingia kwa Google, tunapokea jina, barua pepe na picha yako ya wasifu kutoka Google. Pia tunaweka namba ya mgeni isiyokutambulisha kwenye kivinjari chako ili kuhesabu idadi ya watazamaji na wanaopenda bidhaa.",
+        body: "Unapoagiza, kuomba kipande maalum, kufungua akaunti au kuwasiliana nasi, tunakusanya jina lako, namba ya simu, barua pepe, mahali pa kupelekewa, samani (fenicha) unazochagua (ukubwa, mbao, rangi, idadi), maelezo na picha unazotuma, na namba yako ya pesa za simu kwa ajili ya malipo. Ukiingia kwa Google, tunapokea jina, barua pepe na picha yako ya wasifu kutoka Google. Pia tunaweka namba ya mgeni isiyokutambulisha kwenye kivinjari chako ili kuhesabu idadi ya watazamaji na wanaopenda bidhaa, na muda mgeni alikaa kwenye tovuti. Mmiliki wa tovuti pekee anaweza kuona rekodi hizo.",
       },
       {
         title: "Jinsi tunavyotumia taarifa zako",
