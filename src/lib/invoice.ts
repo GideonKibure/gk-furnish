@@ -51,7 +51,7 @@ const STYLE = `
     .sheet { max-width: 720px; margin: 0 auto; }
     .head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #14213d; padding-bottom: 20px; }
     .brand { display: flex; gap: 12px; align-items: center; }
-    .brand img { height: 56px; width: auto; }
+    .brand img { height: 88px; width: auto; }
     .brand h1 { margin: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
     .brand p { margin: 4px 0 0; color: #5b6475; font-size: 0.85rem; }
     .meta { text-align: right; font-size: 0.9rem; }
@@ -88,7 +88,7 @@ function header(kind: string, number: string, extra: string) {
     </div>
     <div class="head">
       <div class="brand">
-        <img src="/brand/gk-furnish-logo.svg" alt="${escapeHtml(SITE.name)}" />
+        <img src="/brand/gk-furnish-logo.png" alt="${escapeHtml(SITE.name)}" />
         <div>
           <h1>${escapeHtml(SITE.name)}</h1>
           <p>${escapeHtml(SITE.tagline)}</p>

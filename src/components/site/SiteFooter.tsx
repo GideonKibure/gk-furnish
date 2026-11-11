@@ -32,16 +32,16 @@ export function SiteFooter() {
     <footer className="bg-navy text-white">
       <div className="container-page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="inline-flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-white p-1.5" aria-hidden>
-              <img src="/brand/gk-furnish-logo.svg" alt="" width={40} height={40} decoding="async" className="h-full w-full object-contain" />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-lg font-extrabold uppercase tracking-tight text-white md:text-xl">
-                {SITE.name}
-              </span>
-              <span className="mt-1 text-xs text-white/60">{t.shell.tagline}</span>
-            </span>
+          <div>
+            <img
+              src="/brand/gk-furnish-logo.png"
+              alt={SITE.name}
+              width={812}
+              height={908}
+              decoding="async"
+              className="h-28 w-auto"
+            />
+            <p className="mt-3 max-w-[11rem] text-xs leading-snug text-white/60">{t.shell.tagline}</p>
           </div>
           <p className="mt-4 max-w-xs text-sm text-white/70">{blurb}</p>
           <div className="mt-5 flex gap-3">

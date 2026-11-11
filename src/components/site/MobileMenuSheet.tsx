@@ -89,7 +89,7 @@ export function MobileMenuSheet({
         className="flex w-[86vw] max-w-sm flex-col gap-0 overflow-y-auto p-0"
       >
         <div className="border-b border-border px-5 pb-4 pt-5">
-          <BrandLogo markClassName="h-8" wordmarkClassName="!text-base" tagline={t.shell.tagline} />
+          <BrandLogo showWordmark={false} markClassName="h-20" tagline={t.shell.tagline} />
           <SheetTitle className="sr-only">{t.shell.menuTitle}</SheetTitle>
           <SheetDescription className="sr-only">{t.shell.trust}</SheetDescription>
           {!signedOut && (

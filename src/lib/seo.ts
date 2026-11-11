@@ -1,6 +1,6 @@
 import { SITE } from "@/config/site";
 
-export const DEFAULT_OG_IMAGE = `${SITE.url}/brand/gk-furnish-logo.svg`;
+export const DEFAULT_OG_IMAGE = `${SITE.url}/brand/gk-furnish-logo.png`;
 
 export function absoluteUrl(path: string) {
   if (/^https?:\/\//.test(path)) return path;

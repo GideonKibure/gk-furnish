@@ -45,14 +45,9 @@ export function AuthCard({ title, intro, children }: { title: string; intro?: st
       <div className="container-page flex min-h-[70vh] items-center justify-center py-8 md:py-14">
         <div className="grid w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-white shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
           <div className="hidden flex-col justify-between bg-navy p-8 text-white md:flex">
-            <div className="flex items-center gap-3">
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-white p-1.5">
-                <img src="/brand/gk-furnish-logo.svg" alt="" className="h-full w-full object-contain" />
-              </span>
-              <span>
-                <span className="block font-display text-lg font-extrabold uppercase">GK furnish</span>
-                <span className="block text-xs text-white/60">{t.shell.tagline}</span>
-              </span>
+            <div>
+              <img src="/brand/gk-furnish-logo.png" alt="GK furnish" width={812} height={908} className="h-28 w-auto" />
+              <span className="mt-3 block max-w-[12rem] text-xs leading-snug text-white/60">{t.shell.tagline}</span>
             </div>
             <div>
               <p className="font-display text-2xl font-bold leading-snug">{t.shell.trust}</p>
