@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Pause, Play, ShoppingCart } from "lucide-react";
+import { MapPin, Pause, Play, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { DiscountBadge } from "@/components/brand/DiscountBadge";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StarRating } from "@/components/brand/StarRating";
 import { StockLabel } from "@/components/brand/StockLabel";
 import { formatPrice, formatPriceSpan } from "@/config/site";
+import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { ratingSummaryQuery, type Product, type RatingSummary } from "@/lib/catalog";
 import { lowestOptionPrice, optionPriceRows, parseOptionList } from "@/lib/order-options";
@@ -109,6 +110,12 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
             {name}
           </Link>
         </h3>
+        {product.available_region && (
+          <p className="mt-1 flex items-center gap-1 text-xs font-medium text-navy">
+            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {fill(t.pdp.availableIn, { region: product.available_region })}
+          </p>
+        )}
         {rating && rating.rating_count > 0 && (
           <StarRating value={rating.rating_avg} count={rating.rating_count} className="mt-1" />
         )}

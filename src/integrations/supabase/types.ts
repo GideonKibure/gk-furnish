@@ -1081,6 +1081,7 @@ export type Database = {
       products: {
         Row: {
           available_colors: string[]
+          available_region: string | null
           care_info: string | null
           care_info_sw: string | null
           category_id: string
@@ -1118,6 +1119,7 @@ export type Database = {
         }
         Insert: {
           available_colors?: string[]
+          available_region?: string | null
           care_info?: string | null
           care_info_sw?: string | null
           category_id: string
@@ -1155,6 +1157,7 @@ export type Database = {
         }
         Update: {
           available_colors?: string[]
+          available_region?: string | null
           care_info?: string | null
           care_info_sw?: string | null
           category_id?: string

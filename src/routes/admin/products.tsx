@@ -27,6 +27,7 @@ import {
   updateProductStock,
   upsertAdminProduct,
 } from "@/lib/admin.functions";
+import { TZ_REGIONS } from "@/lib/delivery";
 import { humanize, productStatusTone } from "@/lib/ops/status";
 import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
@@ -569,6 +570,7 @@ function AdminProductsPage() {
             discount_percent: discount == null ? null : Math.round(discount),
             free_delivery: fd.get("free_delivery") === "on",
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
+            available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
           },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
@@ -611,7 +613,10 @@ function AdminProductsPage() {
             ? "Product updated"
             : "Product created",
       );
-      if (saved.notice) toast.info(`SKU, status, discount and delivery fields were not saved. ${saved.notice}`, { duration: 10000 });
+      if (saved.notice) {
+        const prefix = saved.extendedSaved ? "" : "SKU, status, discount and delivery fields were not saved. ";
+        toast.info(`${prefix}${saved.notice}`, { duration: 10000 });
+      }
       closeForm();
       await refresh();
     } catch (err) {
@@ -634,7 +639,7 @@ function AdminProductsPage() {
           <div className="min-w-0">
             <p className="truncate font-semibold text-navy">{p.name}</p>
             <p className="truncate text-xs text-[#6B7280]">
-              {[p.sku, p.categories?.name].filter(Boolean).join(" · ") || p.slug}
+              {[p.sku, p.categories?.name, p.available_region].filter(Boolean).join(" · ") || p.slug}
             </p>
           </div>
         </div>
@@ -829,6 +834,18 @@ function AdminProductsPage() {
                   defaultValue={prefill?.discount_percent ?? ""}
                 />
                 <p className="mt-1 text-xs text-[#6B7280]">Leave empty to work it out from the old price.</p>
+              </div>
+              <div>
+                <label className="field-label">Available in</label>
+                <select name="available_region" className="field-input" defaultValue={prefill?.available_region ?? ""}>
+                  <option value="">Not set</option>
+                  {TZ_REGIONS.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-[#6B7280]">Shown on the product card so customers can see where this piece is available.</p>
               </div>
               <label className="flex items-center gap-2 text-sm text-navy">
                 <input type="checkbox" name="free_delivery" defaultChecked={prefill?.free_delivery ?? false} className="h-4 w-4 accent-[#14213D]" />

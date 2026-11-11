@@ -728,6 +728,7 @@ export const en = {
     careDefault:
       "Wipe with a soft, dry cloth. Keep away from standing water and direct heat, and lift rather than drag when moving.",
     freeDelivery: "Free delivery",
+    availableIn: "Available in {region}",
     customisable: "Size and finish can be customised",
     deliveryNote: "Delivery fee is confirmed after you order. Collection is free.",
     inHouse: "Made in our Mbeya workshop",

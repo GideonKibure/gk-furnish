@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { Check, Factory, Handshake, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
+import { Check, Factory, Handshake, MapPin, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { DiscountBadge } from "@/components/brand/DiscountBadge";
@@ -15,6 +15,7 @@ import { ProductReviews } from "@/components/site/ProductReviews";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { ZoomGallery } from "@/components/site/ZoomGallery";
 import { formatPrice, formatPriceSpan, SITE, waLink } from "@/config/site";
+import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import {
@@ -194,6 +195,13 @@ function Detail() {
 
             {p.short_description && lang === "en" && (
               <p className="mt-3 text-[0.95rem] leading-relaxed text-navy/80">{p.short_description}</p>
+            )}
+
+            {p.available_region && (
+              <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-navy">
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                {fill(t.pdp.availableIn, { region: p.available_region })}
+              </p>
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">

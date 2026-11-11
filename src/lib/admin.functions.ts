@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
 import { QUOTE_VALID_DAYS, quoteDateAfter, withQuoteAdvanceNote, type QuoteLine, type SavedQuote } from "@/lib/custom-quotes";
 import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
-import { orderTotal } from "@/lib/delivery";
+import { orderTotal, TZ_REGIONS } from "@/lib/delivery";
 import { DATE_RANGES, darDayKey, darMonthKey, inRange, rangeBounds, trendPercent } from "@/lib/ops/date-range";
 import { actorLabel, writeAudit } from "@/lib/audit.server";
 import { noteOrderHistory, statusRejected, writeOrderStatus } from "@/lib/ops/order-history.server";
@@ -349,6 +349,7 @@ const ProductInput = z.object({
       discount_percent: z.number().int().min(1).max(90).nullable(),
       free_delivery: z.boolean(),
       stock_display: z.enum(["label", "count"]),
+      available_region: z.enum(TZ_REGIONS).nullable(),
     })
     .optional(),
 });
@@ -598,22 +599,34 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
           discount_percent: ext.discount_percent,
           free_delivery: ext.free_delivery,
           stock_display: ext.stock_display,
+          available_region: ext.available_region,
         }
       : {};
 
-    async function write(withExtended: boolean) {
-      const body = withExtended ? { ...payload, ...extended } : payload;
+    const { available_region: _region, ...extendedWithoutRegion } = extended;
+    async function write(includeExtended: boolean, includeRegion: boolean) {
+      const body = !includeExtended ? payload : includeRegion ? { ...payload, ...extended } : { ...payload, ...extendedWithoutRegion };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
       }
       return supabaseAdmin.from("products").insert(body).select("id,slug").single();
     }
 
-    let result = await write(Boolean(ext));
+    let result = await write(Boolean(ext), Boolean(ext));
     let extendedSaved = Boolean(ext);
+    let regionSaved = Boolean(ext);
     if (result.error && ext && isMissingSchema(result.error)) {
-      result = await write(false);
-      extendedSaved = false;
+      const retry = await write(true, false);
+      if (!retry.error) {
+        result = retry;
+        regionSaved = false;
+      } else if (isMissingSchema(retry.error)) {
+        result = await write(false, false);
+        extendedSaved = false;
+        regionSaved = false;
+      } else {
+        result = retry;
+      }
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
@@ -672,7 +685,12 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
     await syncProductVideo(supabaseAdmin, productId, videoUrl, data.clear_video);
 
-    return { id: productId, slug, extendedSaved, notice: ext && !extendedSaved ? migrationNeeded("0007_storefront_prd_gaps.sql") : null };
+    const notice = ext && !extendedSaved
+      ? migrationNeeded("0007_storefront_prd_gaps.sql")
+      : ext && !regionSaved
+        ? migrationNeeded("0016_product_available_region.sql")
+        : null;
+    return { id: productId, slug, extendedSaved, notice };
   });
 
 /** Draft, publish or archive a product instead of deleting it (needs migration 0007). */

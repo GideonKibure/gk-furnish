@@ -730,6 +730,7 @@ export const sw: Dictionary = {
     careDefault:
       "Futa kwa kitambaa laini kikavu. Epuka maji yaliyosimama na joto kali, na inua badala ya kuburuta unapohamisha.",
     freeDelivery: "Usafirishaji bure",
+    availableIn: "Inapatikana {region}",
     customisable: "Ukubwa na umaliziaji vinaweza kubadilishwa",
     deliveryNote: "Gharama ya usafirishaji inathibitishwa baada ya kuagiza. Kuchukua ni bure.",
     inHouse: "Imetengenezwa katika karakana yetu Mbeya",
