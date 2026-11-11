@@ -348,6 +348,7 @@ const ProductInput = z.object({
       compare_at_price: z.number().min(0).max(1_000_000_000).nullable(),
       discount_percent: z.number().int().min(1).max(90).nullable(),
       free_delivery: z.boolean(),
+      free_delivery_region: z.enum(TZ_REGIONS).nullable(),
       stock_display: z.enum(["label", "count"]),
       available_region: z.enum(TZ_REGIONS).nullable(),
     })
@@ -598,34 +599,62 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
           compare_at_price: ext.compare_at_price && ext.compare_at_price > data.price ? ext.compare_at_price : null,
           discount_percent: ext.discount_percent,
           free_delivery: ext.free_delivery,
+          free_delivery_region: ext.free_delivery_region,
           stock_display: ext.stock_display,
           available_region: ext.available_region,
         }
       : {};
 
-    const { available_region: _region, ...extendedWithoutRegion } = extended;
-    async function write(includeExtended: boolean, includeRegion: boolean) {
-      const body = !includeExtended ? payload : includeRegion ? { ...payload, ...extended } : { ...payload, ...extendedWithoutRegion };
+    const { available_region: listedRegion, free_delivery_region: freeRegion, ...extendedCore } = extended;
+    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean) {
+      const body = !includeExtended
+        ? payload
+        : {
+            ...payload,
+            ...extendedCore,
+            ...(includeRegion ? { available_region: listedRegion } : {}),
+            ...(includeFreeRegion ? { free_delivery_region: freeRegion } : {}),
+          };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
       }
       return supabaseAdmin.from("products").insert(body).select("id,slug").single();
     }
 
-    let result = await write(Boolean(ext), Boolean(ext));
+    let result = await write(Boolean(ext), Boolean(ext), Boolean(ext));
     let extendedSaved = Boolean(ext);
     let regionSaved = Boolean(ext);
+    let freeRegionSaved = Boolean(ext);
     if (result.error && ext && isMissingSchema(result.error)) {
-      const retry = await write(true, false);
-      if (!retry.error) {
-        result = retry;
-        regionSaved = false;
-      } else if (isMissingSchema(retry.error)) {
-        result = await write(false, false);
+      const message = result.error.message ?? "";
+      const missingFree = message.includes("free_delivery_region");
+      const missingListed = message.includes("available_region");
+      if (missingFree || missingListed) {
+        result = await write(true, !missingListed, !missingFree);
+        if (!result.error) {
+          regionSaved = !missingListed;
+          freeRegionSaved = !missingFree;
+        } else if (isMissingSchema(result.error)) {
+          const again = result.error.message ?? "";
+          const stillFree = again.includes("free_delivery_region");
+          const stillListed = again.includes("available_region");
+          if (stillFree || stillListed) {
+            result = await write(true, false, false);
+            regionSaved = false;
+            freeRegionSaved = false;
+          }
+          if (result.error && isMissingSchema(result.error)) {
+            result = await write(false, false, false);
+            extendedSaved = false;
+            regionSaved = false;
+            freeRegionSaved = false;
+          }
+        }
+      } else {
+        result = await write(false, false, false);
         extendedSaved = false;
         regionSaved = false;
-      } else {
-        result = retry;
+        freeRegionSaved = false;
       }
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
@@ -685,11 +714,11 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
     await syncProductVideo(supabaseAdmin, productId, videoUrl, data.clear_video);
 
-    const notice = ext && !extendedSaved
-      ? migrationNeeded("0007_storefront_prd_gaps.sql")
-      : ext && !regionSaved
-        ? migrationNeeded("0016_product_available_region.sql")
-        : null;
+    const notice = [
+      ext && !extendedSaved ? migrationNeeded("0007_storefront_prd_gaps.sql") : "",
+      ext && extendedSaved && !regionSaved ? migrationNeeded("0016_product_available_region.sql") : "",
+      ext && extendedSaved && !freeRegionSaved ? migrationNeeded("0018_free_delivery_region.sql") : "",
+    ].filter(Boolean).join(" ");
     return { id: productId, slug, extendedSaved, notice };
   });
 

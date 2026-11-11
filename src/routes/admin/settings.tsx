@@ -96,10 +96,16 @@ function AdminSettingsPage() {
           nmb_account_name: String(fd.get("nmb_account_name") ?? ""),
           airtel_number: String(fd.get("airtel_number") ?? ""),
           airtel_name: String(fd.get("airtel_name") ?? ""),
+          mpesa_enabled: fd.get("mpesa_enabled") === "on",
+          airtel_enabled: fd.get("airtel_enabled") === "on",
+          nmb_enabled: fd.get("nmb_enabled") === "on",
         },
       });
       setRow(updated);
       toast.success("Settings saved");
+      if (updated.mpesa_enabled === undefined) {
+        toast.info("The payment switches were not saved. Run drizzle/migrations/0017_payment_method_toggles.sql in the Supabase SQL editor.", { duration: 10000 });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -165,12 +171,24 @@ function AdminSettingsPage() {
         <SettingsGroup
           icon={<Wallet className="h-4 w-4" />}
           title="Payment accounts"
-          description="Numbers and names the customer sees when they pay. Leave the NMB number blank until you have it."
+          description="Turn a method off to hide it from checkout and the order page. Leave the NMB number blank until you have it."
         >
+          <label className="flex items-center gap-2 text-sm font-semibold text-navy sm:col-span-2">
+            <input type="checkbox" name="mpesa_enabled" defaultChecked={row.mpesa_enabled !== false} className="h-4 w-4 accent-[#14213D]" />
+            Show M-Pesa Lipa on the site
+          </label>
           <Field name="mpesa_lipa_number" label="M-Pesa Lipa number" value={row.mpesa_lipa_number || DEFAULT_PAY_ACCOUNTS.mpesaNumber} />
           <Field name="mpesa_lipa_name" label="M-Pesa Lipa name" value={row.mpesa_lipa_name || DEFAULT_PAY_ACCOUNTS.mpesaName} />
+          <label className="flex items-center gap-2 text-sm font-semibold text-navy sm:col-span-2">
+            <input type="checkbox" name="airtel_enabled" defaultChecked={row.airtel_enabled !== false} className="h-4 w-4 accent-[#14213D]" />
+            Show Airtel Money on the site
+          </label>
           <Field name="airtel_number" label="Airtel number" value={row.airtel_number || DEFAULT_PAY_ACCOUNTS.airtelNumber} />
           <Field name="airtel_name" label="Airtel name" value={row.airtel_name || DEFAULT_PAY_ACCOUNTS.airtelName} />
+          <label className="flex items-center gap-2 text-sm font-semibold text-navy sm:col-span-2">
+            <input type="checkbox" name="nmb_enabled" defaultChecked={row.nmb_enabled !== false} className="h-4 w-4 accent-[#14213D]" />
+            Show NMB bank on the site
+          </label>
           <Field name="nmb_account_number" label="NMB account number" value={row.nmb_account_number} />
           <Field name="nmb_account_name" label="NMB account name" value={row.nmb_account_name || DEFAULT_PAY_ACCOUNTS.nmbName} />
         </SettingsGroup>

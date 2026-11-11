@@ -18,7 +18,7 @@ import { listMyAddresses, type SavedAddress } from "@/lib/addresses.functions";
 import { useCart } from "@/lib/cart";
 import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
 import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation, type FulfilmentMethod } from "@/lib/delivery";
-import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
+import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
 import { isPurchasable } from "@/lib/product-display";
 import { siteSettingsQuery } from "@/lib/site-content";
@@ -63,6 +63,11 @@ function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
   const [payMethod, setPayMethod] = useState<"mobile" | "bank">("mobile");
+  const methods = config?.methods ?? DEFAULT_PAY_METHODS;
+  const payChannels = useMemo(
+    () => (["mobile", "bank"] as const).filter((kind) => (kind === "bank" ? methods.nmb : methods.mpesa || methods.airtel)),
+    [methods.airtel, methods.mpesa, methods.nmb],
+  );
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -111,6 +116,11 @@ function CheckoutPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
+  useEffect(() => {
+    const first = payChannels[0];
+    if (first && !payChannels.includes(payMethod)) setPayMethod(first);
+  }, [payChannels, payMethod]);
+
   function chooseAddress(a: SavedAddress) {
     setAddressId(a.id);
     setPlace({ region: a.region, district: a.district, address_line: [a.area, a.address_line].filter(Boolean).join(", ") });
@@ -124,7 +134,7 @@ function CheckoutPage() {
   const subtotal = cart.subtotal;
   const itemCount = cart.count;
   const products = cart.entries.flatMap((e) => (e.product ? [e.product] : []));
-  const feeStatus = deliveryFeeStatusFor(method, products);
+  const feeStatus = deliveryFeeStatusFor(method, products, method === "delivery" ? place.region : undefined);
   const tier = advanceTierFor({ total: subtotal, itemCount }, advanceSettingsFrom(settings));
   const advance = Math.min(subtotal, Math.max(MIN_MOBILE_PAYMENT_TZS, advanceAmount(subtotal, tier.percent)));
   const payNow = choice === "full" ? subtotal : advance;
@@ -463,8 +473,11 @@ function CheckoutPage() {
                 <section className="panel p-4 md:p-5">
                   <div>
                     <p className="text-sm font-semibold text-navy">{t.checkout.methodTitle}</p>
-                    <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.checkout.methodTitle}>
-                      {(["mobile", "bank"] as const).map((kind) => (
+                    {payChannels.length === 0 ? (
+                      <p className="mt-2 rounded-lg bg-sand p-3 text-sm text-navy">{t.checkout.methodsOff}</p>
+                    ) : (
+                    <div className={cn("mt-2 grid gap-3", payChannels.length > 1 && "sm:grid-cols-2")} role="radiogroup" aria-label={t.checkout.methodTitle}>
+                      {payChannels.map((kind) => (
                         <label
                           key={kind}
                           className={cn(
@@ -480,7 +493,10 @@ function CheckoutPage() {
                         </label>
                       ))}
                     </div>
-                    <PayInstructions accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS} channel={payMethod} amount={payNow} />
+                    )}
+                    {payChannels.length > 0 && (
+                      <PayInstructions accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS} methods={methods} channel={payMethod} amount={payNow} />
+                    )}
                   </div>
 
                   <h2 className="mt-6 text-base font-bold">{t.steps.paymentPlan}</h2>
@@ -538,7 +554,7 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value: payMethod === "bank" ? t.checkout.methodBank : t.checkout.methodMobile,
+                      value: payChannels.length === 0 ? t.checkout.methodsOff : payMethod === "bank" ? t.checkout.methodBank : t.checkout.methodMobile,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),

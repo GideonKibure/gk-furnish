@@ -274,7 +274,11 @@ function Detail() {
             <div className="mt-4 space-y-2 rounded-xl bg-sand p-3.5 text-sm text-navy/80">
               <p className="flex items-start gap-2">
                 <Truck className="mt-0.5 h-4 w-4 shrink-0 text-navy" />
-                {p.free_delivery ? t.pdp.freeDelivery : t.pdp.deliveryNote}
+                {p.free_delivery_region
+                  ? fill(t.pdp.freeDeliveryIn, { region: p.free_delivery_region })
+                  : p.free_delivery
+                    ? t.pdp.freeDelivery
+                    : t.pdp.deliveryNote}
               </p>
               {p.is_customisable && (
                 <p className="flex items-start gap-2">

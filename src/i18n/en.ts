@@ -399,6 +399,7 @@ export const en = {
     methodMobileHint: "Pay M-Pesa Lipa or Airtel from your phone. Then send a screenshot of the payment.",
     methodBank: "Bank account",
     methodBankHint: "Pay the NMB account, then send a screenshot of the payment.",
+    methodsOff: "Payment details are turned off. You can still place the order and ask us how to pay.",
     methodCash: "Cash",
     methodCashHint: "Pay when you collect, or when we deliver. The order stays unpaid until we confirm the cash.",
     cashReview: "Cash — unpaid until we confirm it",
@@ -728,6 +729,7 @@ export const en = {
     careDefault:
       "Wipe with a soft, dry cloth. Keep away from standing water and direct heat, and lift rather than drag when moving.",
     freeDelivery: "Free delivery",
+    freeDeliveryIn: "Free delivery in {region}",
     availableIn: "Available in {region}",
     customisable: "Size and finish can be customised",
     deliveryNote: "Delivery fee is confirmed after you order. Collection is free.",

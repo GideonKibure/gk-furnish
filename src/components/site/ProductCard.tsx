@@ -83,9 +83,6 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
         </Link>
         <div className="pointer-events-none absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
           <DiscountBadge percent={percent} />
-          {product.free_delivery && (
-            <span className="status-pill tone-success !text-[0.68rem]">{t.pdp.freeDelivery}</span>
-          )}
         </div>
         <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5">
           <LikeButton product={product} />

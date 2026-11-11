@@ -45,6 +45,9 @@ const SettingsInput = z.object({
   nmb_account_name: z.string().trim().max(120).optional(),
   airtel_number: z.string().trim().max(40).optional(),
   airtel_name: z.string().trim().max(120).optional(),
+  mpesa_enabled: z.boolean().optional(),
+  airtel_enabled: z.boolean().optional(),
+  nmb_enabled: z.boolean().optional(),
 });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
@@ -74,10 +77,18 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
       ...(data.airtel_number === undefined ? {} : { airtel_number: data.airtel_number || null }),
       ...(data.airtel_name === undefined ? {} : { airtel_name: data.airtel_name || null }),
     };
-    const write = (body: typeof base & Partial<typeof extras>) =>
+    const toggles = {
+      ...(data.mpesa_enabled === undefined ? {} : { mpesa_enabled: data.mpesa_enabled }),
+      ...(data.airtel_enabled === undefined ? {} : { airtel_enabled: data.airtel_enabled }),
+      ...(data.nmb_enabled === undefined ? {} : { nmb_enabled: data.nmb_enabled }),
+    };
+    const write = (body: typeof base & Partial<typeof extras> & Partial<typeof toggles>) =>
       supabaseAdmin.from("site_settings").upsert(body).select("*").single();
-    let result = await write({ ...base, ...extras });
-    if (result.error && isMissingSchema(result.error)) result = await write(base);
+    let result = await write({ ...base, ...extras, ...toggles });
+    if (result.error && isMissingSchema(result.error)) {
+      const withoutToggles = await write({ ...base, ...extras });
+      result = withoutToggles.error && isMissingSchema(withoutToggles.error) ? await write(base) : withoutToggles;
+    }
     if (result.error || !result.data) throw new Error(result.error?.message ?? "Save failed");
     return result.data;
   });

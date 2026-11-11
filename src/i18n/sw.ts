@@ -401,6 +401,7 @@ export const sw: Dictionary = {
     methodMobileHint: "Lipa M-Pesa Lipa au Airtel kwa simu yako. Kisha tuma picha ya malipo.",
     methodBank: "Akaunti ya benki",
     methodBankHint: "Lipa akaunti ya NMB, kisha tuma picha ya malipo.",
+    methodsOff: "Maelezo ya malipo yamezimwa. Bado unaweza kuweka oda, kisha utuulize jinsi ya kulipa.",
     methodCash: "Taslimu",
     methodCashHint: "Lipa unapochukua, au tunapokuletea. Oda inabaki haijalipwa mpaka tuthibitishe taslimu.",
     cashReview: "Taslimu — haijalipwa mpaka tuthibitishe",
@@ -730,6 +731,7 @@ export const sw: Dictionary = {
     careDefault:
       "Futa kwa kitambaa laini kikavu. Epuka maji yaliyosimama na joto kali, na inua badala ya kuburuta unapohamisha.",
     freeDelivery: "Usafirishaji bure",
+    freeDeliveryIn: "Usafirishaji bure {region}",
     availableIn: "Inapatikana {region}",
     customisable: "Ukubwa na umaliziaji vinaweza kubadilishwa",
     deliveryNote: "Gharama ya usafirishaji inathibitishwa baada ya kuagiza. Kuchukua ni bure.",

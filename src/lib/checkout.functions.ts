@@ -62,11 +62,12 @@ async function palmPaymentsOn() {
 export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
-  const { payAccountsFrom } = await import("@/lib/pay-accounts");
+  const { payAccountsFrom, payMethodsFrom } = await import("@/lib/pay-accounts");
   return {
     onlinePayment: await palmPaymentsOn(),
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
     pay: payAccountsFrom(data),
+    methods: payMethodsFrom(data),
   };
 });
 
@@ -111,13 +112,18 @@ export const createCheckout = createServerFn({ method: "POST" })
     const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
     const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
     const { data: settingsRow } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const { payMethodsFrom } = await import("@/lib/pay-accounts");
+    const methods = payMethodsFrom(settingsRow);
+    const channelOpen = data.payment_method === "bank" ? methods.nmb : data.payment_method === "mobile" ? methods.mpesa || methods.airtel : true;
+    const anyOpen = methods.mpesa || methods.airtel || methods.nmb;
+    if (!channelOpen && anyOpen) throw new Error("That payment method is not available. Choose another way to pay.");
     const { percent } = advanceTierFor({ total: subtotal, itemCount }, advanceSettingsFrom(settingsRow));
     const advanceRequired = advanceAmount(subtotal, percent);
     const first = lines[0];
 
     // Delivery fee: confirmed by GK Furnish after the order, unless collection or every item ships free.
     const method = data.fulfilment_method;
-    const deliveryFeeStatus = deliveryFeeStatusFor(method, lines.map((l) => l.product));
+    const deliveryFeeStatus = deliveryFeeStatusFor(method, lines.map((l) => l.product), method === "delivery" ? data.region : undefined);
     const deliveryFee = deliveryFeeStatus === "free" ? 0 : null;
     const total = orderTotal(subtotal, deliveryFee);
     const collectionLabel = `Collection from GK Furnish (${settingsRow?.collection_address || settingsRow?.location || "Mbeya"})`;
@@ -197,6 +203,7 @@ export const createCheckout = createServerFn({ method: "POST" })
                 source_type: product.source_type ?? "in_house",
                 finish: product.finish ?? null,
                 free_delivery: product.free_delivery ?? false,
+                free_delivery_region: product.free_delivery_region ?? null,
               },
             };
           }),
@@ -249,7 +256,11 @@ export const createCheckout = createServerFn({ method: "POST" })
     const amount = chargeNow(dueNow, total);
     const paymentId: string | null = null;
     const paymentError: string | null = null;
-    const channel = data.payment_method === "bank" ? "bank" : "mobile money";
+    const channel = !anyOpen
+      ? "the method GK Furnish confirms with you"
+      : data.payment_method === "bank"
+        ? "bank"
+        : "mobile money";
     const { sendCustomerEmail, orderTrackingLink } = await import("@/lib/mailjet.server");
     await sendCustomerEmail({
       email: baseOrder.email,
@@ -528,6 +539,11 @@ export const submitPaymentProof = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { balanceDue } = await import("@/lib/payment-policy");
+    const { payMethodsFrom } = await import("@/lib/pay-accounts");
+    const { data: settingsRow } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
+    const methods = payMethodsFrom(settingsRow);
+    const methodOn = data.method === "bank" ? methods.nmb : data.method === "airtel" ? methods.airtel : methods.mpesa;
+    if (!methodOn) throw new Error("That payment method is not available.");
     const methodLabel = PROOF_METHODS[data.method];
 
     const { data: order, error } = await supabaseAdmin

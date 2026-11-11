@@ -9,11 +9,17 @@ export type DeliveryFeeStatus = "pending" | "confirmed" | "free";
 
 export function deliveryFeeStatusFor(
   method: FulfilmentMethod,
-  items: { free_delivery?: boolean | null }[],
+  items: { free_delivery?: boolean | null; free_delivery_region?: string | null }[],
+  destinationRegion?: string | null,
 ): Exclude<DeliveryFeeStatus, "confirmed"> {
   if (method === "collection") return "free";
-  if (items.length && items.every((item) => item.free_delivery === true)) return "free";
-  return "pending";
+  const destination = destinationRegion?.trim().toLowerCase() ?? "";
+  const allFree = items.length > 0 && items.every((item) => {
+    const region = item.free_delivery_region?.trim();
+    if (region) return Boolean(destination) && region.toLowerCase() === destination;
+    return item.free_delivery === true;
+  });
+  return allFree ? "free" : "pending";
 }
 
 export function orderTotal(subtotal: number, deliveryFee: number | null | undefined) {

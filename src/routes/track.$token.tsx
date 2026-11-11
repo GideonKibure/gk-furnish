@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -19,7 +19,7 @@ import { PayInstructions } from "@/components/site/PayInstructions";
 import { RequestDetails } from "@/components/site/RequestDetails";
 import { formatAmount, waLink } from "@/config/site";
 import { getCheckoutConfig, submitPaymentProof } from "@/lib/checkout.functions";
-import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
+import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
@@ -56,6 +56,18 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
   const loadConfig = useServerFn(getCheckoutConfig);
   const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
   const [method, setMethod] = useState<"mpesa" | "airtel" | "bank">("mpesa");
+  const methods = config?.methods ?? DEFAULT_PAY_METHODS;
+  const proofMethods = (
+    [
+      methods.mpesa ? (["mpesa", t.track.mpesaLipa] as const) : null,
+      methods.airtel ? (["airtel", t.track.airtel] as const) : null,
+      methods.nmb ? (["bank", t.track.nmb] as const) : null,
+    ] as const
+  ).filter((item) => item != null);
+  useEffect(() => {
+    const first = proofMethods[0]?.[0];
+    if (first && !proofMethods.some(([id]) => id === method)) setMethod(first);
+  }, [method, methods.airtel, methods.mpesa, methods.nmb, proofMethods]);
   const [sender, setSender] = useState("");
   const [shot, setShot] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,8 +99,13 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
           <section className="panel p-4 md:p-5">
             <h2 className="text-base font-bold">{t.track.howToPay}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t.track.paySteps}</p>
+            {proofMethods.length === 0 ? (
+              <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-navy">{t.checkout.methodsOff}</p>
+            ) : (
+            <>
             <PayInstructions
               accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS}
+              methods={methods}
               channel={method === "bank" ? "bank" : "mobile"}
               amount={due}
               orderNumber={order.number}
@@ -137,14 +154,8 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
               }}
             >
               <p className="text-sm font-semibold text-navy">{t.track.howPaid}</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ["mpesa", t.track.mpesaLipa],
-                    ["airtel", t.track.airtel],
-                    ["bank", t.track.nmb],
-                  ] as const
-                ).map(([id, label]) => (
+              <div className={cn("grid gap-2", proofMethods.length > 1 && "sm:grid-cols-3")}>
+                {proofMethods.map(([id, label]) => (
                   <button
                     key={id}
                     type="button"
@@ -166,7 +177,7 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
                 onChange={(e) => setShot(e.target.files?.[0] ?? null)}
               />
               <p className="text-xs text-muted-foreground">{t.track.proofImage}</p>
-              <button type="submit" className="btn-base btn-gold" disabled={busy || due <= 0}>{t.track.iHavePaid}</button>
+              <button type="submit" className="btn-base btn-gold" disabled={busy || due <= 0 || !proofMethods.some(([id]) => id === method)}>{t.track.iHavePaid}</button>
               <a
                 className="btn-base btn-outline-navy"
                 href={waLink(`Order ${order.number}. I paid ${formatAmount(due)} by ${method}. Sender: ${sender.trim() || "(not yet)"}.`)}
@@ -177,6 +188,8 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
                 {t.track.whatsappProof}
               </a>
             </form>
+            </>
+            )}
           </section>
         )}
         <section className="panel p-4 md:p-5">

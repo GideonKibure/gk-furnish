@@ -938,14 +938,17 @@ export type Database = {
           advance_large_items: number
           advance_large_percent: number
           advance_standard_percent: number
+          airtel_enabled: boolean
           airtel_name: string | null
           airtel_number: string | null
           collection_address: string | null
           email: string | null
+          mpesa_enabled: boolean
           mpesa_lipa_name: string | null
           mpesa_lipa_number: string | null
           nmb_account_name: string | null
           nmb_account_number: string | null
+          nmb_enabled: boolean
           facebook_url: string | null
           id: number
           instagram_url: string | null
@@ -964,6 +967,7 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          airtel_enabled?: boolean
           airtel_name?: string | null
           airtel_number?: string | null
           collection_address?: string | null
@@ -972,10 +976,12 @@ export type Database = {
           id?: number
           instagram_url?: string | null
           location?: string | null
+          mpesa_enabled?: boolean
           mpesa_lipa_name?: string | null
           mpesa_lipa_number?: string | null
           nmb_account_name?: string | null
           nmb_account_number?: string | null
+          nmb_enabled?: boolean
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
@@ -990,6 +996,7 @@ export type Database = {
           advance_large_items?: number
           advance_large_percent?: number
           advance_standard_percent?: number
+          airtel_enabled?: boolean
           airtel_name?: string | null
           airtel_number?: string | null
           collection_address?: string | null
@@ -998,10 +1005,12 @@ export type Database = {
           id?: number
           instagram_url?: string | null
           location?: string | null
+          mpesa_enabled?: boolean
           mpesa_lipa_name?: string | null
           mpesa_lipa_number?: string | null
           nmb_account_name?: string | null
           nmb_account_number?: string | null
+          nmb_enabled?: boolean
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
@@ -1095,6 +1104,7 @@ export type Database = {
           finish: string | null
           finish_sw: string | null
           free_delivery: boolean
+          free_delivery_region: string | null
           id: string
           image_key: string | null
           image_url: string | null
@@ -1133,6 +1143,7 @@ export type Database = {
           finish?: string | null
           finish_sw?: string | null
           free_delivery?: boolean
+          free_delivery_region?: string | null
           id?: string
           image_key?: string | null
           image_url?: string | null
@@ -1171,6 +1182,7 @@ export type Database = {
           finish?: string | null
           finish_sw?: string | null
           free_delivery?: boolean
+          free_delivery_region?: string | null
           id?: string
           image_key?: string | null
           image_url?: string | null

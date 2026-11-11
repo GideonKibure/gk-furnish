@@ -568,7 +568,8 @@ function AdminProductsPage() {
             care_info_sw: String(fd.get("care_info_sw") ?? ""),
             compare_at_price: compareAt && compareAt > 0 ? compareAt : null,
             discount_percent: discount == null ? null : Math.round(discount),
-            free_delivery: fd.get("free_delivery") === "on",
+            free_delivery_region: TZ_REGIONS.find((region) => region === String(fd.get("free_delivery_region") ?? "")) ?? null,
+            free_delivery: TZ_REGIONS.some((region) => region === String(fd.get("free_delivery_region") ?? "")),
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
           },
@@ -847,10 +848,18 @@ function AdminProductsPage() {
                 </select>
                 <p className="mt-1 text-xs text-[#6B7280]">Shown on the product card so customers can see where this piece is available.</p>
               </div>
-              <label className="flex items-center gap-2 text-sm text-navy">
-                <input type="checkbox" name="free_delivery" defaultChecked={prefill?.free_delivery ?? false} className="h-4 w-4 accent-[#14213D]" />
-                Free delivery for this product
-              </label>
+              <div>
+                <label className="field-label">Free delivery in</label>
+                <select name="free_delivery_region" className="field-input" defaultValue={prefill?.free_delivery_region ?? ""}>
+                  <option value="">Not free</option>
+                  {TZ_REGIONS.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-[#6B7280]">Shown on the product page. Delivery is free only when the customer is in this region.</p>
+              </div>
               <div role="radiogroup" aria-label="Stock shown to customers" className="space-y-1.5">
                 <p className="field-label !mb-1">Stock shown to customers</p>
                 <label className="flex items-center gap-2 text-sm text-navy">
@@ -1344,7 +1353,11 @@ function AdminProductsPage() {
         </span>
         {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
         {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
-        {p.free_delivery && <StatusPill tone="info">Free delivery</StatusPill>}
+        {p.free_delivery_region ? (
+          <StatusPill tone="info">Free in {p.free_delivery_region}</StatusPill>
+        ) : p.free_delivery ? (
+          <StatusPill tone="info">Free delivery</StatusPill>
+        ) : null}
       </p>
     );
   }

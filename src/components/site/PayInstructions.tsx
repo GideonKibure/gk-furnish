@@ -2,15 +2,17 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { formatAmount } from "@/config/site";
 import { useLang } from "@/i18n/LanguageProvider";
-import type { PayAccounts } from "@/lib/pay-accounts";
+import { DEFAULT_PAY_METHODS, type PayAccounts, type PayMethods } from "@/lib/pay-accounts";
 
 export function PayInstructions({
   accounts,
+  methods = DEFAULT_PAY_METHODS,
   channel,
   amount,
   orderNumber,
 }: {
   accounts: PayAccounts;
+  methods?: PayMethods;
   channel: "mobile" | "bank";
   amount: number;
   orderNumber?: string;
@@ -21,20 +23,18 @@ export function PayInstructions({
     void navigator.clipboard?.writeText(value).then(() => toast.success(t.track.copied));
   }
 
-  const rows =
+  const rows = (
     channel === "bank"
-      ? [
-          {
-            title: t.track.nmb,
-            name: accounts.nmbName,
-            account: accounts.nmbNumber,
-            missing: t.track.nmbMissing,
-          },
-        ]
+      ? methods.nmb
+        ? [{ title: t.track.nmb, name: accounts.nmbName, account: accounts.nmbNumber, missing: t.track.nmbMissing }]
+        : []
       : [
-          { title: t.track.mpesaLipa, name: accounts.mpesaName, account: accounts.mpesaNumber, missing: "" },
-          { title: t.track.airtel, name: accounts.airtelName, account: accounts.airtelNumber, missing: "" },
-        ];
+          methods.mpesa ? { title: t.track.mpesaLipa, name: accounts.mpesaName, account: accounts.mpesaNumber, missing: "" } : null,
+          methods.airtel ? { title: t.track.airtel, name: accounts.airtelName, account: accounts.airtelNumber, missing: "" } : null,
+        ]
+  ).filter((row) => row != null);
+
+  if (!rows.length) return null;
 
   return (
     <div className="mt-4 rounded-xl bg-sand p-4">
