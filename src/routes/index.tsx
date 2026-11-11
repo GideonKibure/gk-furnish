@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { loadSession } from "@/lib/session";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -40,6 +41,11 @@ export const Route = createFileRoute("/")({
       path: "/",
       image: IMAGES.hero,
     }),
+  beforeLoad: async () => {
+    if (typeof window === "undefined") return;
+    const { session } = await loadSession();
+    if (session) throw redirect({ to: "/products", replace: true });
+  },
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(productsQuery),
@@ -50,13 +56,27 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-/** Split "Main | accent" (or "main, accent") so the accent line can be gold. */
-function splitTitle(title: string) {
-  const bar = title.indexOf("|");
-  if (bar > 0) return [title.slice(0, bar).trim(), title.slice(bar + 1).trim()] as const;
-  const comma = title.lastIndexOf(",");
-  if (comma > 0 && comma < title.length - 3) return [title.slice(0, comma + 1).trim(), title.slice(comma + 1).trim()] as const;
-  return [title, ""] as const;
+function HeroLetters({ text }: { text: string }) {
+  const words = text.split(" ");
+  let count = 0;
+  return (
+    <>
+      {words.map((word, wi) => (
+        <span key={`${word}-${wi}`} className="inline-block whitespace-nowrap">
+          {[...word].map((letter) => {
+            const delay = count * 38;
+            count += 1;
+            return (
+              <span key={delay} className="hero-letter" style={{ animationDelay: `${delay}ms` }}>
+                {letter}
+              </span>
+            );
+          })}
+          {wi < words.length - 1 ? "\u00a0" : null}
+        </span>
+      ))}
+    </>
+  );
 }
 
 function useHeroVideo() {
@@ -71,17 +91,9 @@ function useHeroVideo() {
   return on;
 }
 
-function HeroSlides({ slides }: { slides: string[] }) {
-  const [index, setIndex] = useState(0);
+function HeroSlides({ slides, index }: { slides: string[]; index: number }) {
   const videoOn = useHeroVideo();
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (slides.length < 2) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setIndex((i) => (i + 1) % slides.length), 7000);
-    return () => window.clearInterval(timer);
-  }, [slides.length]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -122,23 +134,6 @@ function HeroSlides({ slides }: { slides: string[] }) {
           )}
         </div>
       ))}
-      {slides.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 md:bottom-6">
-          {slides.map((src, i) => (
-            <button
-              key={src + i}
-              type="button"
-              aria-label={`${i + 1} / ${slides.length}`}
-              aria-current={i === index ? "true" : undefined}
-              onClick={() => setIndex(i)}
-              className={cn(
-                "h-2 rounded-full transition-all",
-                i === index ? "w-6 bg-gold" : "w-2 bg-navy/25 hover:bg-navy/45",
-              )}
-            />
-          ))}
-        </div>
-      )}
     </>
   );
 }
@@ -152,12 +147,20 @@ function Home() {
   const { data: services = [] } = useQuery(servicesQuery);
   const { data: settings } = useQuery(siteSettingsQuery);
   const site = settingsToSite(settings);
-  const heroTitle = sectionText(sections, "home", "hero_title", lang, t.home.heroTitle);
-  const heroSubtitle = sectionText(sections, "home", "hero_subtitle", lang, t.home.heroSubtitle);
+  const fixes = t.home2.heroFixes;
+  const [fixIndex, setFixIndex] = useState(0);
+  const fix = fixes[fixIndex] ?? fixes[0];
+  const slideForFix = [3, 4, 2];
+
+  useEffect(() => {
+    if (fixes.length < 2) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setFixIndex((i) => (i + 1) % fixes.length), 4200);
+    return () => window.clearInterval(timer);
+  }, [fixes.length]);
+
   const customTitle = sectionText(sections, "home", "custom_title", lang, t.home.customTitle);
   const customBody = sectionText(sections, "home", "custom_body", lang, t.home.customBody);
-  const [titleMain, titleAccent] = splitTitle(heroTitle);
-
   const { image, gallery } = useSiteImages();
   const customImage = image("home.custom", IMAGES.custom);
   const slides = useMemo(
@@ -183,38 +186,42 @@ function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="bg-sand pb-8 md:pb-12">
+      <section className="bg-sand pb-24 md:pb-28 lg:pb-12">
         <div className="container-page pt-4 md:pt-6">
-          <div className="relative isolate overflow-hidden rounded-2xl border border-border bg-white">
-            <div className="absolute inset-0 -z-10">
-              <HeroSlides slides={slides} />
-              <div className="absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/5 md:bg-gradient-to-r md:from-white md:via-white/85 md:to-white/0" />
-            </div>
-            <div className="flex min-h-[26rem] flex-col justify-start px-5 pb-16 pt-8 sm:px-8 md:min-h-[30rem] md:justify-center md:px-12 md:py-16 lg:min-h-[32rem] lg:px-16">
-              <p className="eyebrow">{t.home.heroEyebrow}</p>
-              <h1 className="display-xl mt-2 max-w-xl text-navy">
-                {titleMain}
-                {titleAccent && (
-                  <>
-                    {" "}
-                    <span className="block text-gold-ink">{titleAccent}</span>
-                  </>
+          <div className="grid overflow-hidden rounded-2xl border border-border bg-navy md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            <div className="order-2 flex flex-col justify-center px-5 py-8 text-white sm:px-8 md:order-1 md:px-10 md:py-12 lg:px-12">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">{t.home.heroEyebrow}</p>
+              <h1 className="mt-3 max-w-xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-white md:text-5xl">
+                <span className="sr-only">
+                  {t.home2.heroAsk} {fix?.word}
+                </span>
+                <span aria-hidden className="block text-white">
+                  <HeroLetters text={t.home2.heroAsk} />
+                </span>
+                {fix && (
+                  <span key={fix.word} aria-hidden className="mt-1 block text-gold">
+                    <HeroLetters text={fix.word} />
+                  </span>
                 )}
               </h1>
-              <p className="mt-3 text-base font-semibold text-navy md:text-lg">{t.home2.heroTagline}</p>
-              <p className="mt-2 max-w-md text-[0.95rem] leading-relaxed text-navy/75 md:text-base">{heroSubtitle}</p>
+              <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-white/80 md:text-base">{t.home.heroSubtitle}</p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link to="/products" className="btn-base btn-gold btn-lg group">
-                  {t.home2.shopNow}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-                <Link to="/custom-order" className="btn-base btn-outline-navy btn-lg">
-                  {t.home2.customOrder}
+                {fix && (
+                  <Link to="/categories/$slug" params={{ slug: fix.slug }} className="btn-base btn-gold btn-lg group">
+                    {fix.cta}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                )}
+                <Link to="/custom-order" className="btn-base btn-lg border border-white/30 bg-transparent text-white hover:bg-white/10">
+                  {t.home2.describeRoom}
                 </Link>
               </div>
             </div>
+            <div className="relative order-1 min-h-56 sm:min-h-72 md:order-2 md:min-h-[32rem]">
+              <HeroSlides slides={slides} index={slides.length ? (slideForFix[fixIndex] ?? 0) % slides.length : 0} />
+            </div>
           </div>
-          <FeatureBadges className="relative z-10 -mt-6 mx-2 sm:mx-6 md:mx-10" />
+          <FeatureBadges className="mt-4" />
         </div>
       </section>
 

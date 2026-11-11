@@ -7,12 +7,14 @@ export function CategoryTile({
   image,
   count,
   className,
+  priority = false,
 }: {
   slug: string;
   label: string;
   image: string | null | undefined;
   count?: number | undefined;
   className?: string;
+  priority?: boolean;
 }) {
   return (
     <Link
@@ -25,8 +27,11 @@ export function CategoryTile({
           <img
             src={image}
             alt=""
-            loading="lazy"
+            width={480}
+            height={360}
+            loading={priority ? "eager" : "lazy"}
             decoding="async"
+            fetchPriority={priority ? "high" : "low"}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : null}

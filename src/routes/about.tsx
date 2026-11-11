@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { loadSession } from "@/lib/session";
 import { ArrowRight, HeartHandshake, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
@@ -18,6 +19,11 @@ export const Route = createFileRoute("/about")({
       path: "/about",
       image: IMAGES.workshop,
     }),
+  beforeLoad: async () => {
+    if (typeof window === "undefined") return;
+    const { session } = await loadSession();
+    if (session) throw redirect({ to: "/products", replace: true });
+  },
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: About,
 });

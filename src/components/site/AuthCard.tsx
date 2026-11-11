@@ -13,10 +13,16 @@ export function safeNext(next: unknown, fallback = "/products") {
 
 const isAdminPath = (path: string) => /^\/admin(?:[/?#]|$)/.test(path);
 
-/** Where a signed-in user goes: an explicit safe `next` wins, except admin pages for non-admins. */
+/** Marketing pages a signed-in customer should not land on. */
+export function isBrochurePath(path: string) {
+  return path === "/" || path === "/about" || path.startsWith("/about/");
+}
+
+/** Where a signed-in user goes: the shop, unless an explicit safe `next` points somewhere else. */
 export function postLoginPath(next: unknown, isAdmin: boolean) {
   const home = isAdmin ? "/admin" : "/products";
   const target = safeNext(next, home);
+  if (!isAdmin && isBrochurePath(target)) return "/products";
   return isAdminPath(target) && !isAdmin ? "/products" : target;
 }
 

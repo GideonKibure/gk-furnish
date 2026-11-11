@@ -17,7 +17,7 @@ import { missingChoices, OrderDialog, useAddToCart } from "./OrderDialog";
 import { LikeButton } from "./ProductEngagement";
 import { ProductVideo } from "./ProductVideo";
 
-export function ProductCard({ product, rating }: { product: Product; rating?: RatingSummary | undefined }) {
+export function ProductCard({ product, rating, priority = false }: { product: Product; rating?: RatingSummary | undefined; priority?: boolean }) {
   const { t, lang } = useLang();
   const addToCart = useAddToCart();
   const [open, setOpen] = useState(false);
@@ -58,8 +58,11 @@ export function ProductCard({ product, rating }: { product: Product; rating?: Ra
               <img
                 src={cover}
                 alt={name}
-                loading="lazy"
+                width={640}
+                height={640}
+                loading={priority ? "eager" : "lazy"}
                 decoding="async"
+                fetchPriority={priority ? "high" : "low"}
                 className={cn(
                   "h-full w-full object-cover transition-[transform,opacity] duration-500",
                   hover ? "group-hover:opacity-0" : "group-hover:scale-105",
@@ -135,14 +138,14 @@ export function ProductCard({ product, rating }: { product: Product; rating?: Ra
   );
 }
 
-export function ProductGrid({ products, className }: { products: Product[]; className?: string }) {
+export function ProductGrid({ products, className, eagerFirst = false }: { products: Product[]; className?: string; eagerFirst?: boolean }) {
   const { t } = useLang();
   const { data: ratings = {} } = useQuery(ratingSummaryQuery);
   if (!products.length) return <EmptyState title={t.shop.noResults} body={t.common.emptyProducts} />;
   return (
     <div className={cn("grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4", className)}>
-      {products.map((p) => (
-        <ProductCard key={p.id} product={p} rating={ratings[p.id]} />
+      {products.map((p, index) => (
+        <ProductCard key={p.id} product={p} rating={ratings[p.id]} priority={eagerFirst && index < 2} />
       ))}
     </div>
   );

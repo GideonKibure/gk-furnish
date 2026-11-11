@@ -90,7 +90,7 @@ export function AccountShell({
         <Breadcrumbs
           items={
             crumbs ?? [
-              { label: t.nav.home, href: "/" },
+              { label: t.shell.shop, href: "/products" },
               { label: t.account.title, href: "/account" },
               { label: title },
             ]

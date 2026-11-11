@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { useAuthUser } from "@/hooks/use-auth";
 import { useLang } from "@/i18n/LanguageProvider";
 import { sectionText, settingsToSite, siteSettingsQuery, pageSectionsQuery } from "@/lib/site-content";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -16,6 +17,8 @@ function TikTokIcon({ className }: { className?: string }) {
 
 export function SiteFooter() {
   const { t, lang } = useLang();
+  const { user } = useAuthUser();
+  const signedIn = Boolean(user);
   const { data: settings } = useQuery(siteSettingsQuery);
   const { data: sections = [] } = useQuery(pageSectionsQuery);
   const site = settingsToSite(settings);
@@ -63,7 +66,9 @@ export function SiteFooter() {
         <div>
           <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.explore}</h3>
           <ul className="mt-4 space-y-2.5">
-            <li><Link to="/about" className={link}>{t.nav.about}</Link></li>
+            {!signedIn && (
+              <li><Link to="/about" className={link}>{t.nav.about}</Link></li>
+            )}
             <li><Link to="/process" className={link}>{t.nav.process}</Link></li>
             <li><Link to="/gallery" className={link}>{t.nav.gallery}</Link></li>
             <li><Link to="/faq" className={link}>{t.nav.faq}</Link></li>

@@ -180,7 +180,7 @@ export function ShopView({
             </label>
           </div>
         </div>
-        <ProductGrid products={list} className="xl:grid-cols-3 2xl:grid-cols-4" />
+        <ProductGrid products={list} eagerFirst className="xl:grid-cols-3 2xl:grid-cols-4" />
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

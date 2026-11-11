@@ -1,6 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Package } from "lucide-react";
+import { ArrowRight, Package, Pencil, ShoppingBag } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/brand/EmptyState";
@@ -8,6 +9,7 @@ import { StatusPill } from "@/components/brand/StatusPill";
 import { AccountShell } from "@/components/site/AccountShell";
 import { formatAmount } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
+import { nameLetter } from "@/hooks/use-customer-name";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { statusLabel } from "@/i18n/status";
@@ -24,17 +26,24 @@ type Order = Awaited<ReturnType<typeof listMyOrders>>[number];
 function AccountPage() {
   const { t } = useLang();
   const { user } = useAuthUser();
+  const queryClient = useQueryClient();
   const loadProfile = useServerFn(getMyProfile);
   const loadOrders = useServerFn(listMyOrders);
   const saveProfile = useServerFn(updateMyProfile);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    loadProfile().then(setProfile).catch(() => setProfile({ email: user.email ?? "", full_name: "", phone: "", default_location: "" }));
-    loadOrders().then(setOrders).catch(() => setOrders([]));
+    void Promise.all([
+      loadProfile().catch(() => ({ email: user.email ?? "", full_name: "", phone: "", default_location: "" })),
+      loadOrders().catch(() => [] as Order[]),
+    ]).then(([nextProfile, nextOrders]) => {
+      setProfile(nextProfile);
+      setOrders(nextOrders);
+    });
   }, [user?.id]);
 
   async function onSave(e: FormEvent<HTMLFormElement>) {
@@ -50,6 +59,16 @@ function AccountPage() {
         },
       });
       toast.success(t.account.saved);
+      const next = {
+        full_name: String(fd.get("full_name") ?? ""),
+        phone: String(fd.get("phone") ?? ""),
+        default_location: String(fd.get("default_location") ?? ""),
+      };
+      setProfile((current) => (current ? { ...current, ...next } : current));
+      queryClient.setQueryData(["my-profile", user?.id], (current: Profile | undefined) =>
+        current ? { ...current, ...next } : { email: user?.email ?? "", ...next },
+      );
+      setEditing(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.validation.failed);
     } finally {
@@ -58,12 +77,70 @@ function AccountPage() {
   }
 
   const title = profile?.full_name ? fill(t.accountNav.hello, { name: profile.full_name.split(/\s+/)[0] ?? "" }) : t.account.title;
+  const due = (orders ?? []).reduce((sum, order) => sum + order.balance, 0);
+  const initials = nameLetter(profile?.full_name || profile?.email || "");
 
   return (
-    <AccountShell active="overview" title={title} crumbs={[{ label: t.nav.home, href: "/" }, { label: t.account.title }]}>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <AccountShell active="overview" title={title} crumbs={[{ label: t.shell.shop, href: "/products" }, { label: t.account.title }]}>
+      <div className="space-y-4">
+        <section className="panel overflow-hidden">
+          <div className="flex flex-wrap items-center gap-4 bg-navy px-4 py-5 text-white md:px-6">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-gold text-lg font-bold text-navy" aria-hidden>
+              {initials}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-bold">{profile?.full_name || t.account.profile}</p>
+              <p className="truncate text-sm text-white/75">{profile?.email || user?.email}</p>
+              {profile?.phone ? <p className="truncate text-sm text-white/75">{profile.phone}</p> : null}
+            </div>
+            <button type="button" className="btn-base bg-white text-navy hover:bg-sand" onClick={() => setEditing((open) => !open)}>
+              <Pencil className="h-4 w-4" />
+              {editing ? t.addresses.cancel : t.account.editProfile}
+            </button>
+          </div>
+          {editing && profile && (
+            <form onSubmit={onSave} className="grid gap-4 p-4 md:grid-cols-2 md:p-5">
+              <div>
+                <label className="field-label" htmlFor="p-name">{t.account.fullName}</label>
+                <input id="p-name" name="full_name" className="field-input" autoComplete="name" defaultValue={profile.full_name} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="p-phone">{t.account.phone}</label>
+                <input id="p-phone" name="phone" type="tel" className="field-input" autoComplete="tel" defaultValue={profile.phone} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="field-label" htmlFor="p-loc">{t.account.location}</label>
+                <input id="p-loc" name="default_location" className="field-input" defaultValue={profile.default_location} />
+              </div>
+              <div>
+                <button type="submit" className="btn-base btn-gold" disabled={busy}>
+                  {t.account.save}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="panel p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.account.orders}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-navy">{orders ? orders.length : "—"}</p>
+          </div>
+          <div className="panel p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.account.dueNow}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-navy">{orders ? formatAmount(due) : "—"}</p>
+          </div>
+          <Link to="/products" className="panel flex items-center justify-between gap-3 p-4 sm:col-span-1 col-span-2">
+            <span>
+              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.shell.shop}</span>
+              <span className="mt-1 block font-semibold text-navy">{t.cart.emptyCta}</span>
+            </span>
+            <ShoppingBag className="h-5 w-5 text-gold-ink" />
+          </Link>
+        </div>
+
         <section className="min-w-0">
-          <h2 className="section-title mb-3">{t.account.orders}</h2>
+          <h2 className="mb-3 text-base font-bold text-navy">{t.account.orders}</h2>
           {!orders ? (
             <p className="text-sm text-muted-foreground">{t.common.loading}</p>
           ) : orders.length === 0 ? (
@@ -108,31 +185,6 @@ function AccountPage() {
                 </li>
               ))}
             </ul>
-          )}
-        </section>
-
-        <section className="panel h-fit p-4 md:p-5">
-          <h2 className="text-base font-bold">{t.account.profile}</h2>
-          {!profile ? (
-            <p className="mt-3 text-sm text-muted-foreground">{t.common.loading}</p>
-          ) : (
-            <form onSubmit={onSave} className="mt-3 space-y-4">
-              <div>
-                <label className="field-label" htmlFor="p-name">{t.account.fullName}</label>
-                <input id="p-name" name="full_name" className="field-input" autoComplete="name" defaultValue={profile.full_name} />
-              </div>
-              <div>
-                <label className="field-label" htmlFor="p-phone">{t.account.phone}</label>
-                <input id="p-phone" name="phone" type="tel" className="field-input" autoComplete="tel" defaultValue={profile.phone} />
-              </div>
-              <div>
-                <label className="field-label" htmlFor="p-loc">{t.account.location}</label>
-                <input id="p-loc" name="default_location" className="field-input" defaultValue={profile.default_location} />
-              </div>
-              <button type="submit" className="btn-base btn-gold w-full" disabled={busy}>
-                {t.account.save}
-              </button>
-            </form>
           )}
         </section>
       </div>

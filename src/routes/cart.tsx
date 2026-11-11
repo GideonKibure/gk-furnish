@@ -64,6 +64,10 @@ function CartPage() {
                           <img
                             src={productImageSrc(p)}
                             alt=""
+                            width={96}
+                            height={96}
+                            loading="lazy"
+                            decoding="async"
                             className="h-20 w-20 rounded-lg border border-border object-cover sm:h-24 sm:w-24"
                           />
                         </Link>

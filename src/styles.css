@@ -595,6 +595,22 @@
   transition: opacity 900ms ease;
 }
 
+.hero-letter {
+  display: inline-block;
+  animation: hero-letter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-letter {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Offer banner stays fixed until its own timer or dismiss */
 .offer-banner-spacer {
   height: 2.75rem;
@@ -820,6 +836,7 @@
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .hero-slide,
+  .hero-letter,
   .nav-progress-bar,
   .offer-banner,
   .offer-banner.is-leaving,

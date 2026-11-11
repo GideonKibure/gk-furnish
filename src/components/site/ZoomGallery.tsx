@@ -75,7 +75,7 @@ export function ZoomGallery({
             !showVideo && k === i ? "border-gold" : "border-border hover:border-navy/30",
           )}
         >
-          <img src={item.src} alt="" className="h-full w-full object-cover" />
+          <img src={item.src} alt="" loading={k === 0 ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
         </button>
       ))}
       {video && (
@@ -117,6 +117,8 @@ export function ZoomGallery({
           <img
             src={active?.src}
             alt={active?.label ? `${alt} — ${active.label}` : alt}
+            fetchPriority="high"
+            decoding="async"
             className="h-full w-full object-cover transition-[transform,filter] duration-200 ease-out will-change-transform"
             style={
               zoom
@@ -404,7 +406,7 @@ export function Lightbox({
                 k === index ? "border-gold opacity-100" : "border-transparent opacity-50 hover:opacity-90",
               )}
             >
-              <img src={src} alt="" className="h-full w-full object-cover" />
+              <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

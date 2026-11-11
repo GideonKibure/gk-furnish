@@ -15,13 +15,14 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { useAuthUser } from "@/hooks/use-auth";
+import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
 import { settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { BrandLogo } from "./BrandLogo";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { UserMark } from "./UserMark";
 
 type MenuLink = {
   to:
@@ -50,7 +51,7 @@ export function MobileMenuSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLang();
-  const { user, ready } = useAuthUser();
+  const { user, ready, name, letter } = useCustomerName();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: settings } = useQuery(siteSettingsQuery);
   const site = settingsToSite(settings);
@@ -68,6 +69,7 @@ export function MobileMenuSheet({
     { to: "/contact", label: t.nav.contact, icon: Mail },
     { to: "/privacy", label: t.privacy.link, icon: ShieldCheck },
   ];
+  const menuLinks = user ? links.filter((link) => link.to !== "/" && link.to !== "/about") : links;
   const accountLink: MenuLink = signedOut
     ? { to: "/account/login", label: t.nav.signIn, icon: UserRound }
     : { to: "/account", label: t.nav.account, icon: UserRound };
@@ -87,10 +89,23 @@ export function MobileMenuSheet({
           <BrandLogo markClassName="h-8" wordmarkClassName="!text-base" tagline={t.shell.tagline} />
           <SheetTitle className="sr-only">{t.shell.menuTitle}</SheetTitle>
           <SheetDescription className="sr-only">{t.shell.trust}</SheetDescription>
+          {!signedOut && (
+            <Link
+              to="/account"
+              onClick={() => onOpenChange(false)}
+              className="mt-4 flex items-center gap-3 rounded-xl bg-navy px-3 py-3 text-white"
+            >
+              <UserMark letter={letter} />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">{name || t.nav.account}</span>
+                {user?.email ? <span className="block truncate text-xs text-white/70">{user.email}</span> : null}
+              </span>
+            </Link>
+          )}
         </div>
         <nav aria-label={t.shell.menuTitle} className="flex-1 px-3 py-3">
           <ul className="space-y-0.5">
-            {[...links, accountLink].map(({ to, label, icon: Icon, exact }) => {
+            {[...menuLinks, accountLink].map(({ to, label, icon: Icon, exact }) => {
               const active = exact
                 ? pathname === to
                 : pathname === to || pathname.startsWith(`${to}/`);

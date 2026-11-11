@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAuthUser } from "@/hooks/use-auth";
 import { useLang } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "./BrandLogo";
@@ -18,6 +19,8 @@ type NavLink = {
 
 export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean }) {
   const { t } = useLang();
+  const { user } = useAuthUser();
+  const signedIn = Boolean(user);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -36,13 +39,15 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
   }, [pathname]);
 
   const links: NavLink[] = [
-    { to: "/", label: t.nav.home, match: (p) => p === "/" },
     { to: "/products", label: t.shell.shop, match: (p) => p.startsWith("/products") },
     { to: "/categories", label: t.nav.categories, match: (p) => p.startsWith("/categories") },
     { to: "/custom-order", label: t.nav.custom, match: (p) => p.startsWith("/custom-order") },
-    { to: "/about", label: t.nav.about, match: (p) => p.startsWith("/about") },
     { to: "/contact", label: t.nav.contact, match: (p) => p.startsWith("/contact") },
   ];
+  if (!signedIn) {
+    links.unshift({ to: "/", label: t.nav.home, match: (p) => p === "/" });
+    links.splice(4, 0, { to: "/about", label: t.nav.about, match: (p) => p.startsWith("/about") });
+  }
 
   return (
     <>
@@ -60,7 +65,7 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
         )}
       >
         <div className="container-page flex h-14 items-center gap-3 lg:h-[4.5rem] lg:gap-6">
-          <Link to="/" className="flex min-w-0 shrink-0 items-center" aria-label="GK Furnish">
+          <Link to={signedIn ? "/products" : "/"} className="flex min-w-0 shrink-0 items-center" aria-label="GK Furnish">
             <BrandLogo
               markClassName="h-8 lg:h-10"
               wordmarkClassName="!text-base sm:!text-lg lg:!text-xl max-[340px]:hidden"
@@ -77,18 +82,11 @@ export function SiteHeader({ offerVisible = false }: { offerVisible?: boolean })
                   to={l.to}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative whitespace-nowrap rounded-md px-3 py-2 text-[0.9rem] font-medium transition-colors",
-                    active ? "text-navy" : "text-navy/70 hover:text-navy",
+                    "whitespace-nowrap rounded-full px-3.5 py-2 text-[0.9rem] font-medium transition-colors",
+                    active ? "bg-gold font-semibold text-navy" : "text-navy/70 hover:bg-sand hover:text-navy",
                   )}
                 >
                   {l.label}
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "absolute inset-x-3 -bottom-[1.125rem] h-[3px] rounded-t-full bg-gold transition-opacity",
-                      active ? "opacity-100" : "opacity-0",
-                    )}
-                  />
                 </Link>
               );
             })}

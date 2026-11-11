@@ -1,27 +1,36 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, ShoppingBag, ShoppingCart, UserRound } from "lucide-react";
-import { useAuthUser } from "@/hooks/use-auth";
+import { Home, LayoutGrid, ShoppingBag, ShoppingCart, UserRound } from "lucide-react";
+import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { CartCountBadge } from "./HeaderActions";
+import { UserMark } from "./UserMark";
 
 /** Fixed 4-tab bar for phones and tablets: Home, Shop, Cart, Account. */
 export function MobileBottomNav() {
   const { t } = useLang();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
-  const { user, ready } = useAuthUser();
-  const signedOut = ready && !user;
+  const { user, letter } = useCustomerName();
+  const signedIn = Boolean(user);
 
   const tabs = [
-    { key: "home", to: "/" as const, label: t.nav.home, icon: Home, active: pathname === "/" },
+    signedIn
+      ? {
+          key: "categories",
+          to: "/categories" as const,
+          label: t.nav.categories,
+          icon: LayoutGrid,
+          active: pathname.startsWith("/categories"),
+        }
+      : { key: "home", to: "/" as const, label: t.nav.home, icon: Home, active: pathname === "/" },
     {
       key: "shop",
       to: "/products" as const,
       label: t.shell.shop,
       icon: ShoppingBag,
-      active: pathname.startsWith("/products") || pathname.startsWith("/categories"),
+      active: pathname.startsWith("/products") || (!signedIn && pathname.startsWith("/categories")),
     },
     {
       key: "cart",
@@ -33,7 +42,7 @@ export function MobileBottomNav() {
     },
     {
       key: "account",
-      to: signedOut ? ("/account/login" as const) : ("/account" as const),
+      to: signedIn ? ("/account" as const) : ("/account/login" as const),
       label: t.shell.account,
       icon: UserRound,
       active: pathname.startsWith("/account"),
@@ -54,7 +63,11 @@ export function MobileBottomNav() {
               )}
             >
               <span className="relative">
-                <Icon className="h-[1.35rem] w-[1.35rem]" strokeWidth={active ? 2.3 : 1.8} />
+                {key === "account" && signedIn ? (
+                  <UserMark letter={letter} className={cn("h-7 w-7 text-xs", active && "ring-2 ring-navy")} />
+                ) : (
+                  <Icon className="h-[1.35rem] w-[1.35rem]" strokeWidth={active ? 2.3 : 1.8} />
+                )}
                 {badge ? <CartCountBadge count={badge} /> : null}
               </span>
               {label}
