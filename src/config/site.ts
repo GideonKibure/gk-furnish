@@ -3,6 +3,9 @@
  * Change contact details, hours and copy here — nothing is hardcoded in components.
  */
 
+/** Public Google Analytics 4 measurement ID. Safe to ship in the browser. */
+export const GA_MEASUREMENT_ID = "G-J96RVDQSF1";
+
 export const SITE = {
   name: "GK furnish",
   url: "https://gkfurnish.co.tz",

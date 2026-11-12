@@ -12,6 +12,7 @@ import { CartProvider } from "@/lib/cart";
 import { NavigationProgress } from "@/components/site/NavigationProgress";
 import { SiteVisitTracker } from "@/components/site/SiteVisitTracker";
 import { AuthPopupProvider } from "@/components/site/auth-popup";
+import { GoogleAnalytics } from "@/components/site/GoogleAnalytics";
 import { SITE } from "@/config/site";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
@@ -136,6 +137,7 @@ function RootComponent() {
               <SiteFooter />
               <WhatsAppFab />
               <SiteVisitTracker />
+              <GoogleAnalytics />
             </AuthPopupProvider>
           </CartProvider>
         )}
