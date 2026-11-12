@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { BadgeCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { useAuthPopup } from "@/hooks/use-auth-popup";
 import { StarInput, StarRating } from "@/components/brand/StarRating";
 import { useAuthUser } from "@/hooks/use-auth";
 import { fill } from "@/i18n/fill";
@@ -90,6 +90,7 @@ function ReviewForm({ productId, onDone }: { productId: string; onDone: () => vo
 export function ProductReviews({ productId }: { productId: string }) {
   const { t } = useLang();
   const { user, ready } = useAuthUser();
+  const { open: openAuth } = useAuthPopup();
   const queryClient = useQueryClient();
   const { data: reviews = [] } = useQuery(approvedReviewsQuery(productId));
   const check = useServerFn(getReviewEligibility);
@@ -146,9 +147,9 @@ export function ProductReviews({ productId }: { productId: string }) {
 
       {ready && !user && (
         <p className="text-sm text-muted-foreground">
-          <Link to="/account/login" className="font-semibold text-gold-ink hover:underline">
+          <button type="button" onClick={() => openAuth({ reason: "account", mode: "signin" })} className="font-semibold text-gold-ink hover:underline">
             {t.reviews.signIn}
-          </Link>
+          </button>
         </p>
       )}
       {user &&

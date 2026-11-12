@@ -5,6 +5,7 @@ import { useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { CartCountBadge } from "./HeaderActions";
+import { useAuthPopup } from "@/hooks/use-auth-popup";
 import { UserMark } from "./UserMark";
 
 /** Fixed tab bar for phones and tablets. */
@@ -13,6 +14,7 @@ export function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
   const { user, letter } = useCustomerName();
+  const { open } = useAuthPopup();
   const signedIn = Boolean(user);
 
   const tabs = [
@@ -61,6 +63,18 @@ export function MobileBottomNav() {
       <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
         {tabs.map(({ key, to, label, icon: Icon, active, badge }) => (
           <li key={key}>
+            {key === "account" && !signedIn ? (
+              <button
+                type="button"
+                onClick={() => open({ reason: "account", mode: "signin" })}
+                className="flex h-full w-full flex-col items-center justify-center gap-1 text-[0.7rem] font-semibold text-muted-foreground"
+              >
+                <span className="auth-wave relative rounded-full">
+                  <Icon className="h-[1.35rem] w-[1.35rem]" strokeWidth={1.8} />
+                </span>
+                {label}
+              </button>
+            ) : (
             <Link
               to={to}
               aria-current={active ? "page" : undefined}
@@ -79,6 +93,7 @@ export function MobileBottomNav() {
               </span>
               {label}
             </Link>
+            )}
           </li>
         ))}
       </ul>

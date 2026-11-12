@@ -10,6 +10,7 @@ import { PayInstructions } from "@/components/site/PayInstructions";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
+import { useAuthPopup } from "@/hooks/use-auth-popup";
 import { sessionContact } from "@/hooks/use-customer-name";
 import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
@@ -41,6 +42,7 @@ function CheckoutPage() {
   const nav = useNavigate();
   const cart = useCart();
   const { user, ready: authReady } = useAuthUser();
+  const { open: openAuth } = useAuthPopup();
   const send = useServerFn(createCheckout);
   const loadProfile = useServerFn(getMyProfile);
   const loadAddresses = useServerFn(listMyAddresses);
@@ -320,9 +322,9 @@ function CheckoutPage() {
           {authReady && !user && (
             <p className="max-w-xl text-sm text-navy">
               {t.checkout.signInPrompt}{" "}
-              <Link to="/account/login" search={{ next: "/checkout" }} className="font-semibold text-gold-ink underline">
+              <button type="button" onClick={() => openAuth({ reason: "checkout", mode: "signin" })} className="font-semibold text-gold-ink underline">
                 {t.nav.signIn}
-              </Link>
+              </button>
             </p>
           )}
         </div>

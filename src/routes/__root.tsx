@@ -11,6 +11,7 @@ import { OfferBanner } from "@/components/site/OfferBanner";
 import { CartProvider } from "@/lib/cart";
 import { NavigationProgress } from "@/components/site/NavigationProgress";
 import { SiteVisitTracker } from "@/components/site/SiteVisitTracker";
+import { AuthPopupProvider } from "@/components/site/auth-popup";
 import { SITE } from "@/config/site";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
@@ -102,14 +103,16 @@ function RootComponent() {
           <Outlet />
         ) : (
           <CartProvider>
-            <OfferBanner onVisibilityChange={setOfferVisible} />
-            <SiteHeader offerVisible={offerVisible} />
-            <main id="main" className="min-h-[60vh] bg-white">
-              <Outlet />
-            </main>
-            <SiteFooter />
-            <WhatsAppFab />
-            <SiteVisitTracker />
+            <AuthPopupProvider>
+              <OfferBanner onVisibilityChange={setOfferVisible} />
+              <SiteHeader offerVisible={offerVisible} />
+              <main id="main" className="min-h-[60vh] bg-white">
+                <Outlet />
+              </main>
+              <SiteFooter />
+              <WhatsAppFab />
+              <SiteVisitTracker />
+            </AuthPopupProvider>
           </CartProvider>
         )}
         <Toaster position="top-center" />

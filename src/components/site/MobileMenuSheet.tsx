@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
+import { useAuthPopup } from "@/hooks/use-auth-popup";
 import { settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -54,6 +55,7 @@ export function MobileMenuSheet({
 }) {
   const { t } = useLang();
   const { user, ready, name, letter } = useCustomerName();
+  const { open: openAuth } = useAuthPopup();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: settings } = useQuery(siteSettingsQuery);
   const site = settingsToSite(settings);
@@ -112,6 +114,23 @@ export function MobileMenuSheet({
               const active = exact
                 ? pathname === to
                 : pathname === to || pathname.startsWith(`${to}/`);
+              if (to === "/account/login") {
+                return (
+                  <li key={to}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenChange(false);
+                        openAuth({ reason: "account", mode: "signin" });
+                      }}
+                      className="auth-wave flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[0.95rem] font-medium text-navy hover:bg-muted"
+                    >
+                      <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.8} />
+                      {label}
+                    </button>
+                  </li>
+                );
+              }
               return (
                 <li key={to}>
                   <Link
