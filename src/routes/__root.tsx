@@ -36,16 +36,37 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+const googleVerification = import.meta.env["VITE_GOOGLE_SITE_VERIFICATION"];
 const ORGANIZATION_LD = JSON.stringify({
   "@context": "https://schema.org",
-  "@type": "FurnitureStore",
-  name: SITE.name,
-  url: SITE.url,
-  logo: DEFAULT_OG_IMAGE,
-  telephone: SITE.phoneDial,
-  email: SITE.email,
-  address: { "@type": "PostalAddress", addressLocality: "Mbeya", addressCountry: "TZ" },
-  currenciesAccepted: "TZS",
+  "@graph": [
+    {
+      "@type": "FurnitureStore",
+      "@id": `${SITE.url}/#store`,
+      name: SITE.name,
+      url: SITE.url,
+      logo: DEFAULT_OG_IMAGE,
+      image: DEFAULT_OG_IMAGE,
+      telephone: SITE.phoneDial,
+      email: SITE.email,
+      address: { "@type": "PostalAddress", addressLocality: "Mbeya", addressCountry: "TZ" },
+      areaServed: { "@type": "Country", name: "Tanzania" },
+      currenciesAccepted: "TZS",
+      sameAs: [SITE.social.instagram],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE.url}/#website`,
+      name: SITE.name,
+      url: SITE.url,
+      publisher: { "@id": `${SITE.url}/#store` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${SITE.url}/products?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
 });
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -54,8 +75,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#14213D" },
-      { title: "GK furnish — Quality furniture for a better living, Mbeya" },
-      { name: "description", content: "Stylish, affordable furniture for study, work and home — made in Mbeya, Tanzania. Prices in TZS, delivery arranged." },
+      { title: "Furniture shop in Mbeya | GK Furnish" },
+      { name: "description", content: "GK Furnish makes affordable furniture in Mbeya for students, homes and offices, and builds custom pieces to order. Prices in TZS, with delivery arranged across Tanzania." },
+      ...(typeof googleVerification === "string" && /^[A-Za-z0-9_-]{8,}$/.test(googleVerification)
+        ? [{ name: "google-site-verification", content: googleVerification }]
+        : []),
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: SITE.name },
       { property: "og:image", content: DEFAULT_OG_IMAGE },

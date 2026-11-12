@@ -12,7 +12,11 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/gallery")({
   head: () =>
-    seo({ title: "Gallery — GK furnish", description: "Finished furniture, rooms and workshop photos from GK furnish.", path: "/gallery" }),
+    seo({
+      title: "Furniture gallery | GK Furnish, Mbeya",
+      description: "Photos of finished furniture and the GK Furnish workshop in Mbeya, Tanzania.",
+      path: "/gallery",
+    }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
   component: Gallery,
 });
@@ -96,7 +100,7 @@ function Gallery() {
           index={i}
           onIndex={setI}
           onClose={() => setI(null)}
-          alt=""
+          alt={captions[i] || "GK Furnish furniture"}
         />
       )}
     </>

@@ -13,8 +13,8 @@ import { seo } from "@/lib/seo";
 export const Route = createFileRoute("/categories/")({
   head: () =>
     seo({
-      title: "Categories — GK furnish",
-      description: "Study chairs, tables, beds, table lamps and custom furniture from GK furnish.",
+      title: "Furniture categories | GK Furnish, Mbeya",
+      description: "Shop furniture by category from GK Furnish in Mbeya, including chairs, tables, beds, lamps and custom pieces.",
       path: "/categories",
     }),
   loader: ({ context }) =>

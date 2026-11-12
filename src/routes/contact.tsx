@@ -13,7 +13,11 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contact")({
   head: () =>
-    seo({ title: "Contact — GK furnish", description: "Call, WhatsApp or message GK furnish in Mbeya, Tanzania.", path: "/contact" }),
+    seo({
+      title: "Contact GK Furnish | Furniture shop in Mbeya",
+      description: "Call, WhatsApp or message GK Furnish in Mbeya, Tanzania about ready-made furniture, custom orders and delivery.",
+      path: "/contact",
+    }),
   component: Contact,
 });
 

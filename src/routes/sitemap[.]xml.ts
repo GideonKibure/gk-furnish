@@ -5,6 +5,7 @@ const STATIC_PATHS = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
   { path: "/products", priority: "0.9", changefreq: "daily" },
   { path: "/categories", priority: "0.8", changefreq: "weekly" },
+  { path: "/services", priority: "0.6", changefreq: "monthly" },
   { path: "/custom-order", priority: "0.8", changefreq: "monthly" },
   { path: "/gallery", priority: "0.6", changefreq: "monthly" },
   { path: "/about", priority: "0.5", changefreq: "monthly" },
@@ -49,7 +50,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           entries.push(url(`/categories/${c.slug}`, { changefreq: "weekly", priority: "0.7" }));
         }
         for (const p of products.data ?? []) {
-          if ((p.status ?? "active") !== "active") continue;
+          if (!p.slug || (p.status ?? "active") !== "active") continue;
           entries.push(
             url(`/products/${p.slug}`, {
               lastmod: p.updated_at,

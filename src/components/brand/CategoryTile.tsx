@@ -26,7 +26,7 @@ export function CategoryTile({
         {image ? (
           <img
             src={image}
-            alt=""
+            alt={label}
             width={480}
             height={360}
             loading={priority ? "eager" : "lazy"}

@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/about")({
   head: () =>
     seo({
-      title: "About — GK furnish",
-      description: "GK Furnish makes study chairs and tables in Mbeya and works with trusted partner carpenters for beds and larger pieces.",
+      title: "About GK Furnish | Furniture makers in Mbeya",
+      description: "GK Furnish is a furniture workshop in Mbeya, Tanzania. We make ready-made pieces and custom furniture for homes, students and offices.",
       path: "/about",
       image: IMAGES.workshop,
     }),
@@ -61,7 +61,9 @@ function About() {
             <div className="overflow-hidden rounded-xl shadow-[var(--shadow-lift)]">
               <img
                 src={storyImage}
-                alt=""
+                alt={a.storyTitle}
+                width={1200}
+                height={900}
                 loading="lazy"
                 decoding="async"
                 className="aspect-[4/3] w-full object-cover transition-transform duration-700 hover:scale-105"

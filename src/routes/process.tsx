@@ -10,8 +10,8 @@ import { seo } from "@/lib/seo";
 export const Route = createFileRoute("/process")({
   head: () =>
     seo({
-      title: "Our process — GK furnish",
-      description: "Seven steps from your first message to delivery or collection of your furniture.",
+      title: "How furniture orders work | GK Furnish",
+      description: "From the first message to delivery or workshop collection: how GK Furnish in Mbeya handles a furniture order.",
       path: "/process",
     }),
   component: Process,

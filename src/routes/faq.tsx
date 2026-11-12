@@ -23,8 +23,8 @@ const FAQ_LD = JSON.stringify({
 export const Route = createFileRoute("/faq")({
   head: () => ({
     ...seo({
-      title: "FAQ — GK furnish",
-      description: "Answers about ordering, custom furniture, payment, delivery, returns and warranty.",
+      title: "Furniture order questions | GK Furnish",
+      description: "Answers about ordering ready-made and custom furniture from GK Furnish in Mbeya, including payment, delivery and collection.",
       path: "/faq",
     }),
     scripts: [{ type: "application/ld+json", children: FAQ_LD }],

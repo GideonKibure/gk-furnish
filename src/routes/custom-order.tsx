@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/custom-order")({
   head: () =>
     seo({
-      title: "Custom furniture order — GK furnish",
-      description: "Describe the furniture you need — size, material, finish and budget — and get a quote before any work starts.",
+      title: "Custom furniture in Mbeya | GK Furnish",
+      description: "Order custom furniture from GK Furnish in Mbeya. Share the size, material and budget, and we quote before any work starts.",
       path: "/custom-order",
     }),
   loader: ({ context }) => context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),

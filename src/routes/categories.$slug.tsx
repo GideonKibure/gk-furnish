@@ -5,7 +5,7 @@ import { shopSearchSchema, ShopView } from "@/components/site/ShopView";
 import { imageFor } from "@/data/images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
-import { seo } from "@/lib/seo";
+import { breadcrumbLd, metaText, seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/categories/$slug")({
   validateSearch: (s) => shopSearchSchema.omit({ cat: true }).parse(s),
@@ -19,15 +19,29 @@ export const Route = createFileRoute("/categories/$slug")({
     if (!c) throw notFound();
     return { name: c.name, desc: c.description ?? "", slug: c.slug, image: imageFor(c.image_key) };
   },
-  head: ({ loaderData }) =>
-    loaderData
-      ? seo({
-          title: `${loaderData.name} — GK furnish`,
-          description: loaderData.desc,
-          path: `/categories/${loaderData.slug}`,
-          image: loaderData.image,
-        })
-      : { meta: [{ title: "Not found" }, { name: "robots", content: "noindex" }] },
+  head: ({ loaderData }) => {
+    if (!loaderData) return { meta: [{ title: "Not found" }, { name: "robots", content: "noindex, nofollow" }] };
+    const description =
+      metaText(loaderData.desc, 500) ||
+      `Shop ${loaderData.name} from GK Furnish in Mbeya, Tanzania. Prices are shown in TZS, with delivery arranged or collection from the workshop.`;
+    const base = seo({
+      title: `${loaderData.name} | GK Furnish, Mbeya`,
+      description,
+      path: `/categories/${loaderData.slug}`,
+      image: loaderData.image,
+    });
+    const graph = {
+      "@context": "https://schema.org",
+      "@graph": [
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Categories", path: "/categories" },
+          { name: loaderData.name, path: `/categories/${loaderData.slug}` },
+        ]),
+      ],
+    };
+    return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(graph) }] };
+  },
   component: Cat,
 });
 

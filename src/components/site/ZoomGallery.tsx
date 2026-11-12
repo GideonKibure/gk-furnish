@@ -117,6 +117,8 @@ export function ZoomGallery({
           <img
             src={active?.src}
             alt={active?.label ? `${alt} — ${active.label}` : alt}
+            width={1200}
+            height={1200}
             fetchPriority="high"
             decoding="async"
             className="h-full w-full object-cover transition-[transform,filter] duration-200 ease-out will-change-transform"

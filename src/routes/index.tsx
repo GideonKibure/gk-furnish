@@ -37,9 +37,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () =>
     seo({
-      title: "GK furnish — Stylish & affordable furniture, Mbeya",
+      title: "Furniture shop in Mbeya | GK Furnish",
       description:
-        "Study chairs, tables, beds and more for homes, students, offices and schools. Prices in TZS, delivery arranged across Tanzania.",
+        "GK Furnish makes affordable furniture in Mbeya for students, homes and offices, and builds custom pieces to order. Prices in TZS, with delivery arranged across Tanzania.",
       path: "/",
       image: IMAGES.hero,
     }),
@@ -93,6 +93,14 @@ function useHeroVideo() {
   return on;
 }
 
+const HERO_ALT = [
+  "Furniture made by GK Furnish in Mbeya",
+  "Furniture for a home",
+  "Study tables from GK Furnish",
+  "Study chairs from GK Furnish",
+  "Beds from GK Furnish",
+];
+
 function HeroSlides({ slides, index }: { slides: string[]; index: number }) {
   const videoOn = useHeroVideo();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,7 +117,7 @@ function HeroSlides({ slides, index }: { slides: string[]; index: number }) {
       {slides.map((src, i) => (
         <div
           key={src + i}
-          aria-hidden
+          aria-hidden={i !== index}
           className={cn("hero-slide absolute inset-0", i === index ? "opacity-100" : "opacity-0")}
         >
           {i === 0 && videoOn ? (
@@ -123,11 +131,14 @@ function HeroSlides({ slides, index }: { slides: string[]; index: number }) {
               playsInline
               preload="metadata"
               poster={src}
+              aria-label={HERO_ALT[0]}
             />
           ) : (
             <img
               src={src}
-              alt=""
+              alt={i === index ? (HERO_ALT[i] ?? "GK Furnish furniture") : ""}
+              width={1600}
+              height={1000}
               decoding="async"
               fetchPriority={i === 0 ? "high" : "low"}
               loading={i === 0 ? "eager" : "lazy"}
@@ -374,7 +385,7 @@ function Home() {
           </div>
           {customImage && (
             <div className="relative min-h-[14rem] md:min-h-full">
-              <img src={customImage} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={customImage} alt={customTitle} width={1200} height={800} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
             </div>
           )}
         </div>

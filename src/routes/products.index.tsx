@@ -12,8 +12,8 @@ export const Route = createFileRoute("/products/")({
   validateSearch: (s) => shopSearchSchema.parse(s),
   head: () =>
     seo({
-      title: "Shop furniture — GK furnish",
-      description: "Browse study chairs, tables, beds, lamps and more with prices in TZS. Delivery arranged from Mbeya.",
+      title: "Furniture for sale in Tanzania | GK Furnish",
+      description: "Browse chairs, tables, beds and lamps from GK Furnish in Mbeya. Prices in TZS, with delivery arranged or free collection from the workshop.",
       path: "/products",
     }),
   loader: ({ context }) =>

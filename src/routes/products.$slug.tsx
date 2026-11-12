@@ -18,68 +18,112 @@ import { formatPrice, formatPriceSpan, SITE, waLink } from "@/config/site";
 import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
-import {
-  lowestOptionPrice,
-  optionLabel,
-  optionPriceRows,
-  parseCatalogColor,
-  parseOptionList,
-  publicFeatures,
-  selectedOptionPrice,
-} from "@/lib/order-options";
+import { absoluteUrl, breadcrumbLd, productSeoCopy, seo } from "@/lib/seo";
+import { highestOptionPrice, lowestOptionPrice, optionPriceRows, optionLabel, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
 import { freeDeliveryPlaces, joinPlaces } from "@/lib/delivery";
 import { compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
-import { absoluteUrl, seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const all = await context.queryClient.ensureQueryData(productsQuery);
-    void context.queryClient.prefetchQuery(ratingSummaryQuery);
     const p = all.find((x) => x.slug === params.slug);
     if (!p) throw notFound();
+    const ratings = await context.queryClient.ensureQueryData(ratingSummaryQuery);
+    const rating = ratings[p.id];
+    const low = lowestOptionPrice(p);
+    const high = highestOptionPrice(p);
     const image = productGalleryItems(p)[0]?.src ?? null;
     return {
       name: p.name,
       desc: p.short_description ?? p.description,
       slug: p.slug,
       image,
-      price: lowestOptionPrice(p),
+      price: low,
+      highPrice: high,
       sku: p.sku ?? null,
       inStock: isPurchasable(p),
       category: p.categories?.name ?? null,
+      categorySlug: p.categories?.slug ?? null,
+      ratingValue: rating && rating.rating_count > 0 ? rating.rating_avg : null,
+      ratingCount: rating && rating.rating_count > 0 ? rating.rating_count : null,
     };
   },
   head: ({ loaderData }) => {
-    if (!loaderData) return { meta: [{ title: "Not found" }, { name: "robots", content: "noindex" }] };
+    if (!loaderData) return { meta: [{ title: "Not found" }, { name: "robots", content: "noindex, nofollow" }] };
     const path = `/products/${loaderData.slug}`;
-    const base = seo({
-      title: `${loaderData.name} — GK furnish`,
+    const description = productSeoCopy({
+      name: loaderData.name,
+      category: loaderData.category,
       description: loaderData.desc,
+      price: loaderData.price,
+    });
+    const base = seo({
+      title: loaderData.category
+        ? `${loaderData.name} — ${loaderData.category} | GK Furnish`
+        : `${loaderData.name} | GK Furnish, Mbeya`,
+      description,
       path,
       image: loaderData.image,
       type: "product",
     });
-    const ld = {
+    const availability = loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+    const offerUrl = absoluteUrl(path);
+    const offers =
+      loaderData.price > 0
+        ? loaderData.highPrice > loaderData.price
+          ? {
+              "@type": "AggregateOffer",
+              url: offerUrl,
+              priceCurrency: "TZS",
+              lowPrice: Math.round(loaderData.price),
+              highPrice: Math.round(loaderData.highPrice),
+              availability,
+            }
+          : {
+              "@type": "Offer",
+              url: offerUrl,
+              priceCurrency: "TZS",
+              price: Math.round(loaderData.price),
+              availability,
+              seller: { "@type": "Organization", name: SITE.name },
+            }
+        : null;
+    const crumbs = [
+      { name: "Home", path: "/" },
+      { name: "Shop", path: "/products" },
+      ...(loaderData.category && loaderData.categorySlug
+        ? [{ name: loaderData.category, path: `/categories/${loaderData.categorySlug}` }]
+        : []),
+      { name: loaderData.name, path },
+    ];
+    const graph = {
       "@context": "https://schema.org",
-      "@type": "Product",
-      name: loaderData.name,
-      description: loaderData.desc,
-      ...(loaderData.image ? { image: [absoluteUrl(loaderData.image)] } : {}),
-      ...(loaderData.sku ? { sku: loaderData.sku } : {}),
-      ...(loaderData.category ? { category: loaderData.category } : {}),
-      brand: { "@type": "Brand", name: SITE.name },
-      offers: {
-        "@type": "Offer",
-        url: absoluteUrl(path),
-        priceCurrency: "TZS",
-        price: Math.round(loaderData.price),
-        availability: loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-        seller: { "@type": "Organization", name: SITE.name },
-      },
+      "@graph": [
+        {
+          "@type": "Product",
+          name: loaderData.name,
+          description,
+          ...(loaderData.image ? { image: [absoluteUrl(loaderData.image)] } : {}),
+          ...(loaderData.sku ? { sku: loaderData.sku } : {}),
+          ...(loaderData.category ? { category: loaderData.category } : {}),
+          brand: { "@type": "Brand", name: "GK Furnish" },
+          ...(loaderData.ratingValue != null && loaderData.ratingCount != null
+            ? {
+                aggregateRating: {
+                  "@type": "AggregateRating",
+                  ratingValue: loaderData.ratingValue,
+                  reviewCount: loaderData.ratingCount,
+                },
+              }
+            : {}),
+          ...(offers ? { offers } : {}),
+        },
+        breadcrumbLd(crumbs),
+      ],
     };
-    return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(ld) }] };
+    return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(graph) }] };
   },
   component: Detail,
 });

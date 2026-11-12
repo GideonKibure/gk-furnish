@@ -14,8 +14,11 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /account
+Disallow: /auth/
+Disallow: /api/
 Disallow: /checkout
 Disallow: /cart
+Disallow: /order-success
 Disallow: /pay/
 Disallow: /track/
 

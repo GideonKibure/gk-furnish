@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/services")({
   head: () =>
     seo({
-      title: "Services — GK furnish",
-      description: "Workshop services from GK Furnish in Mbeya, with prices and photos or video.",
+      title: "Workshop services in Mbeya | GK Furnish",
+      description: "Furniture workshop services from GK Furnish in Mbeya. A price is shown only when one has been set.",
       path: "/services",
     }),
   loader: ({ context }) => context.queryClient.ensureQueryData(servicesQuery).catch(() => []),
