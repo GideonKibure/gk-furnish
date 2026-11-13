@@ -137,11 +137,11 @@ function RootComponent() {
               </main>
               <SiteFooter />
               <WhatsAppFab />
-              <SiteVisitTracker />
               <GoogleAnalytics />
             </AuthPopupProvider>
           </CartProvider>
         )}
+        <SiteVisitTracker />
         <Toaster position="top-center" />
       </LanguageProvider>
     </QueryClientProvider>

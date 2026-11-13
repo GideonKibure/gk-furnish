@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
+import { useAuthUser } from "@/hooks/use-auth";
+import { getMyRole } from "@/lib/account.functions";
 import { beatSiteVisit } from "@/lib/visits.functions";
 import { visitorId } from "@/lib/visitor";
 
@@ -20,14 +23,32 @@ function currentVisitId() {
   }
 }
 
-/** Counts an open shop visit and the time the tab stays visible. Admin pages are not counted. */
+/** Counts time on the shop, and time in the admin portal. A signed-in admin is not counted on the shop. */
 export function SiteVisitTracker() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const beat = useServerFn(beatSiteVisit);
+  const loadRole = useServerFn(getMyRole);
+  const { user, ready } = useAuthUser();
+  const onAdmin = pathname.startsWith("/admin");
+  const role = useQuery({
+    queryKey: ["my-role", user?.id],
+    queryFn: () => loadRole(),
+    enabled: Boolean(user) && !onAdmin,
+    staleTime: 5 * 60_000,
+  });
 
   useEffect(() => {
-    if (pathname.startsWith("/admin")) return;
+    if (!ready) return;
     const path = pathname.slice(0, 180);
+    if (!onAdmin && user && role.data?.isAdmin) {
+      void beat({ data: { visitId: currentVisitId(), visitorId: visitorId(), path } }).catch(() => undefined);
+      return;
+    }
+    if (onAdmin) {
+      if (!user) return;
+    } else if (user && !role.isError && role.isLoading) {
+      return;
+    }
     let timer = 0;
     const send = () => {
       void beat({ data: { visitId: currentVisitId(), visitorId: visitorId(), path } }).catch(() => undefined);
@@ -44,7 +65,7 @@ export function SiteVisitTracker() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onHide);
     };
-  }, [pathname, beat]);
+  }, [pathname, beat, ready, onAdmin, user, role.isError, role.isLoading, role.data?.isAdmin]);
 
   return null;
 }

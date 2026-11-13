@@ -22,7 +22,18 @@ function dayBounds(day: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-/** Record that this browser is still on the shop. Guests and signed-in customers both call it. */
+/** A shop visit by the signed-in admin is not a visitor. Time in the admin portal is. */
+function countsAsVisitor(row: { user_id: string | null; landing_path: string }, adminIds: Set<string>) {
+  if (row.landing_path.startsWith("/admin")) return true;
+  return !row.user_id || !adminIds.has(row.user_id);
+}
+
+async function adminUserIds(supabaseAdmin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"]) {
+  const { data } = await supabaseAdmin.from("admin_users").select("user_id");
+  return new Set((data ?? []).map((row) => row.user_id));
+}
+
+/** Record that this browser is still on the site. The admin is counted only inside the admin portal. */
 export const beatSiteVisit = createServerFn({ method: "POST" })
   .middleware([optionalSupabaseAuth])
   .inputValidator((d) =>
@@ -35,8 +46,18 @@ export const beatSiteVisit = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    if (data.path.startsWith("/admin")) return { ok: true as const };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { isAdminUserId } = await import("@/integrations/supabase/admin-auth");
+    const admin = context.userId ? await isAdminUserId(context.userId) : false;
+    const onAdminPath = data.path.startsWith("/admin");
+    if (onAdminPath && !admin) return { ok: true as const };
+    if (!onAdminPath && admin) {
+      const { data: started } = await supabaseAdmin.from("site_visits").select("id,landing_path").eq("id", data.visitId).maybeSingle();
+      if (started && !started.landing_path.startsWith("/admin")) {
+        await supabaseAdmin.from("site_visits").delete().eq("id", started.id);
+      }
+      return { ok: true as const };
+    }
     const now = new Date();
     const { data: existing, error: readError } = await supabaseAdmin
       .from("site_visits")
@@ -112,7 +133,8 @@ export const listAdminVisits = createServerFn({ method: "GET" })
     if (!listed.available) {
       return { available: false as const, reason: listed.reason || migrationNeeded(MIGRATION), day, visitors: 0, visits: 0, averageSeconds: 0, rows: [] as VisitRow[] };
     }
-    const raw = listed.data;
+    const adminIds = await adminUserIds(supabaseAdmin);
+    const raw = listed.data.filter((row) => countsAsVisitor(row, adminIds));
     const userIds = [...new Set(raw.map((row) => row.user_id).filter((id): id is string => Boolean(id)))];
     const names = new Map<string, string | null>();
     if (userIds.length) {
@@ -189,11 +211,11 @@ export const listAdminVisitTrends = createServerFn({ method: "GET" })
     const start = new Date(`${months[0]}-01T00:00:00+03:00`).toISOString();
     const end = dayBounds(today).end;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const rows: { visitor_id: string; started_at: string }[] = [];
+    const rows: { visitor_id: string; started_at: string; user_id: string | null; landing_path: string }[] = [];
     for (let from = 0; from < 20_000; from += 1000) {
       const page = await supabaseAdmin
         .from("site_visits")
-        .select("visitor_id,started_at")
+        .select("visitor_id,started_at,user_id,landing_path")
         .gte("started_at", start)
         .lt("started_at", end)
         .order("started_at", { ascending: true })
@@ -207,10 +229,12 @@ export const listAdminVisitTrends = createServerFn({ method: "GET" })
       rows.push(...(page.data ?? []));
       if ((page.data ?? []).length < 1000) break;
     }
+    const adminIds = await adminUserIds(supabaseAdmin);
+    const counted = rows.filter((row) => countsAsVisitor(row, adminIds));
     return {
       available: true as const,
       reason: "",
-      days: tally(days, rows, darDateKey),
-      months: tally(months, rows, (iso) => darDateKey(iso).slice(0, 7)),
+      days: tally(days, counted, darDateKey),
+      months: tally(months, counted, (iso) => darDateKey(iso).slice(0, 7)),
     };
   });
