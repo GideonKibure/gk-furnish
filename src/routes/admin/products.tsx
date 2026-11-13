@@ -627,6 +627,7 @@ function AdminProductsPage() {
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
             item_condition: fd.get("item_condition") === "used" ? "used" : "new",
+            quote_on_request: fd.get("quote_on_request") === "on",
           },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
@@ -804,6 +805,20 @@ function AdminProductsPage() {
                 className="field-input"
                 defaultValue={prefill?.price ?? 0}
               />
+              <label className="mt-2 flex items-start gap-2 text-sm text-navy">
+                <input
+                  type="checkbox"
+                  name="quote_on_request"
+                  defaultChecked={prefill?.quote_on_request === true}
+                  className="mt-0.5 h-4 w-4 accent-[#14213D]"
+                />
+                <span>
+                  Request a quote
+                  <span className="mt-0.5 block text-xs font-normal text-[#6B7280]">
+                    The shop hides this price and shows a Get quote button. The price stays visible here only.
+                  </span>
+                </span>
+              </label>
             </div>
             <div>
               <label className="field-label">Stock *</label>
@@ -1406,6 +1421,7 @@ function AdminProductsPage() {
         {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
         {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
         {p.item_condition === "used" ? <StatusPill tone="neutral">Used</StatusPill> : p.item_condition === "new" ? <StatusPill tone="success">New</StatusPill> : null}
+        {p.quote_on_request === true && <StatusPill tone="pending">Quote</StatusPill>}
         {freeDeliveryPill(p)}
       </p>
     );

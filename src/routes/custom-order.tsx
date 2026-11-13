@@ -15,6 +15,7 @@ import { getMyProfile } from "@/lib/account.functions";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
 import { STANDARD_COLORS } from "@/lib/color-swatches";
+import { productsQuery } from "@/lib/catalog";
 import { pageSectionsQuery, siteSettingsQuery, completionHours } from "@/lib/site-content";
 import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
 import { submitCustomOrder } from "@/lib/orders.functions";
@@ -22,6 +23,10 @@ import { seo } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/custom-order")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const product = typeof search["product"] === "string" ? search["product"].trim().slice(0, 80) : "";
+    return product ? { product } : {};
+  },
   head: () =>
     seo({
       title: "Custom furniture in Mbeya | GK Furnish",
@@ -45,6 +50,9 @@ function toBase64(file: File) {
 
 function Custom() {
   const { t } = useLang();
+  const { product: productSlug } = Route.useSearch();
+  const { data: catalogue = [] } = useQuery({ ...productsQuery, enabled: Boolean(productSlug) });
+  const named = useRef(false);
   const { data: settings } = useQuery(siteSettingsQuery);
   const nav = useNavigate();
   const { user } = useAuthUser();
@@ -65,6 +73,13 @@ function Custom() {
   const [finishPreview, setFinishPreview] = useState<string | null>(null);
   const [showExtras, setShowExtras] = useState(false);
   const [furnitureType, setFurnitureType] = useState("");
+  useEffect(() => {
+    if (named.current || !productSlug) return;
+    const match = catalogue.find((item) => item.slug === productSlug);
+    if (!match) return;
+    named.current = true;
+    setFurnitureType(match.name);
+  }, [catalogue, productSlug]);
   const [colors, setColors] = useState<string[]>([]);
   const [materials, setMaterials] = useState<string[]>([]);
   const [colorNote, setColorNote] = useState("");

@@ -11,7 +11,7 @@ import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { ratingSummaryQuery, type Product, type RatingSummary } from "@/lib/catalog";
 import { lowestOptionPrice, optionPriceRows, parseOptionList } from "@/lib/order-options";
-import { compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
+import { compareAtPrice, discountPercent, isPurchasable, quoteOnRequest } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 import { missingChoices, OrderDialog, useAddToCart } from "./OrderDialog";
@@ -24,11 +24,12 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
+  const quoted = quoteOnRequest(product);
   const rows = optionPriceRows(product);
   const fromPrice = lowestOptionPrice(product);
-  const priceLabel = formatPriceSpan(rows.map((row) => row.price)) ?? formatPrice(product.price);
-  const oldPrice = rows.length ? null : compareAtPrice(product, product.price);
-  const percent = discountPercent(product, rows.length ? fromPrice : product.price);
+  const priceLabel = quoted ? null : formatPriceSpan(rows.map((row) => row.price)) ?? formatPrice(product.price);
+  const oldPrice = quoted || rows.length ? null : compareAtPrice(product, product.price);
+  const percent = quoted ? null : discountPercent(product, rows.length ? fromPrice : product.price);
   const cat = product.categories ? localized(lang, product.categories.name, product.categories.name_sw) : "";
   const images = productGalleryItems(product);
   const cover = images[0]?.src;
@@ -118,23 +119,35 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
           <StarRating value={rating.rating_avg} count={rating.rating_count} className="mt-1" />
         )}
         <div className="mt-auto pt-2">
-          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="price-text text-[1.05rem]">{priceLabel ?? t.common.priceOnRequest}</span>
-            {oldPrice && <span className="text-xs text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
-          </p>
+          {!quoted && (
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="price-text text-[1.05rem]">{priceLabel ?? t.common.priceOnRequest}</span>
+              {oldPrice && <span className="text-xs text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
+            </p>
+          )}
           <div className="mt-2 flex items-center justify-between gap-2">
             <StockLabel product={product} className="min-w-0 !text-xs [&_svg]:!h-3.5 [&_svg]:!w-3.5" />
-            <button
-              type="button"
-              onClick={onAdd}
-              disabled={!canBuy}
-              aria-label={`${t.cart.add}: ${name}`}
-              title={t.cart.add}
-              className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span className="max-sm:hidden">{t.cart.add}</span>
-            </button>
+            {quoted ? (
+              <Link
+                to="/custom-order"
+                search={{ product: product.slug }}
+                className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3"
+              >
+                {t.cart.getQuote}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onAdd}
+                disabled={!canBuy}
+                aria-label={`${t.cart.add}: ${name}`}
+                title={t.cart.add}
+                className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                <span className="max-sm:hidden">{t.cart.add}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -155,7 +155,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const byId = new Map(products.map((p) => [p.id, p]));
     const entries: CartEntry[] = lines.map((line) => {
       const product = byId.get(line.product_id) ?? null;
-      const unitPrice = product ? selectedOptionPrice(product, line.material, line.size) : null;
+      const unitPrice = product && product.quote_on_request !== true ? selectedOptionPrice(product, line.material, line.size) : null;
       return {
         ...line,
         key: cartLineKey(line),

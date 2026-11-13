@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Check, Factory, Handshake, MapPin, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -21,7 +21,7 @@ import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { absoluteUrl, breadcrumbLd, productSeoCopy, seo } from "@/lib/seo";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows, optionLabel, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
 import { freeDeliveryPlaces, joinPlaces } from "@/lib/delivery";
-import { compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
+import { compareAtPrice, discountPercent, isPurchasable, quoteOnRequest } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +32,9 @@ export const Route = createFileRoute("/products/$slug")({
     if (!p) throw notFound();
     const ratings = await context.queryClient.ensureQueryData(ratingSummaryQuery);
     const rating = ratings[p.id];
-    const low = lowestOptionPrice(p);
-    const high = highestOptionPrice(p);
+    const quoted = quoteOnRequest(p);
+    const low = quoted ? 0 : lowestOptionPrice(p);
+    const high = quoted ? 0 : highestOptionPrice(p);
     const image = productGalleryItems(p)[0]?.src ?? null;
     return {
       name: p.name,
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/products/$slug")({
       slug: p.slug,
       image,
       price: low,
+      quote: quoted,
       highPrice: high,
       sku: p.sku ?? null,
       inStock: isPurchasable(p),
@@ -71,7 +73,7 @@ export const Route = createFileRoute("/products/$slug")({
     const availability = loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
     const offerUrl = absoluteUrl(path);
     const offers =
-      loaderData.price > 0
+      !loaderData.quote && loaderData.price > 0
         ? loaderData.highPrice > loaderData.price
           ? {
               "@type": "AggregateOffer",
@@ -189,7 +191,8 @@ function Detail() {
   const selectedMaterial = materials.includes(material) ? material : "";
   const selectedSize = dimensions.includes(size) ? size : "";
   const selectedColor = colors.some((item) => item.stored === color) ? color : "";
-  const msg = `${t.whatsapp.productPrefix} ${p.name}${price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
+  const quoted = quoteOnRequest(p);
+  const msg = `${t.whatsapp.productPrefix} ${p.name}${!quoted && price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
   const related = data.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
   const rating = ratings[p.id];
   const canBuy = isPurchasable(p);
@@ -242,13 +245,24 @@ function Detail() {
               </button>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="price-text text-2xl md:text-[1.75rem]">{price ?? t.common.priceOnRequest}</span>
-              {oldPrice && <span className="text-base text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
-              <DiscountBadge percent={percent} />
-              <ConditionBadge condition={p.item_condition} />
-            </div>
-            {chosenPrice == null && pricesVary && priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
+            {quoted ? (
+              <p className="mt-4 text-sm leading-relaxed text-navy/80">{t.pdp.quoteNote}</p>
+            ) : (
+              <>
+                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="price-text text-2xl md:text-[1.75rem]">{price ?? t.common.priceOnRequest}</span>
+                  {oldPrice && <span className="text-base text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
+                  <DiscountBadge percent={percent} />
+                  <ConditionBadge condition={p.item_condition} />
+                </div>
+                {chosenPrice == null && pricesVary && priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
+              </>
+            )}
+            {quoted && (
+              <div className="mt-3">
+                <ConditionBadge condition={p.item_condition} />
+              </div>
+            )}
 
             {p.short_description && lang === "en" && (
               <p className="mt-3 text-[0.95rem] leading-relaxed text-navy/80">{p.short_description}</p>
@@ -313,16 +327,24 @@ function Detail() {
               </div>
             )}
 
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <QtyStepper value={qty} onChange={setQty} label={t.detail.quantity} />
-              <button type="button" className="btn-base btn-gold btn-lg min-w-[9.5rem] flex-1" disabled={!canBuy} onClick={() => void onAdd(false)}>
-                <ShoppingCart className="h-4 w-4" />
-                {t.cart.add}
-              </button>
-            </div>
-            <button type="button" className="btn-base btn-navy btn-lg mt-3 w-full" disabled={!canBuy} onClick={() => void onAdd(true)}>
-              {t.cart.buyNow}
-            </button>
+            {quoted ? (
+              <Link to="/custom-order" search={{ product: p.slug }} className="btn-base btn-gold btn-lg mt-5 w-full">
+                {t.cart.getQuote}
+              </Link>
+            ) : (
+              <>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <QtyStepper value={qty} onChange={setQty} label={t.detail.quantity} />
+                  <button type="button" className="btn-base btn-gold btn-lg min-w-[9.5rem] flex-1" disabled={!canBuy} onClick={() => void onAdd(false)}>
+                    <ShoppingCart className="h-4 w-4" />
+                    {t.cart.add}
+                  </button>
+                </div>
+                <button type="button" className="btn-base btn-navy btn-lg mt-3 w-full" disabled={!canBuy} onClick={() => void onAdd(true)}>
+                  {t.cart.buyNow}
+                </button>
+              </>
+            )}
             <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-ghost mt-2 w-full">
               <MessageCircle className="h-4 w-4" />
               {t.detail.askWhatsapp}

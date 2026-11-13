@@ -8,7 +8,7 @@ import { localized, useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import { deliveryFeeStatusFor } from "@/lib/delivery";
 import { optionLabel } from "@/lib/order-options";
-import { isPurchasable } from "@/lib/product-display";
+import { isPurchasable, quoteOnRequest } from "@/lib/product-display";
 import { productImageSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const { t, lang } = useLang();
   const cart = useCart();
-  const blocked = cart.entries.some((e) => !e.product || e.unitPrice == null || !isPurchasable(e.product));
+  const blocked = cart.entries.some((e) => !e.product || quoteOnRequest(e.product) || e.unitPrice == null || !isPurchasable(e.product));
   const products = cart.entries.flatMap((e) => (e.product ? [e.product] : []));
   const freeDelivery = deliveryFeeStatusFor("delivery", products) === "free";
 
@@ -51,7 +51,8 @@ function CartPage() {
               <ul className="min-w-0 space-y-3">
                 {cart.entries.map((entry) => {
                   const p = entry.product;
-                  const unavailable = !p || entry.unitPrice == null || !isPurchasable(p);
+                  const quoted = Boolean(p && quoteOnRequest(p));
+                  const unavailable = !quoted && (!p || entry.unitPrice == null || !isPurchasable(p));
                   const options = [
                     entry.material && p ? optionLabel(entry.material, p.material, lang) : "",
                     entry.size && p ? optionLabel(entry.size, p.dimensions, lang) : "",
@@ -90,6 +91,7 @@ function CartPage() {
                             {entry.unitPrice != null && (
                               <p className="mt-0.5 text-sm font-medium text-navy">{formatPrice(entry.unitPrice)}</p>
                             )}
+                            {quoted && <p className="mt-1 text-sm text-navy">{t.cart.quoteOnly}</p>}
                             {unavailable && <p className="mt-1 text-sm text-danger">{t.cart.unavailable}</p>}
                           </div>
                           <button
@@ -109,7 +111,7 @@ function CartPage() {
                             onChange={(q) => void cart.setQuantity(entry.key, q)}
                             label={t.cart.quantity}
                           />
-                          <p className="price-text shrink-0">{formatPrice(entry.lineTotal) ?? "—"}</p>
+                          {!quoted && <p className="price-text shrink-0">{formatPrice(entry.lineTotal) ?? "—"}</p>}
                         </div>
                       </div>
                     </li>

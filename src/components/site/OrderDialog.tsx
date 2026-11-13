@@ -8,7 +8,7 @@ import { localized, useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import type { Product } from "@/lib/catalog";
 import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
-import { isPurchasable } from "@/lib/product-display";
+import { isPurchasable, quoteOnRequest } from "@/lib/product-display";
 import { QtyStepper } from "@/components/brand/QtyStepper";
 
 export type ProductChoice = { quantity: number; material: string; size: string; color: string };
@@ -28,6 +28,7 @@ export function useAddToCart() {
   const nav = useNavigate();
   const { t } = useLang();
   return async (product: Product, choice: ProductChoice, buyNow = false) => {
+    if (quoteOnRequest(product)) return;
     await cart.add({
       product_id: product.id,
       quantity: choice.quantity,

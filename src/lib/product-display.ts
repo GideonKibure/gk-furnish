@@ -26,6 +26,11 @@ export function isPurchasable(product: Pick<DisplayProduct, "status" | "is_avail
   return isListed(product) && product.is_available;
 }
 
+/** The shop hides the price and offers a quote instead. Missing until migration 0022. */
+export function quoteOnRequest(product: { quote_on_request?: boolean | null }) {
+  return product.quote_on_request === true;
+}
+
 /** Old price to strike through, only when it is above the current price. */
 export function compareAtPrice(product: Pick<DisplayProduct, "compare_at_price">, price: number) {
   const old = Number(product.compare_at_price ?? 0);

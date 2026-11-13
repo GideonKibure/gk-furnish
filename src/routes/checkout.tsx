@@ -21,7 +21,7 @@ import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
 import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation, type FulfilmentMethod } from "@/lib/delivery";
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
-import { isPurchasable } from "@/lib/product-display";
+import { isPurchasable, quoteOnRequest } from "@/lib/product-display";
 import { siteSettingsQuery, completionHours } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
@@ -141,7 +141,7 @@ function CheckoutPage() {
   const advance = Math.min(subtotal, Math.max(MIN_MOBILE_PAYMENT_TZS, advanceAmount(subtotal, tier.percent)));
   const payNow = choice === "full" ? subtotal : advance;
   const tierLabel = tier.tier === "large" ? t.checkout.tierLarge : tier.tier === "custom" ? t.checkout.tierCustom : t.checkout.tierStandard;
-  const blocked = cart.entries.some((e) => !e.product || e.unitPrice == null || !isPurchasable(e.product));
+  const blocked = cart.entries.some((e) => !e.product || quoteOnRequest(e.product) || e.unitPrice == null || !isPurchasable(e.product));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const collectionAddress = config?.collectionAddress ?? "Mbeya, Tanzania";
   const placeLabel = useMemo(
