@@ -15,6 +15,7 @@ import { asksForPrice, compareAtPrice, discountPercent, isPurchasable } from "@/
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 import { missingChoices, OrderDialog, useAddToCart } from "./OrderDialog";
+import { PriceAskDialog } from "./PriceAskDialog";
 import { LikeButton } from "./ProductEngagement";
 import { ProductVideo } from "./ProductVideo";
 
@@ -22,6 +23,7 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
   const { t, lang } = useLang();
   const addToCart = useAddToCart();
   const [open, setOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
   const unpriced = asksForPrice(product);
@@ -128,13 +130,9 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
           <div className="mt-2 flex items-center justify-between gap-2">
             <StockLabel product={product} className="min-w-0 !text-xs [&_svg]:!h-3.5 [&_svg]:!w-3.5" />
             {unpriced ? (
-              <Link
-                to="/custom-order"
-                search={{ product: product.slug }}
-                className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3"
-              >
+              <button type="button" onClick={() => setAskOpen(true)} className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3">
                 {t.cart.askPrice}
-              </Link>
+              </button>
             ) : (
               <button
                 type="button"
@@ -152,6 +150,7 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
         </div>
       </div>
       {open && <OrderDialog product={product} open={open} onOpenChange={setOpen} />}
+      <PriceAskDialog productName={name} open={askOpen} onOpenChange={setAskOpen} />
     </article>
   );
 }

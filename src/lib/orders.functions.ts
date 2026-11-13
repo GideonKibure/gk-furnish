@@ -15,7 +15,7 @@ const CustomInput = z.object({
   preferred_dimensions: opt(200),
   preferred_material: opt(500),
   preferred_color: opt(500),
-  needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  needed_by: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   quantity: z.number().int().min(1).max(100),
   budget: opt(80),
   finish: opt(120),
@@ -78,10 +78,10 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       .insert({
         ...base,
         user_id: context.userId,
-        needed_by: fields.needed_by,
+        needed_by: fields.needed_by || null,
         budget: n(fields.budget),
         finish: n(fields.finish),
-        additional_requirements: composeOrderNotes({ neededBy: fields.needed_by, notes: fields.additional_requirements }),
+        additional_requirements: composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: fields.additional_requirements }),
       })
       .select("id,request_number,tracking_token")
       .single();
@@ -90,7 +90,7 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       const notes = [
         fields.budget ? `Budget: ${fields.budget}` : "",
         fields.finish ? `Finish: ${fields.finish}` : "",
-        composeOrderNotes({ neededBy: fields.needed_by, notes: fields.additional_requirements }) ?? "",
+        composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: fields.additional_requirements }) ?? "",
       ]
         .filter(Boolean)
         .join("\n");

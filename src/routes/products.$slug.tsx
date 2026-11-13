@@ -1,4 +1,4 @@
-import { Link, createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Check, Factory, Handshake, MapPin, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { ShareButtons } from "@/components/brand/ShareButtons";
 import { StarRating } from "@/components/brand/StarRating";
 import { StockLabel } from "@/components/brand/StockLabel";
 import { missingChoices, OrderDialog, useAddToCart } from "@/components/site/OrderDialog";
+import { PriceAskDialog } from "@/components/site/PriceAskDialog";
 import { ProductEngagement } from "@/components/site/ProductEngagement";
 import { ConditionBadge, ProductGrid } from "@/components/site/ProductCard";
 import { ProductReviews } from "@/components/site/ProductReviews";
@@ -154,6 +155,7 @@ function Detail() {
   const [size, setSize] = useState("");
   const [material, setMaterial] = useState("");
   const [open, setOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("description");
   const [shareUrl, setShareUrl] = useState("");
   const addToCart = useAddToCart();
@@ -328,9 +330,9 @@ function Detail() {
             )}
 
             {unpriced ? (
-              <Link to="/custom-order" search={{ product: p.slug }} className="btn-base btn-gold btn-lg mt-5 w-full">
+              <button type="button" className="btn-base btn-gold btn-lg mt-5 w-full" onClick={() => setAskOpen(true)}>
                 {t.cart.askPrice}
-              </Link>
+              </button>
             ) : (
               <>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -447,6 +449,7 @@ function Detail() {
           initialMaterial={selectedMaterial}
         />
       )}
+      <PriceAskDialog productName={name} open={askOpen} onOpenChange={setAskOpen} />
 
       {related.length > 0 && (
         <section className="border-t border-border bg-sand">
