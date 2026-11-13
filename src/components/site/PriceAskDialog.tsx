@@ -17,10 +17,12 @@ const EMPTY: Contact = { full_name: "", phone: "", email: "", delivery_location:
 /** Contact form for a product with no price. The request is saved with the other custom orders. */
 export function PriceAskDialog({
   productName,
+  productImage,
   open,
   onOpenChange,
 }: {
   productName: string;
+  productImage: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -105,6 +107,7 @@ export function PriceAskDialog({
           finish: "",
           delivery_location: contact.delivery_location.trim(),
           additional_requirements: "",
+          product_image_url: productImage,
         },
       });
       toast.success(`${t.cart.askPriceSent} ${sent.requestNumber}`);

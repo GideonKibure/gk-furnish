@@ -3,6 +3,20 @@ import { z } from "zod";
 import { optionalSupabaseAuth } from "@/integrations/supabase/customer-auth";
 import { composeOrderNotes, packReferenceImages } from "@/lib/order-options";
 
+/** Only a site path or an http(s) address. Anything else is dropped. */
+function safeProductImage(raw?: string) {
+  const value = raw?.trim() ?? "";
+  if (!value || value.length > 800) return null;
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:" || url.protocol === "http:") return url.toString();
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
 const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -21,6 +35,8 @@ const CustomInput = z.object({
   finish: opt(120),
   delivery_location: z.string().trim().min(1).max(200),
   additional_requirements: opt(1000),
+  /** Public photo of the catalogue product when the customer is asking for its price. */
+  product_image_url: z.string().trim().max(800).optional().or(z.literal("")),
   reference_image: z
     .object({
       name: z.string().max(200),
@@ -44,7 +60,8 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { isMissingSchema } = await import("@/lib/db-compat");
     const { notify } = await import("@/lib/notify.server");
-    const { reference_image, finish_image, ...fields } = data;
+    const { reference_image, finish_image, product_image_url, ...fields } = data;
+    const productImage = safeProductImage(product_image_url);
     async function uploadImage(image: { type: string; base64: string }) {
       const ext = image.type.split("/")[1];
       const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
@@ -56,7 +73,7 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       return path;
     }
     const reference_image_url = packReferenceImages(
-      reference_image ? await uploadImage(reference_image) : null,
+      reference_image ? await uploadImage(reference_image) : productImage ? `product:${productImage}` : null,
       finish_image ? await uploadImage(finish_image) : null,
     );
     const n = (v?: string) => (v ? v : null);

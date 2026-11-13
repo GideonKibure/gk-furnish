@@ -150,7 +150,7 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
         </div>
       </div>
       {open && <OrderDialog product={product} open={open} onOpenChange={setOpen} />}
-      <PriceAskDialog productName={name} open={askOpen} onOpenChange={setAskOpen} />
+      <PriceAskDialog productName={name} productImage={cover ?? ""} open={askOpen} onOpenChange={setAskOpen} />
     </article>
   );
 }

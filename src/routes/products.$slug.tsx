@@ -449,7 +449,7 @@ function Detail() {
           initialMaterial={selectedMaterial}
         />
       )}
-      <PriceAskDialog productName={name} open={askOpen} onOpenChange={setAskOpen} />
+      <PriceAskDialog productName={name} productImage={gallery[0]?.src ?? ""} open={askOpen} onOpenChange={setAskOpen} />
 
       {related.length > 0 && (
         <section className="border-t border-border bg-sand">

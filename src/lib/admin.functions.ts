@@ -1426,19 +1426,41 @@ export const listAdminCustomOrders = createServerFn({ method: "GET" })
 
     const rows = data ?? [];
     const { listQuotesFor } = await import("@/lib/quotations.server");
+    const { productImageSrc } = await import("@/lib/product-image");
     const quotesById = await listQuotesFor(supabaseAdmin, rows);
+    const catalogue = await supabaseAdmin
+      .from("products")
+      .select("name,name_sw,image_url,image_key,product_images(image_url,image_key,sort_order)");
+    const photos = new Map<string, string>();
+    if (!catalogue.error) {
+      for (const product of catalogue.data ?? []) {
+        const src = productImageSrc(product);
+        if (!src) continue;
+        photos.set(product.name.trim().toLowerCase(), src);
+        if (product.name_sw?.trim()) photos.set(product.name_sw.trim().toLowerCase(), src);
+      }
+    }
+    const cataloguePhoto = (name: string) => photos.get(name.trim().toLowerCase()) ?? null;
     const withUrls = await Promise.all(
       rows.map(async (row) => {
         const { design, finish } = unpackReferenceImages(row.reference_image_url);
+        const storedProduct = design?.startsWith("product:") ? design.slice("product:".length) : null;
         async function sign(path: string | null) {
           if (!path) return null;
+          if (path.startsWith("product:")) return path.slice("product:".length);
           const { data: signed } = await supabaseAdmin.storage
             .from("custom-order-references")
             .createSignedUrl(path, 60 * 60);
           return signed?.signedUrl ?? null;
         }
         const [signed_url, finish_signed_url] = await Promise.all([sign(design), sign(finish)]);
-        return { ...row, signed_url, finish_signed_url, quotes: quotesById.get(row.id) ?? [] };
+        return {
+          ...row,
+          signed_url: signed_url ?? cataloguePhoto(row.furniture_type),
+          finish_signed_url,
+          product_photo: Boolean(storedProduct) || (!signed_url && Boolean(cataloguePhoto(row.furniture_type))),
+          quotes: quotesById.get(row.id) ?? [],
+        };
       }),
     );
     return withUrls;

@@ -449,7 +449,7 @@ function AdminCustomOrdersPage() {
               <div className="space-y-3">
                 {(
                   [
-                    ["Reference photo", r.signed_url, "reference"],
+                    [r.product_photo ? "Product" : "Reference photo", r.signed_url, "reference"],
                     ["Material / colour", r.finish_signed_url, "finish"],
                   ] as const
                 ).map(([label, url, kind]) =>
