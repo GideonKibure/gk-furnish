@@ -21,7 +21,7 @@ import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { absoluteUrl, breadcrumbLd, productSeoCopy, seo } from "@/lib/seo";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows, optionLabel, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
 import { freeDeliveryPlaces, joinPlaces } from "@/lib/delivery";
-import { compareAtPrice, discountPercent, isPurchasable, quoteOnRequest } from "@/lib/product-display";
+import { asksForPrice, compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +32,9 @@ export const Route = createFileRoute("/products/$slug")({
     if (!p) throw notFound();
     const ratings = await context.queryClient.ensureQueryData(ratingSummaryQuery);
     const rating = ratings[p.id];
-    const quoted = quoteOnRequest(p);
-    const low = quoted ? 0 : lowestOptionPrice(p);
-    const high = quoted ? 0 : highestOptionPrice(p);
+    const unpriced = asksForPrice(p);
+    const low = unpriced ? 0 : lowestOptionPrice(p);
+    const high = unpriced ? 0 : highestOptionPrice(p);
     const image = productGalleryItems(p)[0]?.src ?? null;
     return {
       name: p.name,
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/products/$slug")({
       slug: p.slug,
       image,
       price: low,
-      quote: quoted,
+      quote: unpriced,
       highPrice: high,
       sku: p.sku ?? null,
       inStock: isPurchasable(p),
@@ -191,8 +191,8 @@ function Detail() {
   const selectedMaterial = materials.includes(material) ? material : "";
   const selectedSize = dimensions.includes(size) ? size : "";
   const selectedColor = colors.some((item) => item.stored === color) ? color : "";
-  const quoted = quoteOnRequest(p);
-  const msg = `${t.whatsapp.productPrefix} ${p.name}${!quoted && price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
+  const unpriced = asksForPrice(p);
+  const msg = `${t.whatsapp.productPrefix} ${p.name}${!unpriced && price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
   const related = data.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
   const rating = ratings[p.id];
   const canBuy = isPurchasable(p);
@@ -245,8 +245,8 @@ function Detail() {
               </button>
             )}
 
-            {quoted ? (
-              <p className="mt-4 text-sm leading-relaxed text-navy/80">{t.pdp.quoteNote}</p>
+            {unpriced ? (
+              <p className="mt-4 text-sm leading-relaxed text-navy/80">{t.pdp.askPriceNote}</p>
             ) : (
               <>
                 <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -258,7 +258,7 @@ function Detail() {
                 {chosenPrice == null && pricesVary && priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
               </>
             )}
-            {quoted && (
+            {unpriced && (
               <div className="mt-3">
                 <ConditionBadge condition={p.item_condition} />
               </div>
@@ -327,9 +327,9 @@ function Detail() {
               </div>
             )}
 
-            {quoted ? (
+            {unpriced ? (
               <Link to="/custom-order" search={{ product: p.slug }} className="btn-base btn-gold btn-lg mt-5 w-full">
-                {t.cart.getQuote}
+                {t.cart.askPrice}
               </Link>
             ) : (
               <>

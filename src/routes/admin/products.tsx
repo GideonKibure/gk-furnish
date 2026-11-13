@@ -28,6 +28,7 @@ import {
   upsertAdminProduct,
 } from "@/lib/admin.functions";
 import { freeDeliveryPlaces, TZ_REGIONS } from "@/lib/delivery";
+import { asksForPrice } from "@/lib/product-display";
 import { humanize, productStatusTone } from "@/lib/ops/status";
 import { supabase } from "@/integrations/supabase/client";
 import { imageFor } from "@/data/images";
@@ -627,7 +628,6 @@ function AdminProductsPage() {
             stock_display: String(fd.get("stock_display") ?? "label") as "label" | "count",
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
             item_condition: fd.get("item_condition") === "used" ? "used" : "new",
-            quote_on_request: fd.get("quote_on_request") === "on",
           },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
@@ -795,30 +795,17 @@ function AdminProductsPage() {
               </select>
             </div>
             <div>
-              <label className="field-label">Price (TZS) *</label>
+              <label className="field-label">Price (TZS)</label>
               <input
                 name="price"
                 type="number"
                 min={0}
                 step={100}
-                required
                 className="field-input"
-                defaultValue={prefill?.price ?? 0}
+                placeholder="Leave empty to ask for the price"
+                defaultValue={prefill && Number(prefill.price) > 0 ? prefill.price : ""}
               />
-              <label className="mt-2 flex items-start gap-2 text-sm text-navy">
-                <input
-                  type="checkbox"
-                  name="quote_on_request"
-                  defaultChecked={prefill?.quote_on_request === true}
-                  className="mt-0.5 h-4 w-4 accent-[#14213D]"
-                />
-                <span>
-                  Request a quote
-                  <span className="mt-0.5 block text-xs font-normal text-[#6B7280]">
-                    The shop hides this price and shows a Get quote button. The price stays visible here only.
-                  </span>
-                </span>
-              </label>
+              <p className="mt-1 text-xs text-[#6B7280]">Leave this empty and the shop shows an Ask for price button instead of a price.</p>
             </div>
             <div>
               <label className="field-label">Stock *</label>
@@ -1415,13 +1402,15 @@ function AdminProductsPage() {
     const old = Number(p.compare_at_price ?? 0);
     return (
       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <span className="font-semibold text-navy">
-          {formatPriceSpan(optionPriceRows(p).map((row) => row.price)) ?? formatPrice(p.price) ?? "—"}
-        </span>
+        {!asksForPrice(p) && (
+          <span className="font-semibold text-navy">
+            {formatPriceSpan(optionPriceRows(p).map((row) => row.price)) ?? formatPrice(p.price) ?? "—"}
+          </span>
+        )}
         {old > Number(p.price) && <span className="text-xs text-[#9CA3AF] line-through">{formatPrice(old)}</span>}
         {discount && <StatusPill tone="danger">-{discount}%</StatusPill>}
         {p.item_condition === "used" ? <StatusPill tone="neutral">Used</StatusPill> : p.item_condition === "new" ? <StatusPill tone="success">New</StatusPill> : null}
-        {p.quote_on_request === true && <StatusPill tone="pending">Quote</StatusPill>}
+        {asksForPrice(p) && <StatusPill tone="pending">Ask for price</StatusPill>}
         {freeDeliveryPill(p)}
       </p>
     );

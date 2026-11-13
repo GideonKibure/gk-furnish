@@ -99,9 +99,6 @@ export const createCheckout = createServerFn({ method: "POST" })
       if (!product.is_available || (product.status ?? "active") !== "active") {
         throw new Error(`${product.name} is not available to order right now. Remove it from your cart to continue.`);
       }
-      if (product.quote_on_request === true) {
-        throw new Error(`${product.name} is quoted on request. Remove it from your cart and use Get quote.`);
-      }
       const materials = parseOptionList(product.material);
       const dimensions = parseOptionList(product.dimensions);
       const colors = product.available_colors.map((c) => parseCatalogColor(c).label);

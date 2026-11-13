@@ -355,7 +355,6 @@ const ProductInput = z.object({
       stock_display: z.enum(["label", "count"]),
       available_region: z.enum(TZ_REGIONS).nullable(),
       item_condition: z.enum(["new", "used"]),
-      quote_on_request: z.boolean(),
     })
     .optional(),
 });
@@ -610,7 +609,6 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
           stock_display: ext.stock_display,
           available_region: ext.available_region,
           item_condition: ext.item_condition,
-          quote_on_request: ext.quote_on_request,
         }
       : {};
 
@@ -620,10 +618,9 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       free_delivery_regions: freeRegions,
       free_delivery_country: freeCountry,
       item_condition: itemCondition,
-      quote_on_request: quoteOnRequest,
       ...extendedCore
     } = extended;
-    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean, includeCondition: boolean, includeQuote: boolean) {
+    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean, includeCondition: boolean) {
       const body = !includeExtended
         ? payload
         : {
@@ -633,7 +630,6 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
             ...(includeFreeRegion ? { free_delivery_region: freeRegion } : {}),
             ...(includePlaces ? { free_delivery_regions: freeRegions, free_delivery_country: freeCountry } : {}),
             ...(includeCondition ? { item_condition: itemCondition ?? "new" } : {}),
-            ...(includeQuote ? { quote_on_request: quoteOnRequest === true } : {}),
           };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
@@ -645,20 +641,15 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     let includeFreeRegion = Boolean(ext);
     let includePlaces = Boolean(ext);
     let includeCondition = Boolean(ext);
-    let includeQuote = Boolean(ext);
-    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces, includeCondition, includeQuote);
+    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces, includeCondition);
     let extendedSaved = Boolean(ext);
     let regionSaved = Boolean(ext);
     let freeRegionSaved = Boolean(ext);
     let placesSaved = Boolean(ext);
     let conditionSaved = Boolean(ext);
-    let quoteSaved = Boolean(ext);
-    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 6; attempt += 1) {
+    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 5; attempt += 1) {
       const message = result.error.message ?? "";
-      if (includeQuote && message.includes("quote_on_request")) {
-        includeQuote = false;
-        quoteSaved = false;
-      } else if (includeCondition && message.includes("item_condition")) {
+      if (includeCondition && message.includes("item_condition")) {
         includeCondition = false;
         conditionSaved = false;
       } else if (includePlaces && (message.includes("free_delivery_regions") || message.includes("free_delivery_country"))) {
@@ -671,16 +662,15 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
         includeRegion = false;
         regionSaved = false;
       } else {
-        result = await write(false, false, false, false, false, false);
+        result = await write(false, false, false, false, false);
         extendedSaved = false;
         regionSaved = false;
         freeRegionSaved = false;
         placesSaved = false;
         conditionSaved = false;
-        quoteSaved = false;
         break;
       }
-      result = await write(true, includeRegion, includeFreeRegion, includePlaces, includeCondition, includeQuote);
+      result = await write(true, includeRegion, includeFreeRegion, includePlaces, includeCondition);
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
@@ -745,7 +735,6 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       ext && extendedSaved && !freeRegionSaved ? migrationNeeded("0018_free_delivery_region.sql") : "",
       ext && extendedSaved && !placesSaved ? migrationNeeded("0019_free_delivery_places.sql") : "",
       ext && extendedSaved && !conditionSaved ? migrationNeeded("0020_product_condition.sql") : "",
-      ext && extendedSaved && !quoteSaved ? migrationNeeded("0022_quote_on_request.sql") : "",
     ].filter(Boolean).join(" ");
     return { id: productId, slug, extendedSaved, notice };
   });

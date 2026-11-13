@@ -7,7 +7,7 @@ import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Category, Product } from "@/lib/catalog";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows } from "@/lib/order-options";
-import { isPurchasable, popularity, quoteOnRequest } from "@/lib/product-display";
+import { asksForPrice, isPurchasable, popularity } from "@/lib/product-display";
 import { PriceFilter } from "./PriceFilter";
 import { ProductGrid } from "./ProductCard";
 
@@ -52,7 +52,7 @@ export function ShopView({
 }) {
   const { t, lang } = useLang();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const maxAll = Math.max(0, ...products.filter((p) => !quoteOnRequest(p)).map(productMaxPrice));
+  const maxAll = Math.max(0, ...products.filter((p) => !asksForPrice(p)).map(productMaxPrice));
   const max = search.max != null ? Math.min(search.max, maxAll) : maxAll;
   const sort: ShopSort = search.sort ?? "popular";
   const q = (search.q ?? "").toLowerCase();
@@ -73,12 +73,12 @@ export function ShopView({
     const r = base.filter(
       (p) =>
         (!catId || p.category_id === catId) &&
-        (quoteOnRequest(p) || lowestOptionPrice(p) <= max) &&
+        (asksForPrice(p) || lowestOptionPrice(p) <= max) &&
         (!search.avail || (isPurchasable(p) && p.stock_quantity > 0)),
     );
     if (sort === "popular") r.sort((a, b) => popularity(b) - popularity(a));
-    if (sort === "low") r.sort((a, b) => (quoteOnRequest(a) ? Number.POSITIVE_INFINITY : lowestOptionPrice(a)) - (quoteOnRequest(b) ? Number.POSITIVE_INFINITY : lowestOptionPrice(b)));
-    if (sort === "high") r.sort((a, b) => (quoteOnRequest(b) ? Number.NEGATIVE_INFINITY : highestOptionPrice(b)) - (quoteOnRequest(a) ? Number.NEGATIVE_INFINITY : highestOptionPrice(a)));
+    if (sort === "low") r.sort((a, b) => (asksForPrice(a) ? Number.POSITIVE_INFINITY : lowestOptionPrice(a)) - (asksForPrice(b) ? Number.POSITIVE_INFINITY : lowestOptionPrice(b)));
+    if (sort === "high") r.sort((a, b) => (asksForPrice(b) ? Number.NEGATIVE_INFINITY : highestOptionPrice(b)) - (asksForPrice(a) ? Number.NEGATIVE_INFINITY : highestOptionPrice(a)));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
     return r;
   }, [base, catId, max, search.avail, sort]);

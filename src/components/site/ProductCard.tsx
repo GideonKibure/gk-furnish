@@ -11,7 +11,7 @@ import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { ratingSummaryQuery, type Product, type RatingSummary } from "@/lib/catalog";
 import { lowestOptionPrice, optionPriceRows, parseOptionList } from "@/lib/order-options";
-import { compareAtPrice, discountPercent, isPurchasable, quoteOnRequest } from "@/lib/product-display";
+import { asksForPrice, compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
 import { missingChoices, OrderDialog, useAddToCart } from "./OrderDialog";
@@ -24,12 +24,12 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const name = localized(lang, product.name, product.name_sw);
-  const quoted = quoteOnRequest(product);
+  const unpriced = asksForPrice(product);
   const rows = optionPriceRows(product);
   const fromPrice = lowestOptionPrice(product);
-  const priceLabel = quoted ? null : formatPriceSpan(rows.map((row) => row.price)) ?? formatPrice(product.price);
-  const oldPrice = quoted || rows.length ? null : compareAtPrice(product, product.price);
-  const percent = quoted ? null : discountPercent(product, rows.length ? fromPrice : product.price);
+  const priceLabel = unpriced ? null : formatPriceSpan(rows.map((row) => row.price)) ?? formatPrice(product.price);
+  const oldPrice = unpriced || rows.length ? null : compareAtPrice(product, product.price);
+  const percent = unpriced ? null : discountPercent(product, rows.length ? fromPrice : product.price);
   const cat = product.categories ? localized(lang, product.categories.name, product.categories.name_sw) : "";
   const images = productGalleryItems(product);
   const cover = images[0]?.src;
@@ -119,7 +119,7 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
           <StarRating value={rating.rating_avg} count={rating.rating_count} className="mt-1" />
         )}
         <div className="mt-auto pt-2">
-          {!quoted && (
+          {!unpriced && (
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="price-text text-[1.05rem]">{priceLabel ?? t.common.priceOnRequest}</span>
               {oldPrice && <span className="text-xs text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
@@ -127,13 +127,13 @@ export function ProductCard({ product, rating, priority = false }: { product: Pr
           )}
           <div className="mt-2 flex items-center justify-between gap-2">
             <StockLabel product={product} className="min-w-0 !text-xs [&_svg]:!h-3.5 [&_svg]:!w-3.5" />
-            {quoted ? (
+            {unpriced ? (
               <Link
                 to="/custom-order"
                 search={{ product: product.slug }}
                 className="btn-base btn-gold btn-sm !min-h-9 shrink-0 !px-3"
               >
-                {t.cart.getQuote}
+                {t.cart.askPrice}
               </Link>
             ) : (
               <button

@@ -1,3 +1,5 @@
+import { highestOptionPrice } from "@/lib/order-options";
+
 /**
  * Storefront rules for showing a product. Columns added in migration 0007 may be
  * missing on older databases, so every field is read defensively.
@@ -26,9 +28,9 @@ export function isPurchasable(product: Pick<DisplayProduct, "status" | "is_avail
   return isListed(product) && product.is_available;
 }
 
-/** The shop hides the price and offers a quote instead. Missing until migration 0022. */
-export function quoteOnRequest(product: { quote_on_request?: boolean | null }) {
-  return product.quote_on_request === true;
+/** No price has been set, so the shop shows Ask for price instead of an amount. */
+export function asksForPrice(product: Parameters<typeof highestOptionPrice>[0]) {
+  return highestOptionPrice(product) <= 0;
 }
 
 /** Old price to strike through, only when it is above the current price. */
