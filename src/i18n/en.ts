@@ -719,6 +719,7 @@ export const en = {
     priceRange: "Price range",
     availability: "Availability",
     inStock: "In stock",
+    sortDiscover: "Discover",
     sortPopular: "Most popular",
     showResults: "Show {count} results",
     clearAll: "Clear all",

@@ -8,6 +8,7 @@ import { localized, useLang } from "@/i18n/LanguageProvider";
 import type { Category, Product } from "@/lib/catalog";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows } from "@/lib/order-options";
 import { asksForPrice, isPurchasable, popularity } from "@/lib/product-display";
+import { orderBySeed, stableShopSeed } from "@/lib/shop-order";
 import { PriceFilter } from "./PriceFilter";
 import { ProductGrid } from "./ProductCard";
 
@@ -40,6 +41,7 @@ export function ShopView({
   lockedCategoryId,
   onCategory,
   heading,
+  seed: seedFromLoader,
 }: {
   products: Product[];
   categories: Category[];
@@ -49,12 +51,19 @@ export function ShopView({
   lockedCategoryId?: string;
   onCategory?: (slug: string) => void;
   heading?: string;
+  /** Seed from the route loader. The shop keeps the first one for this page load. */
+  seed: number;
 }) {
   const { t, lang } = useLang();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const seed = stableShopSeed(seedFromLoader);
   const maxAll = Math.max(0, ...products.filter((p) => !asksForPrice(p)).map(productMaxPrice));
   const max = search.max != null ? Math.min(search.max, maxAll) : maxAll;
-  const sort: ShopSort = search.sort ?? "popular";
+  const sort: ShopSort | "mixed" = search.sort ?? "mixed";
+  const catalogue = useMemo(
+    () => (sort === "mixed" ? orderBySeed(products, seed) : products),
+    [products, seed, sort],
+  );
   const q = (search.q ?? "").toLowerCase();
   const selectedCat = lockedCategoryId
     ? (categories.find((c) => c.id === lockedCategoryId)?.slug ?? "")
@@ -67,7 +76,7 @@ export function ShopView({
       .toLowerCase()
       .includes(q);
 
-  const base = useMemo(() => products.filter(matchesText), [products, q]);
+  const base = useMemo(() => catalogue.filter(matchesText), [catalogue, q]);
 
   const list = useMemo(() => {
     const r = base.filter(
@@ -76,7 +85,8 @@ export function ShopView({
         (asksForPrice(p) || lowestOptionPrice(p) <= max) &&
         (!search.avail || (isPurchasable(p) && p.stock_quantity > 0)),
     );
-    if (sort === "popular") r.sort((a, b) => popularity(b) - popularity(a));
+    if (sort === "new") r.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (sort === "popular") r.sort((a, b) => popularity(b) - popularity(a) || b.created_at.localeCompare(a.created_at));
     if (sort === "low") r.sort((a, b) => (asksForPrice(a) ? Number.POSITIVE_INFINITY : lowestOptionPrice(a)) - (asksForPrice(b) ? Number.POSITIVE_INFINITY : lowestOptionPrice(b)));
     if (sort === "high") r.sort((a, b) => (asksForPrice(b) ? Number.NEGATIVE_INFINITY : highestOptionPrice(b)) - (asksForPrice(a) ? Number.NEGATIVE_INFINITY : highestOptionPrice(a)));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
@@ -128,7 +138,8 @@ export function ShopView({
     />
   );
 
-  const sortOptions: { value: ShopSort; label: string }[] = [
+  const sortOptions: { value: ShopSort | "mixed"; label: string }[] = [
+    { value: "mixed", label: t.shop.sortDiscover },
     { value: "popular", label: t.shop.sortPopular },
     { value: "new", label: t.products.sortNewest },
     { value: "low", label: t.products.sortPriceLow },
@@ -166,7 +177,7 @@ export function ShopView({
                 value={sort}
                 onChange={(e) =>
                   set({
-                    sort: e.target.value === "popular" ? undefined : (e.target.value as ShopSort),
+                    sort: e.target.value === "mixed" ? undefined : (e.target.value as ShopSort),
                   })
                 }
                 className="field-input !min-h-9 !w-auto !py-1.5 !pr-8 text-sm font-medium"

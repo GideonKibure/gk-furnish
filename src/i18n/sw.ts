@@ -721,6 +721,7 @@ export const sw: Dictionary = {
     priceRange: "Kiwango cha bei",
     availability: "Upatikanaji",
     inStock: "Zipo stoo",
+    sortDiscover: "Gundua",
     sortPopular: "Maarufu zaidi",
     showResults: "Onyesha matokeo {count}",
     clearAll: "Futa vyote",

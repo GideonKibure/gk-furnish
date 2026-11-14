@@ -6,6 +6,7 @@ import { useAuthUser } from "@/hooks/use-auth";
 import { useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { pageSectionsQuery } from "@/lib/site-content";
+import { freshShopSeed } from "@/lib/shop-order";
 import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/products/")({
@@ -16,13 +17,15 @@ export const Route = createFileRoute("/products/")({
       description: "Browse chairs, tables, beds and lamps from GK Furnish in Mbeya. Prices in TZS, with delivery arranged or free collection from the workshop.",
       path: "/products",
     }),
-  loader: ({ context }) =>
-    Promise.all([
+  loader: async ({ context }) => {
+    await Promise.all([
       context.queryClient.ensureQueryData(productsQuery),
       context.queryClient.ensureQueryData(categoriesQuery),
       context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
       context.queryClient.prefetchQuery(ratingSummaryQuery),
-    ]),
+    ]);
+    return { shopSeed: freshShopSeed() };
+  },
   component: Products,
 });
 
@@ -30,6 +33,7 @@ function Products() {
   const { t } = useLang();
   const { user } = useAuthUser();
   const signedIn = Boolean(user);
+  const { shopSeed } = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/products/" });
   const { data: products } = useSuspenseQuery(productsQuery);
@@ -52,6 +56,7 @@ function Products() {
             products={products}
             categories={cats}
             search={search}
+            seed={shopSeed}
             onSearch={(next) => void navigate({ search: next, replace: true, resetScroll: false })}
           />
         </div>

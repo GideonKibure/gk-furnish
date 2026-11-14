@@ -6,6 +6,7 @@ import { imageFor } from "@/data/images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { breadcrumbLd, metaText, seo } from "@/lib/seo";
+import { freshShopSeed } from "@/lib/shop-order";
 
 export const Route = createFileRoute("/categories/$slug")({
   validateSearch: (s) => shopSearchSchema.omit({ cat: true }).parse(s),
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/categories/$slug")({
     ]);
     const c = cats.find((x) => x.slug === params.slug);
     if (!c) throw notFound();
-    return { name: c.name, desc: c.description ?? "", slug: c.slug, image: imageFor(c.image_key) };
+    return { name: c.name, desc: c.description ?? "", slug: c.slug, image: imageFor(c.image_key), shopSeed: freshShopSeed() };
   },
   head: ({ loaderData }) => {
     if (!loaderData) return { meta: [{ title: "Not found" }, { name: "robots", content: "noindex, nofollow" }] };
@@ -47,6 +48,7 @@ export const Route = createFileRoute("/categories/$slug")({
 
 function Cat() {
   const { slug } = Route.useParams();
+  const { shopSeed } = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { t, lang } = useLang();
@@ -74,6 +76,7 @@ function Cat() {
             products={products}
             categories={cats}
             search={search}
+            seed={shopSeed}
             lockedCategoryId={c.id}
             onSearch={(next) =>
               void navigate({
