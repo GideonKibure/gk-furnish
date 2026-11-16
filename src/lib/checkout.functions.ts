@@ -52,20 +52,19 @@ const CheckoutInput = z
     { message: "Delivery address is required", path: ["address_line"] },
   );
 
-/** Phone prompts are on only when the server is set to PalmPesa and has its token. */
-async function palmPaymentsOn() {
-  if (process.env["PAYMENT_MODE"] !== "palmpesa") return false;
-  const { palmpesaConfigured } = await import("@/lib/palmpesa.server");
-  return palmpesaConfigured();
+/** Phone prompts are on for Snippe when its key is set, or for PalmPesa when PAYMENT_MODE is palmpesa. */
+async function onlinePaymentsOn() {
+  const { onlinePaymentsConfigured } = await import("@/lib/order-payments.server");
+  return onlinePaymentsConfigured();
 }
 
-/** Public checkout settings. Online wallet charges stay off while the owner confirms payments by hand. */
+/** Public checkout settings. The wallet prompt appears only when a payment key is set on the server. */
 export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
   const { payAccountsFrom, payMethodsFrom } = await import("@/lib/pay-accounts");
   return {
-    onlinePayment: await palmPaymentsOn(),
+    onlinePayment: await onlinePaymentsOn(),
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
     pay: payAccountsFrom(data),
     methods: payMethodsFrom(data),
@@ -257,8 +256,27 @@ export const createCheckout = createServerFn({ method: "POST" })
     const trackingToken = order.tracking_token || null;
     const dueNow = data.payment_choice === "full" ? total : advanceRequired;
     const amount = chargeNow(dueNow, total);
-    const paymentId: string | null = null;
-    const paymentError: string | null = null;
+    let paymentId: string | null = null;
+    let paymentError: string | null = null;
+    if (data.payment_method === "mobile" && data.wallet && (await onlinePaymentsOn())) {
+      try {
+        const { startMobilePayment } = await import("@/lib/order-payments.server");
+        const purpose = data.payment_choice === "full" ? "full" : "advance";
+        paymentId = await startMobilePayment(supabaseAdmin, {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          purpose,
+          amount,
+          balance: total,
+          phone: paymentPhone,
+          customerName: data.customer_name,
+          email: baseOrder.email,
+          wallet: data.wallet,
+        });
+      } catch (err) {
+        paymentError = err instanceof Error ? err.message : "We could not send the payment prompt.";
+      }
+    }
     const channel = !anyOpen
       ? "the method GK Furnish confirms with you"
       : data.payment_method === "bank"
@@ -270,11 +288,15 @@ export const createCheckout = createServerFn({ method: "POST" })
       email: baseOrder.email,
       name: data.customer_name,
       subject: who && who.length > 1 ? `${who}, your order ${order.order_number} is placed` : `Your order ${order.order_number} is placed`,
-      preview: `Pay ${formatAmount(dueNow)} and send the screenshot so we can start.`,
+      preview: paymentId
+        ? `Approve the ${formatAmount(dueNow)} prompt on your phone so we can start.`
+        : `Pay ${formatAmount(dueNow)} and send the screenshot so we can start.`,
       headline: "One payment lets us start",
       paragraphs: [
         `Order ${order.order_number} is saved. You chose a piece made in our Mbeya workshop.`,
-        `Pay by ${channel} using the numbers on your order page, then send a screenshot and the name of the person who sent the money.`,
+        paymentId
+          ? `A ${formatAmount(amount)} prompt is on the phone you entered. Enter your PIN there. The order stays unpaid until the network accepts it.`
+          : `Pay by ${channel} using the numbers on your order page, then send a screenshot and the name of the person who sent the money.`,
         "We confirm that payment before production starts. You get a receipt, and the balance is cleared before we hand the piece over.",
         deliveryFeeStatus === "pending" ? "We'll confirm the delivery fee with you before the piece leaves the workshop. Collecting it yourself is free." : "",
       ],
@@ -313,7 +335,9 @@ export const createCheckout = createServerFn({ method: "POST" })
     await noteOrderHistory(supabaseAdmin, {
       orderId: order.id,
       status: "pending",
-      note: `Order placed. The customer pays by ${channel}, then submits a screenshot and the sender's name. The order stays unpaid until GK furnish confirms it.`,
+      note: paymentId
+        ? `Order placed. A mobile-money prompt for ${amount.toLocaleString("en-US")} TZS was sent. The order stays unpaid until the customer approves it.`
+        : `Order placed. The customer pays by ${channel}, then submits a screenshot and the sender's name. The order stays unpaid until GK furnish confirms it.`,
       actor: "Customer",
       statusChanged: false,
     });
@@ -452,8 +476,7 @@ export const startOrderPayment = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    // Set PAYMENT_MODE=palmpesa on the server to charge wallets again. Until then the workshop confirms each payment.
-    if (!(await palmPaymentsOn())) {
+    if (!(await onlinePaymentsOn())) {
       throw new Error("Open your order link, pay the number shown, and send the transaction ID. GK furnish confirms it before the order is paid.");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

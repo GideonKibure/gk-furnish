@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
@@ -16,9 +16,11 @@ import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StatusPill } from "@/components/brand/StatusPill";
 import { PayInstructions } from "@/components/site/PayInstructions";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { RequestDetails } from "@/components/site/RequestDetails";
 import { formatAmount, waLink } from "@/config/site";
-import { getCheckoutConfig, submitPaymentProof } from "@/lib/checkout.functions";
+import { getCheckoutConfig, startOrderPayment, submitPaymentProof } from "@/lib/checkout.functions";
+import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
@@ -52,8 +54,12 @@ function stepIndex(status: string) {
 function OrderTracking({ order, token }: { order: TrackedOrder; token: string }) {
   const { t } = useLang();
   const queryClient = useQueryClient();
+  const nav = useNavigate();
   const sendProof = useServerFn(submitPaymentProof);
+  const startPay = useServerFn(startOrderPayment);
   const loadConfig = useServerFn(getCheckoutConfig);
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
+  const [payPhone, setPayPhone] = useState("");
   const { data: config } = useQuery({ queryKey: ["checkout-config"], queryFn: () => loadConfig(), staleTime: 5 * 60_000 });
   const [method, setMethod] = useState<"mpesa" | "airtel" | "bank">("mpesa");
   const methods = config?.methods ?? DEFAULT_PAY_METHODS;
@@ -98,7 +104,38 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
         {order.balance > 0 && order.status !== "cancelled" && (
           <section className="panel p-4 md:p-5">
             <h2 className="text-base font-bold">{t.track.howToPay}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t.track.paySteps}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{config?.onlinePayment ? t.track.promptBody : t.track.paySteps}</p>
+            {config?.onlinePayment && (
+              <form
+                className="mt-4 grid gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!phoneMatchesWallet(payPhone, wallet)) {
+                    toast.error(t.checkout.walletMismatch);
+                    return;
+                  }
+                  setBusy(true);
+                  void startPay({
+                    data: {
+                      trackingToken: token,
+                      kind: order.paid < order.advanceRequired ? "advance" : "full",
+                      phone: payPhone.trim(),
+                      wallet,
+                    },
+                  })
+                    .then((r) => nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } }))
+                    .catch((err) => toast.error(err instanceof Error ? err.message : t.validation.failed))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                <p className="text-sm font-semibold text-navy">{t.track.promptTitle}</p>
+                <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                <label className="field-label" htmlFor="prompt-phone">{t.track.promptPhone}</label>
+                <input id="prompt-phone" type="tel" className="field-input" placeholder={order.phoneMasked} value={payPhone} onChange={(e) => setPayPhone(e.target.value)} />
+                <button type="submit" className="btn-base btn-gold" disabled={busy || due <= 0}>{t.track.sendPrompt}</button>
+              </form>
+            )}
+            {config?.onlinePayment && <p className="mt-5 text-sm font-semibold text-navy">{t.track.manualTitle}</p>}
             {proofMethods.length === 0 ? (
               <p className="mt-3 rounded-lg bg-sand p-3 text-sm text-navy">{t.checkout.methodsOff}</p>
             ) : (

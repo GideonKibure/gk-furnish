@@ -55,7 +55,21 @@ Email and password sign-up is on by default. Under Authentication → Emails you
 2. Add the authorised redirect URI shown in Supabase → Authentication → Providers → Google (it looks like `https://YOUR-PROJECT.supabase.co/auth/v1/callback`).
 3. Paste the client ID and secret into Supabase → Authentication → Providers → Google and enable it.
 
-## 4. PalmPesa mobile money
+## 4. Snippe mobile money
+
+Snippe sends a PIN prompt to the customer's phone (M-Pesa, Airtel Money, Mixx by Yas, HaloPesa). The site uses it when `SNIPPE_API_KEY` is set and `PAYMENT_MODE` is not `palmpesa`. Bank payments stay on the screenshot flow. Do not put the key in the frontend, in Git, or in a `VITE_` variable.
+
+1. In the [Snippe dashboard](https://snippe.sh), create an API key named for this shop. Tick **collection:read** and **collection:create** only. Leave the disbursement ticks off: those let the key send money out, and this site does not pay out.
+2. Save the key in two places, both server-only:
+   - On your computer, in the project file `.env` (this file is already ignored by Git): `SNIPPE_API_KEY=the_key_shown_once`
+   - On the live site: Vercel → Project → Settings → Environment Variables → add `SNIPPE_API_KEY` for Production, then redeploy.
+3. In Snippe → Settings → Webhook Secret, copy the signing key and save it the same way as `SNIPPE_WEBHOOK_SECRET`. The site rejects webhooks when this is missing.
+4. The webhook address the site sends with each payment is `https://gkfurnish.co.tz/api/webhooks/snippe`. It must stay public HTTPS. A local `.env` cannot receive those callbacks.
+5. Place a small order on the live site, choose mobile money, and approve the prompt on your phone. The order is paid only after Snippe reports `payment.completed`.
+
+Until the key is set, checkout still saves the order and shows the workshop pay numbers plus the screenshot form.
+
+## 5. PalmPesa mobile money
 
 PalmPesa has no sandbox. A test payment of a few hundred shillings to your own phone is a real charge. Do not put the token in the frontend, in Git, or in a `VITE_` variable.
 
@@ -71,7 +85,7 @@ Until the token is set, checkout still saves the order and the customer can choo
 
 Run `node --experimental-strip-types --test src/lib/palmpesa.test.ts` for the payment rules. Those tests use mocked results, not PalmPesa.
 
-## 5. Payment policy
+## 6. Payment policy
 
 - Advance tiers are set in **Admin → Site settings → Advance payment tiers** (defaults: 50% standard, 60% custom or from TSh 1,000,000, 70% large from TSh 3,000,000 or 10+ items).
 - Order statuses (after 0008): Pending → Awaiting payment → Confirmed → Processing → In production → Ready → Out for delivery → Delivered → Completed, plus Cancelled and Refunded. *Awaiting payment* and *Processing* have no extra rules.
@@ -84,11 +98,11 @@ Run `node --experimental-strip-types --test src/lib/palmpesa.test.ts` for the pa
 - Stock is reduced once the advance is paid.
 - Every completed payment gets a receipt number (`RCT-<order>-<n>`), downloadable by the customer and the admin.
 
-## 6. TikTok & contact
+## 7. TikTok & contact
 
 Update TikTok and other contact details under **Admin → Site settings**. After 0007, the collection address for orders picked up at the workshop is set there too.
 
-## 7. Admin portal map
+## 8. Admin portal map
 
 | Section | Pages |
 |---|---|
@@ -102,7 +116,7 @@ Update TikTok and other contact details under **Admin → Site settings**. After
 
 Staff notifications (the bell) cover new orders, new custom requests and quote replies, plus low stock, overdue production jobs and overdue purchase orders. Each overdue or low-stock item notifies at most once a day.
 
-## 8. Business operations (after 0008)
+## 9. Business operations (after 0008)
 
 - **Inventory**: raw materials, work in progress, finished goods, partner stock and damaged items, each with a unit, reorder level, average unit cost and location. Stock only changes through movements: purchase received, used or produced in production, sold, adjustment, damage, return, transfer or opening stock. The movement history shows who made each change and why. A finished-goods item linked to a product keeps that product's shop stock in step. Sales and edits on the Products page then become movements too. Items at or below their reorder level are highlighted, and the page shows the total stock value.
 - **Production**: jobs (`JOB-2026-0001`) made in-house or by a partner, created standalone or from an order line (**Send to production** on the order). A job moves through Queued, Materials ready, Cutting, Assembly, Finishing, Quality check and Completed, or On hold. Using materials takes them out of stock. Estimated and actual costs are compared, quality checks are recorded, and jobs past their target date are marked overdue.

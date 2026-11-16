@@ -8,6 +8,7 @@ import { Stepper } from "@/components/brand/Stepper";
 import { DeliveryFields, type DeliveryValues } from "@/components/site/DeliveryFields";
 import { PayInstructions } from "@/components/site/PayInstructions";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
+import { WalletPicker } from "@/components/site/WalletPicker";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
 import { useAuthPopup } from "@/hooks/use-auth-popup";
@@ -20,6 +21,7 @@ import { useCart } from "@/lib/cart";
 import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
 import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation, type FulfilmentMethod } from "@/lib/delivery";
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
+import { phoneMatchesWallet, walletById, type WalletId } from "@/lib/palmpesa";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
 import { asksForPrice, isPurchasable } from "@/lib/product-display";
 import { siteSettingsQuery, completionHours } from "@/lib/site-content";
@@ -65,6 +67,7 @@ function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
   const [payMethod, setPayMethod] = useState<"mobile" | "bank">("mobile");
+  const [wallet, setWallet] = useState<WalletId>("mpesa");
   const methods = config?.methods ?? DEFAULT_PAY_METHODS;
   const payChannels = useMemo(
     () => (["mobile", "bank"] as const).filter((kind) => (kind === "bank" ? methods.nmb : methods.mpesa || methods.airtel)),
@@ -143,6 +146,8 @@ function CheckoutPage() {
   const tierLabel = tier.tier === "large" ? t.checkout.tierLarge : tier.tier === "custom" ? t.checkout.tierCustom : t.checkout.tierStandard;
   const blocked = cart.entries.some((e) => !e.product || asksForPrice(e.product) || e.unitPrice == null || !isPurchasable(e.product));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const online = Boolean(config?.onlinePayment);
+  const promptPay = online && payMethod === "mobile";
   const collectionAddress = config?.collectionAddress ?? "Mbeya, Tanzania";
   const placeLabel = useMemo(
     () =>
@@ -184,6 +189,12 @@ function CheckoutPage() {
       setErrors({ specs: t.checkout.specsRequired });
       return;
     }
+    const payPhone = (form.payment_phone || form.phone).trim();
+    if (promptPay && !phoneMatchesWallet(payPhone, wallet)) {
+      setStep(1);
+      setErrors({ payment_phone: t.checkout.walletMismatch });
+      return;
+    }
     setBusy(true);
     try {
       const r = await send({
@@ -207,7 +218,8 @@ function CheckoutPage() {
           notes: form.notes.trim(),
           payment_choice: choice,
           payment_method: payMethod,
-          payment_phone: form.phone.trim(),
+          ...(promptPay ? { wallet } : {}),
+          payment_phone: payPhone,
           specs_agreed: true,
         },
       });
@@ -491,13 +503,31 @@ function CheckoutPage() {
                           <input type="radio" name="payment_method" className="sr-only" checked={payMethod === kind} onChange={() => setPayMethod(kind)} />
                           <span className="block font-semibold text-navy">{kind === "mobile" ? t.checkout.methodMobile : t.checkout.methodBank}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {kind === "mobile" ? t.checkout.methodMobileHint : t.checkout.methodBankHint}
+                            {kind === "mobile" ? (online ? t.checkout.phoneHint : t.checkout.methodMobileHint) : t.checkout.methodBankHint}
                           </span>
                         </label>
                       ))}
                     </div>
                     )}
-                    {payChannels.length > 0 && (
+                    {promptPay && (
+                      <div className="mt-4">
+                        <p className="mb-2 text-sm font-semibold text-navy">{t.checkout.walletTitle}</p>
+                        <WalletPicker value={wallet} onChange={setWallet} label={t.checkout.walletTitle} />
+                        <label className="field-label mt-3" htmlFor="c-pay-phone">{t.checkout.phone}</label>
+                        <input
+                          id="c-pay-phone"
+                          type="tel"
+                          className="field-input"
+                          autoComplete="tel"
+                          value={form.payment_phone}
+                          onChange={set("payment_phone")}
+                          aria-invalid={Boolean(errors["payment_phone"])}
+                        />
+                        <p className="mt-1.5 text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
+                        {err("payment_phone")}
+                      </div>
+                    )}
+                    {payChannels.length > 0 && !promptPay && (
                       <PayInstructions accounts={config?.pay ?? DEFAULT_PAY_ACCOUNTS} methods={methods} channel={payMethod} amount={payNow} />
                     )}
                   </div>
@@ -557,7 +587,14 @@ function CheckoutPage() {
                     },
                     {
                       label: t.checkout.payment,
-                      value: payChannels.length === 0 ? t.checkout.methodsOff : payMethod === "bank" ? t.checkout.methodBank : t.checkout.methodMobile,
+                      value:
+                        payChannels.length === 0
+                          ? t.checkout.methodsOff
+                          : promptPay
+                            ? `${t.checkout.methodMobile} — ${walletById(wallet)?.label ?? wallet}`
+                            : payMethod === "bank"
+                              ? t.checkout.methodBank
+                              : t.checkout.methodMobile,
                       go: 1,
                     },
                     ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),

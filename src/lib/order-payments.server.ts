@@ -13,17 +13,22 @@ export function snippeConfigured() {
   return Boolean(process.env["SNIPPE_API_KEY"]?.trim());
 }
 
-/** PalmPesa when its token is set, otherwise the older Snippe integration. */
+/** PalmPesa only when the server is explicitly set to it. Otherwise Snippe, when its key is set. */
+export function palmPaymentsSelected() {
+  return process.env["PAYMENT_MODE"] === "palmpesa" && palmpesaConfigured();
+}
+
 export function onlinePaymentsConfigured() {
-  return palmpesaConfigured() || snippeConfigured();
+  return palmPaymentsSelected() || snippeConfigured();
 }
 
 async function snippeClient() {
   const apiKey = process.env["SNIPPE_API_KEY"]?.trim();
   if (!apiKey) return null;
   const { Snippe } = await import("@snippe/sdk");
-  const webhookUrl = process.env["SNIPPE_WEBHOOK_URL"]?.trim();
-  return new Snippe({ apiKey, ...(webhookUrl ? { webhookUrl } : {}) });
+  const site = (process.env["SITE_URL"]?.trim() || SITE.url).replace(/\/$/, "");
+  const webhookUrl = process.env["SNIPPE_WEBHOOK_URL"]?.trim() || `${site}/api/webhooks/snippe`;
+  return new Snippe({ apiKey, webhookUrl });
 }
 
 function splitName(full: string) {
@@ -48,7 +53,7 @@ export async function startMobilePayment(
     wallet: import("@/lib/palmpesa").WalletId;
   },
 ) {
-  if (palmpesaConfigured()) {
+  if (palmPaymentsSelected()) {
     return startPalmPayment(supabaseAdmin, input);
   }
   const amount = Math.round(input.amount);
