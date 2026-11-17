@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/webhooks/snippe")({
             signature,
             timestamp,
             signingKey: secret,
+            toleranceSeconds: 60 * 60,
           }) as {
             type: string;
             data: {

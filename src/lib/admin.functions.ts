@@ -853,8 +853,9 @@ export const listAdminOrders = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+    const { reconcileOpenPalmPayments, reconcileOpenSnippePayments } = await import("@/lib/order-payments.server");
     await reconcileOpenPalmPayments(supabaseAdmin);
+    await reconcileOpenSnippePayments(supabaseAdmin);
     const { data, error } = await supabaseAdmin
       .from("orders")
       .select("*, order_items(*), payments(*)")

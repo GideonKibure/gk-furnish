@@ -365,8 +365,29 @@ export async function reconcilePayment(supabaseAdmin: SupabaseAdmin, paymentId: 
     } else if (remote.status === "failed" || remote.status === "voided" || remote.status === "expired") {
       await failPayment(supabaseAdmin, paymentId, remote.status === "expired" ? "expired" : "failed", remote);
     }
-  } catch {
-    // The webhook will still update the payment; polling just tries again.
+  } catch (err) {
+    console.warn("[snippe reconcile]", err instanceof Error ? err.message : err);
+  }
+}
+
+/** Ask Snippe about payments that are still open, including ones whose webhook was rejected. */
+export async function reconcileOpenSnippePayments(supabaseAdmin: SupabaseAdmin, options?: { orderId?: string; limit?: number }) {
+  if (!snippeConfigured()) return;
+  const limit = options?.limit ?? 8;
+  let query = supabaseAdmin
+    .from("payments")
+    .select("id,status,snippe_reference,created_at")
+    .eq("status", "pending")
+    .not("snippe_reference", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (options?.orderId) query = query.eq("order_id", options.orderId);
+  else query = query.gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
+  const { data } = await query;
+  for (const row of data ?? []) {
+    if (!row.snippe_reference) continue;
+    if (Date.now() - new Date(row.created_at).getTime() < 3_000) continue;
+    await reconcilePayment(supabaseAdmin, row.id, row.snippe_reference);
   }
 }
 

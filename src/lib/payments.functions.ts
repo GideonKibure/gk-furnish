@@ -35,6 +35,7 @@ export async function applySnippePaymentEvent(event: {
     expired ||
     event.type === "payment.failed" ||
     event.type === "payment.voided" ||
+    event.type === "payment.cancelled" ||
     event.data.status === "failed" ||
     event.data.status === "voided";
 

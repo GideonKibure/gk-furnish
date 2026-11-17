@@ -160,8 +160,9 @@ export const getMyOrder = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) return null;
-    const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+    const { reconcileOpenPalmPayments, reconcileOpenSnippePayments } = await import("@/lib/order-payments.server");
     await reconcileOpenPalmPayments(supabaseAdmin, { orderId: order.id });
+    await reconcileOpenSnippePayments(supabaseAdmin, { orderId: order.id });
     const { data: fresh } = await supabaseAdmin
       .from("orders")
       .select(

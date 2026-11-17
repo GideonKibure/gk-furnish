@@ -383,7 +383,7 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
     const palmOpen = palm.source === "palmpesa" && (payment.status === "pending" || payment.status === "expired");
     if (ageMs > 3_000 && (palmOpen || (payment.status === "pending" && payment.snippe_reference))) {
       if (palm.source === "palmpesa") await reconcilePalmPayment(supabaseAdmin, payment.id);
-      else if (payment.snippe_reference && ageMs > 60_000) await reconcilePayment(supabaseAdmin, payment.id, payment.snippe_reference);
+      else if (payment.snippe_reference) await reconcilePayment(supabaseAdmin, payment.id, payment.snippe_reference);
       ({ data: payment } = await load());
       if (!payment) throw new Error("Payment not found");
     }

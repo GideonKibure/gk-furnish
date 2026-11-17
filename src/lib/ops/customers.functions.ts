@@ -60,10 +60,9 @@ export const listAdminPayments = createServerFn({ method: "GET" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    if (process.env["PAYMENT_MODE"] === "palmpesa") {
-      const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
-      await reconcileOpenPalmPayments(supabaseAdmin);
-    }
+    const { reconcileOpenPalmPayments, reconcileOpenSnippePayments } = await import("@/lib/order-payments.server");
+    if (process.env["PAYMENT_MODE"] === "palmpesa") await reconcileOpenPalmPayments(supabaseAdmin);
+    await reconcileOpenSnippePayments(supabaseAdmin);
     const { data, error } = await supabaseAdmin
       .from("payments")
       .select(

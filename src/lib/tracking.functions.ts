@@ -76,8 +76,9 @@ export const getTracking = createServerFn({ method: "GET" })
     }
 
     if (order) {
-      const { reconcileOpenPalmPayments } = await import("@/lib/order-payments.server");
+      const { reconcileOpenPalmPayments, reconcileOpenSnippePayments } = await import("@/lib/order-payments.server");
       await reconcileOpenPalmPayments(supabaseAdmin, { orderId: order.id });
+      await reconcileOpenSnippePayments(supabaseAdmin, { orderId: order.id });
       const { data: fresh } = await supabaseAdmin
         .from("orders")
         .select(
