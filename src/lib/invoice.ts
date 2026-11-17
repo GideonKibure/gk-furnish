@@ -51,7 +51,8 @@ const STYLE = `
     .sheet { max-width: 720px; margin: 0 auto; }
     .head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #14213d; padding-bottom: 20px; }
     .brand { display: flex; gap: 12px; align-items: center; }
-    .brand img { height: 88px; width: auto; }
+    .logo-mark { width: 120px; height: 120px; flex: 0 0 120px; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 18px; padding: 8px; box-shadow: 0 0 0 1px #e5e5e5; }
+    .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .brand h1 { margin: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
     .brand p { margin: 4px 0 0; color: #5b6475; font-size: 0.85rem; }
     .meta { text-align: right; font-size: 0.9rem; }
@@ -70,17 +71,64 @@ const STYLE = `
     .totals div { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.95rem; }
     .totals .grand { border-top: 2px solid #14213d; margin-top: 8px; padding-top: 10px; font-weight: 700; font-size: 1.05rem; }
     .stamp { display: inline-block; margin-top: 10px; padding: 6px 14px; border: 2px solid #15803d; color: #15803d; border-radius: 999px; font-weight: 700; letter-spacing: 0.08em; }
+    .receipt { border: 1px solid #e5e5e5; border-radius: 20px; overflow: hidden; }
+    .receipt-top { display: flex; align-items: center; gap: 18px; padding: 22px 24px; background: #14213d; color: #fff; }
+    .receipt-top h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.03em; }
+    .receipt-top p { margin: 4px 0 0; color: #e5e5e5; font-size: 0.85rem; }
+    .receipt-top .eyebrow { margin: 0 0 4px; color: #fca311; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+    .receipt-top .logo-mark { box-shadow: none; }
+    .paid-pill { margin-left: auto; align-self: flex-start; background: #fca311; color: #14213d; font-weight: 800; letter-spacing: 0.12em; border-radius: 999px; padding: 8px 14px; font-size: 0.8rem; }
+    .amount-band { margin: 22px 24px 0; background: #fff8eb; border: 1px solid #f6d48a; border-radius: 16px; padding: 18px 20px; }
+    .amount-band span { display: block; color: #8a7350; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .amount-band strong { display: block; margin-top: 4px; color: #14213d; font-size: 2rem; letter-spacing: -0.03em; }
+    .amount-band em { display: block; margin-top: 6px; font-style: normal; color: #5b6475; font-size: 0.9rem; }
+    .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 8px 24px 0; }
+    .facts div { padding: 12px 0; border-bottom: 1px solid #e5e5e5; }
+    .facts dt { color: #5b6475; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .facts dd { margin: 3px 0 0; color: #14213d; font-weight: 600; }
+    .receipt-body { padding: 0 24px 8px; }
+    .receipt .foot { margin: 8px 24px 22px; }
     ul.policy { margin: 0; padding-left: 18px; font-size: 0.85rem; color: #5b6475; }
     ul.policy li { margin-bottom: 4px; }
     .foot { margin-top: 36px; padding-top: 16px; border-top: 1px dashed #d1d5db; font-size: 0.8rem; color: #5b6475; }
-    @media print { body { padding: 0; } .noprint { display: none !important; } }
+    @media print {
+      body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .noprint { display: none !important; }
+    }
+    @media (max-width: 640px) {
+      .facts, .grid { grid-template-columns: 1fr; }
+      .receipt-top { flex-wrap: wrap; }
+      .paid-pill { margin-left: 0; }
+    }
 `;
 
 function money(amount: number) {
   return formatPrice(amount) ?? `${SITE.currency} 0`;
 }
 
-function header(kind: string, number: string, extra: string) {
+/** The printable file is a separate document, so a site-relative logo path would not load. */
+async function embedLogo() {
+  const path = typeof window === "undefined" ? `${SITE.url}/brand/gk-furnish-logo.png` : `${window.location.origin}/brand/gk-furnish-logo.png`;
+  try {
+    const response = await fetch(path);
+    if (!response.ok) return `${SITE.url}/brand/gk-furnish-logo.png`;
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("logo"));
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return `${SITE.url}/brand/gk-furnish-logo.png`;
+  }
+}
+
+function logoMark(src: string) {
+  return `<div class="logo-mark"><img src="${src}" alt="${escapeHtml(SITE.name)}" /></div>`;
+}
+
+function header(kind: string, number: string, extra: string, logo: string) {
   return `<div class="noprint" style="margin-bottom:16px">
       <button onclick="window.print()" style="background:#fca311;color:#14213d;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">
         Print / Save as PDF
@@ -88,7 +136,7 @@ function header(kind: string, number: string, extra: string) {
     </div>
     <div class="head">
       <div class="brand">
-        <img src="/brand/gk-furnish-logo.png" alt="${escapeHtml(SITE.name)}" />
+        ${logoMark(logo)}
         <div>
           <h1>${escapeHtml(SITE.name)}</h1>
           <p>${escapeHtml(SITE.tagline)}</p>
@@ -152,7 +200,8 @@ function openPrintable(title: string, body: string, fileName: string) {
 }
 
 /** Build a printable HTML invoice and trigger browser print / PDF save. */
-export function downloadInvoice(data: InvoiceData) {
+export async function downloadInvoice(data: InvoiceData) {
+  const logo = await embedLogo();
   const issued = data.date ?? new Date().toLocaleString();
   const qty = data.qty ?? 1;
   const lines: InvoiceLine[] = data.lines?.length
@@ -165,7 +214,7 @@ export function downloadInvoice(data: InvoiceData) {
   const total = data.total ?? lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
   const paid = data.paid ?? 0;
 
-  const body = `${header("Invoice", data.ref, `<p class="muted" style="margin-top:8px">Issued ${escapeHtml(issued)}</p>`)}
+  const body = `${header("Invoice", data.ref, `<p class="muted" style="margin-top:8px">Issued ${escapeHtml(issued)}</p>`, logo)}
     <h2>Bill to</h2>
     <div class="grid">
       <div class="card">
@@ -200,38 +249,54 @@ export function downloadInvoice(data: InvoiceData) {
 }
 
 /** Printable receipt confirming one payment. */
-export function downloadReceipt(data: ReceiptData) {
+export async function downloadReceipt(data: ReceiptData) {
+  const logo = await embedLogo();
   const balance = Math.max(0, data.orderTotal - data.totalPaid);
-  const body = `${header(
-    "Payment receipt",
-    data.receiptNumber,
-    `<p class="muted" style="margin-top:8px">Paid ${escapeHtml(new Date(data.paidAt).toLocaleString())}</p><span class="stamp">PAID</span>`,
-  )}
-    <h2>Received from</h2>
-    <div class="grid">
-      <div class="card">
-        <p><strong>${escapeHtml(data.customerName || "Customer")}</strong></p>
-        ${data.phone ? `<p class="muted">${escapeHtml(data.phone)}</p>` : ""}
-        ${data.email ? `<p class="muted">${escapeHtml(data.email)}</p>` : ""}
-      </div>
-      <div class="card">
-        <p><span class="muted">Order:</span> ${escapeHtml(data.orderNumber)}</p>
-        <p><span class="muted">Payment for:</span> ${escapeHtml(purposeLabel(data.purpose))}</p>
-        <p><span class="muted">Method:</span> ${escapeHtml(data.method || "—")}</p>
-      </div>
+  const when = new Date(data.paidAt).toLocaleString("en-GB", { timeZone: "Africa/Dar_es_Salaam" });
+  const fact = (label: string, value: string) =>
+    `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+  const body = `<div class="noprint" style="margin-bottom:16px">
+      <button onclick="window.print()" style="background:#fca311;color:#14213d;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">
+        Print / Save as PDF
+      </button>
     </div>
-    ${data.lines?.length ? `<h2>Order items</h2>${linesTable(data.lines)}` : ""}
-    <div class="totals">
-      <div class="grand"><span>Amount received</span><span>${escapeHtml(money(data.amount))}</span></div>
-      <div><span class="muted">Order total</span><span>${escapeHtml(money(data.orderTotal))}</span></div>
-      <div><span class="muted">Total paid so far</span><span>${escapeHtml(money(data.totalPaid))}</span></div>
-      <div><span class="muted">Balance before delivery</span><span>${escapeHtml(money(balance))}</span></div>
-    </div>
-    ${policyList()}
-    <div class="foot">
-      This receipt confirms a payment to ${escapeHtml(SITE.name)} for order <strong>${escapeHtml(data.orderNumber)}</strong>.
-      Keep it for your records.
-    </div>`;
+    <article class="receipt">
+      <header class="receipt-top">
+        ${logoMark(logo)}
+        <div>
+          <p class="eyebrow">Official receipt</p>
+          <h1>${escapeHtml(SITE.name)}</h1>
+          <p>${escapeHtml(SITE.location)}</p>
+          <p>${escapeHtml(SITE.phoneDisplay)} · ${escapeHtml(SITE.email)}</p>
+        </div>
+        <div class="paid-pill">PAID</div>
+      </header>
+      <div class="amount-band">
+        <span>Amount received</span>
+        <strong>${escapeHtml(money(data.amount))}</strong>
+        <em>${escapeHtml(data.receiptNumber)} · ${escapeHtml(when)}</em>
+      </div>
+      <dl class="facts">
+        ${fact("Received from", data.customerName || "Customer")}
+        ${fact("Order", data.orderNumber)}
+        ${data.phone ? fact("Phone", data.phone) : ""}
+        ${data.email ? fact("Email", data.email) : ""}
+        ${fact("Payment for", purposeLabel(data.purpose))}
+        ${fact("Method", data.method || "—")}
+      </dl>
+      <div class="receipt-body">
+        ${data.lines?.length ? `<h2>Order items</h2>${linesTable(data.lines)}` : ""}
+        <div class="totals">
+          <div><span class="muted">Order total</span><span>${escapeHtml(money(data.orderTotal))}</span></div>
+          <div><span class="muted">Total paid so far</span><span>${escapeHtml(money(data.totalPaid))}</span></div>
+          <div class="grand"><span>Balance before delivery</span><span>${escapeHtml(money(balance))}</span></div>
+        </div>
+      </div>
+      <div class="foot">
+        This receipt confirms a payment to ${escapeHtml(SITE.name)} for order <strong>${escapeHtml(data.orderNumber)}</strong>.
+        Keep it with your records. Production starts after the advance is paid and the specifications are agreed.
+      </div>
+    </article>`;
   openPrintable(`Receipt ${data.receiptNumber}`, body, `receipt-${data.receiptNumber}.html`);
 }
 
@@ -254,7 +319,8 @@ export function receiptText(data: ReceiptData) {
 }
 
 /** Open a printable quote. The browser print dialog can save it as a PDF. */
-export function downloadQuote(quote: SavedQuote) {
+export async function downloadQuote(quote: SavedQuote) {
+  const logo = await embedLogo();
   const issued = new Date(quote.createdAt).toLocaleString();
   const detail = (label: string, value: string) =>
     value ? `<p><span class="muted">${escapeHtml(label)}:</span> ${escapeHtml(value)}</p>` : "";
@@ -266,7 +332,8 @@ export function downloadQuote(quote: SavedQuote) {
     `<p class="muted" style="margin-top:8px">Issued ${escapeHtml(issued)}</p>${
       quote.validUntil ? `<p class="muted">Valid until ${escapeHtml(quote.validUntil)}</p>` : ""
     }`,
-  )}
+    logo,
+  )}`
     <h2>Customer</h2>
     <div class="grid">
       <div class="card">

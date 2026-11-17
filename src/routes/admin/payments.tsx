@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Clock3, Download, Receipt, Wallet } from "lucide-react";
+import { Clock3, Download, Receipt, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -21,7 +21,7 @@ import {
 import { downloadReceipt, purposeLabel } from "@/lib/invoice";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
 import { confirmSubmittedPayment } from "@/lib/admin.functions";
-import { getAdminPaymentSummary, listAdminPayments } from "@/lib/ops/customers.functions";
+import { deleteAdminPayments, getAdminPaymentSummary, listAdminPayments } from "@/lib/ops/customers.functions";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import { humanize, paymentRecordTone } from "@/lib/ops/status";
 
@@ -72,6 +72,8 @@ function paidAt(p: Row) {
 function AdminPaymentsPage() {
   const list = useServerFn(listAdminPayments);
   const confirm = useServerFn(confirmSubmittedPayment);
+  const remove = useServerFn(deleteAdminPayments);
+  const [busy, setBusy] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState("");
   const [range, setRange] = useState<DateRange | "all">("30d");
@@ -110,6 +112,44 @@ function AdminPaymentsPage() {
 
   const completed = shown.filter((p) => p.status === "completed");
   const pending = shown.filter((p) => p.status === "pending");
+
+  function reload() {
+    return Promise.all([
+      list().then(setRows),
+      summary().then(setOutstanding).catch(() => setOutstanding(null)),
+    ]);
+  }
+
+  async function removeOne(p: Row) {
+    const label = p.orders ? `order #${p.orders.order_number}` : "this payment";
+    if (!window.confirm(`Delete the ${tzs(p.amount)} payment for ${label}? The order balance is recalculated. This cannot be undone.`)) return;
+    setBusy(p.id);
+    try {
+      await remove({ data: { ids: [p.id] } });
+      await reload();
+      toast.success("Payment deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the payment");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeAll() {
+    const count = rows?.length ?? 0;
+    if (!count) return;
+    if (!window.confirm(`Delete all ${count} payments? Orders will show the balance again. This cannot be undone.`)) return;
+    setBusy("all");
+    try {
+      const result = await remove({ data: { all: true } });
+      await reload();
+      toast.success(`${result.deleted} payment${result.deleted === 1 ? "" : "s"} deleted`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the payments");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   function receipt(p: Row) {
     const order = p.orders;
@@ -187,14 +227,33 @@ function AdminPaymentsPage() {
           <span className="text-xs text-[#9CA3AF]">—</span>
         ),
     },
+    {
+      key: "delete",
+      header: "",
+      align: "right",
+      cell: (p) => (
+        <button type="button" className={btn("danger", "sm")} disabled={busy !== null} onClick={() => void removeOne(p)}>
+          <Trash2 className="h-3.5 w-3.5" /> {busy === p.id ? "Deleting…" : "Delete"}
+        </button>
+      ),
+    },
   ];
 
   return (
     <div>
       <AdminPageHeader
         title="Payments"
-        description="Every payment received online or recorded in the portal. To add or remove a payment, open the order."
+        description="Every payment received online or recorded in the portal. Delete one row, or delete every payment at once. Order balances update from what remains."
         action={
+          <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={btn("danger")}
+            disabled={!rows?.length || busy !== null}
+            onClick={() => void removeAll()}
+          >
+            <Trash2 className="h-4 w-4" /> {busy === "all" ? "Deleting…" : "Delete all"}
+          </button>
           <button
             type="button"
             className={btn("outline")}
@@ -220,6 +279,7 @@ function AdminPaymentsPage() {
           >
             <Download className="h-4 w-4" /> Export CSV
           </button>
+          </div>
         }
       />
 
@@ -305,6 +365,9 @@ function AdminPaymentsPage() {
                   <Receipt className="h-3.5 w-3.5" /> Download receipt {p.receipt_number ?? ""}
                 </button>
               )}
+              <button type="button" className={btn("danger", "sm", "mt-2 w-full")} disabled={busy !== null} onClick={() => void removeOne(p)}>
+                <Trash2 className="h-3.5 w-3.5" /> {busy === p.id ? "Deleting…" : "Delete"}
+              </button>
             </div>
           )}
         />

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
 
 /** Registered customers with their sign-in email and order totals. Read-only. */
@@ -91,6 +92,69 @@ export const listAdminPayments = createServerFn({ method: "GET" })
         purposeKind: p.purpose,
       };
     });
+  });
+
+/** Remove one payment, or every payment. Order balances are recalculated from what remains. Admin only. */
+export const deleteAdminPayments = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) =>
+    z
+      .object({
+        all: z.boolean().optional(),
+        ids: z.array(z.string().uuid()).max(5000).optional(),
+      })
+      .refine((input) => input.all === true || (input.ids?.length ?? 0) > 0, "Choose a payment")
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { isMissingSchema } = await import("@/lib/db-compat");
+    const { refreshOrderPayments } = await import("@/lib/order-payments.server");
+
+    let ids = data.ids ?? [];
+    if (data.all) {
+      const { data: rows, error } = await supabaseAdmin.from("payments").select("id");
+      if (error) throw new Error(error.message);
+      ids = (rows ?? []).map((row) => row.id);
+    }
+    if (!ids.length) return { deleted: 0 };
+
+    const orderIds = new Set<string>();
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const { data: linked, error } = await supabaseAdmin.from("payments").select("order_id").in("id", chunk);
+      if (error) throw new Error(error.message);
+      for (const row of linked ?? []) orderIds.add(row.order_id);
+      const refunds = await supabaseAdmin.from("refunds").delete().in("payment_id", chunk);
+      if (refunds.error && !isMissingSchema(refunds.error)) throw new Error(refunds.error.message);
+      const removed = await supabaseAdmin.from("payments").delete().in("id", chunk);
+      if (removed.error) {
+        if (removed.error.message.includes("payment records are managed")) {
+          throw new Error("Run drizzle/migrations/0024_allow_payment_confirmation.sql in the Supabase SQL editor, then delete again.");
+        }
+        throw new Error(removed.error.message);
+      }
+    }
+
+    for (const orderId of orderIds) {
+      await refreshOrderPayments(supabaseAdmin, orderId, "A payment was removed from the register.", "Admin");
+      const { data: order } = await supabaseAdmin
+        .from("orders")
+        .select("status,amount_paid,advance_required")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (order?.status === "confirmed" && Number(order.amount_paid) < Number(order.advance_required)) {
+        const reverted = await supabaseAdmin
+          .from("orders")
+          .update({ status: "pending", status_reason: "Payment removed. The advance is no longer covered." })
+          .eq("id", orderId)
+          .eq("status", "confirmed");
+        if (reverted.error && isMissingSchema(reverted.error)) {
+          await supabaseAdmin.from("orders").update({ status: "pending" }).eq("id", orderId).eq("status", "confirmed");
+        }
+      }
+    }
+    return { deleted: ids.length };
   });
 
 /** Outstanding customer balances. Cancelled orders are left out. Admin only. */
