@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Mail, MapPin, MessageCircle, Phone, Send } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/PageHeader";
+import { PhoneField } from "@/components/site/PhoneField";
 import { Reveal } from "@/components/site/Reveal";
-import { supabase } from "@/integrations/supabase/client";
+import { Honeypot } from "@/components/site/Honeypot";
+import { submitContactMessage } from "@/lib/contact.functions";
+import { normaliseTzMobile } from "@/lib/phone-tz";
 import { useLang } from "@/i18n/LanguageProvider";
 import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { seo } from "@/lib/seo";
@@ -30,35 +34,42 @@ function Contact() {
   const subtitle = sectionText(sections, "contact", "subtitle", lang, c.subtitle);
   const dial = site.phoneDial.startsWith("+") ? site.phoneDial : `+${site.phoneDial.replace(/\D/g, "")}`;
   const wa = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(t.whatsapp.general)}`;
+  const send = useServerFn(submitContactMessage);
+  const started = useRef(Date.now());
   const [busy, setBusy] = useState(false);
+  const [fields, setFields] = useState({ name: "", phone: "", email: "", subject: "", message: "" });
+  const [errs, setErrs] = useState<Record<string, string>>({});
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const v = (k: string) => String(fd.get(k) ?? "").trim();
-    if (!v("name")) {
-      toast.error(t.validation.nameRequired);
-      return;
-    }
-    if (!v("message")) {
-      toast.error(t.validation.messageRequired);
-      return;
-    }
+    const next: Record<string, string> = {};
+    if (!fields.name.trim()) next["name"] = t.validation.nameRequired;
+    if (fields.phone.trim() && !normaliseTzMobile(fields.phone)) next["phone"] = t.validation.phoneInvalid;
+    if (fields.email.trim() && !/^\S+@\S+\.\S+$/.test(fields.email.trim())) next["email"] = t.validation.emailInvalid;
+    if (!fields.message.trim()) next["message"] = t.validation.messageRequired;
+    setErrs(next);
+    if (Object.keys(next).length) return;
     setBusy(true);
-    const { error } = await supabase.from("contact_messages").insert({
-      name: v("name").slice(0, 120),
-      phone: v("phone") || null,
-      email: v("email") || null,
-      subject: v("subject") || null,
-      message: v("message").slice(0, 2000),
-    });
-    setBusy(false);
-    if (error) {
-      toast.error(t.validation.failed);
+    try {
+      await send({
+        data: {
+          name: fields.name.trim().slice(0, 120),
+          phone: fields.phone.trim() ? normaliseTzMobile(fields.phone) ?? "" : "",
+          email: fields.email.trim(),
+          subject: fields.subject.trim(),
+          message: fields.message.trim().slice(0, 2000),
+          company_website: (e.currentTarget.elements.namedItem("company_website") as HTMLInputElement | null)?.value ?? "",
+          started_at: started.current,
+        },
+      });
+    } catch (err) {
+      setBusy(false);
+      const message = err instanceof Error ? err.message : "";
+      toast.error(message.includes("few minutes") ? t.validation.slowDown : t.validation.failed);
       return;
     }
-    form.reset();
+    setBusy(false);
+    setFields({ name: "", phone: "", email: "", subject: "", message: "" });
     toast.success(c.sent);
   }
 
@@ -107,38 +118,48 @@ function Contact() {
           >
             <h2 className="font-display text-2xl text-navy md:text-3xl">{c.formTitle}</h2>
             <p className="mt-2 text-sm text-muted-foreground">{c.subtitle}</p>
-            <div className="mt-6 grid gap-4">
+            <div className="relative mt-6 grid gap-4">
+              <Honeypot />
               <div>
                 <label className="field-label" htmlFor="c-name">
                   {c.name} *
                 </label>
-                <input id="c-name" name="name" className="field-input" autoComplete="name" />
+                <input id="c-name" name="name" autoComplete="name" enterKeyHint="next" className="field-input" value={fields.name} onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))} />
+                {errs["name"] ? <p className="field-error">{errs["name"]}</p> : null}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="field-label" htmlFor="c-phone">
-                    {c.phone}
-                  </label>
-                  <input id="c-phone" name="phone" type="tel" className="field-input" autoComplete="tel" />
+                  <PhoneField
+                    id="c-phone"
+                    label={c.phone}
+                    value={fields.phone}
+                    {...(errs["phone"] ? { error: errs["phone"] } : {})}
+                    onChange={(value) => setFields((current) => ({ ...current, phone: value }))}
+                    onBlur={() => {
+                      if (fields.phone.trim() && !normaliseTzMobile(fields.phone)) setErrs((current) => ({ ...current, phone: t.validation.phoneInvalid }));
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="field-label" htmlFor="c-email">
                     {c.email}
                   </label>
-                  <input id="c-email" name="email" type="email" className="field-input" autoComplete="email" />
+                  <input id="c-email" name="email" type="email" inputMode="email" autoComplete="email" enterKeyHint="next" className="field-input" value={fields.email} onChange={(event) => setFields((current) => ({ ...current, email: event.target.value }))} />
+                  {errs["email"] ? <p className="field-error">{errs["email"]}</p> : null}
                 </div>
               </div>
               <div>
                 <label className="field-label" htmlFor="c-sub">
                   {c.subject}
                 </label>
-                <input id="c-sub" name="subject" className="field-input" />
+                <input id="c-sub" name="subject" autoComplete="organization-title" enterKeyHint="next" className="field-input" value={fields.subject} onChange={(event) => setFields((current) => ({ ...current, subject: event.target.value }))} />
               </div>
               <div>
                 <label className="field-label" htmlFor="c-msg">
                   {c.message} *
                 </label>
-                <textarea id="c-msg" name="message" rows={5} className="field-input" />
+                <textarea id="c-msg" name="message" rows={5} enterKeyHint="done" className="field-input" value={fields.message} onChange={(event) => setFields((current) => ({ ...current, message: event.target.value }))} />
+                {errs["message"] ? <p className="field-error">{errs["message"]}</p> : null}
               </div>
               <button
                 type="submit"

@@ -227,6 +227,11 @@ function AccountOrderPage() {
                         {t.account.paymentReference}: {p.reference}
                       </p>
                     )}
+                    {p.status === "pending" && (
+                      <Link to="/pay/$paymentId" params={{ paymentId: p.id }} className="btn-base btn-outline-navy mt-2">
+                        {t.pay.cancel}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

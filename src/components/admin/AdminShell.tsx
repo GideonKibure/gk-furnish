@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Activity,
   Bell,
   Boxes,
   ChevronDown,
@@ -39,6 +40,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { SITE } from "@/config/site";
 import { supabase } from "@/integrations/supabase/client";
 import { adminQuickSearch, listStaffNotifications, markStaffNotificationsRead } from "@/lib/ops/portal.functions";
+import { groupNotifications } from "@/lib/today-queue";
 import { orderStatusLabel, orderStatusTone } from "@/lib/ops/status";
 import { cn } from "@/lib/utils";
 import { StatusPill, formatDate, tzs } from "./admin-ui";
@@ -99,6 +101,7 @@ const NAV: NavGroup[] = [
     label: "Settings",
     items: [
       { to: "/admin/settings", label: "Site settings", icon: Settings },
+      { to: "/admin/health", label: "System health", icon: Activity },
       { to: "/admin/account", label: "Account & security", icon: KeyRound },
     ],
   },
@@ -347,7 +350,9 @@ type NotificationData = Awaited<ReturnType<typeof listStaffNotifications>>;
 
 /** Where a staff notification should open in the portal. */
 function notificationHref(n: NotificationData["items"][number]) {
-  if (n.type.startsWith("review")) return "/admin/reviews";
+  if (n.type.includes("payment")) return "/admin/payments?status=pending";
+  if (n.type.includes("review")) return "/admin/reviews";
+  if (n.type.includes("request") || n.type.includes("custom") || n.type.includes("quote")) return "/admin/custom-orders";
   const orderNumber = n.type.startsWith("order") ? /\b[A-Z]{2,}-\d{4}-\d+\b/.exec(n.title)?.[0] : undefined;
   if (orderNumber) return `/admin/orders?q=${encodeURIComponent(orderNumber)}`;
   return n.link?.startsWith("/admin") ? n.link : null;
@@ -409,8 +414,12 @@ function NotificationBell() {
             )}
           </div>
           {data.items.length ? (
-            <ul className="max-h-[60vh] divide-y divide-[#F0F0F0] overflow-y-auto">
-              {data.items.map((n) => {
+            <div className="max-h-[60vh] overflow-y-auto">
+              {groupNotifications(data.items).map((group) => (
+                <section key={group.label}>
+                  <h3 className="bg-[#F5F6F8] px-4 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-[#6B7280]">{group.label}</h3>
+                  <ul className="divide-y divide-[#F0F0F0]">
+              {group.items.map((n) => {
                 const body = (
                   <>
                     <span className="flex items-start gap-2">
@@ -445,7 +454,10 @@ function NotificationBell() {
                   </li>
                 );
               })}
-            </ul>
+                  </ul>
+                </section>
+              ))}
+            </div>
           ) : (
             <p className="px-4 py-8 text-center text-sm text-[#6B7280]">You are all caught up.</p>
           )}
@@ -585,9 +597,9 @@ function BottomTabs({ pathname, onMore }: { pathname: string; onMore: () => void
  * descendant overrides below give them the admin look (8px radius, compact height, no gold glow).
  */
 const LEGACY_OVERRIDES = cn(
-  "[&_.btn-base]:min-h-10 [&_.btn-base]:rounded-lg [&_.btn-base]:px-4 [&_.btn-base]:py-2 [&_.btn-base]:text-sm [&_.btn-base]:tracking-normal",
+  "[&_.btn-base]:min-h-11 [&_.btn-base]:rounded-lg [&_.btn-base]:px-4 [&_.btn-base]:py-2 [&_.btn-base]:text-sm [&_.btn-base]:tracking-normal",
   "[&_.btn-gold]:shadow-none [&_.btn-base:hover]:transform-none",
-  "[&_.field-input]:min-h-10 [&_.field-input]:rounded-lg [&_.field-input]:border-[#E5E5E5] [&_.field-input]:px-3 [&_.field-input]:py-2 [&_.field-input]:text-sm",
+  "[&_.field-input]:min-h-11 [&_.field-input]:rounded-lg [&_.field-input]:border-[#E5E5E5] [&_.field-input]:px-3 [&_.field-input]:py-2 [&_.field-input]:text-sm",
   "[&_.field-label]:text-xs [&_.field-label]:text-[#374151]",
 );
 

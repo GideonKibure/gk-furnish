@@ -3,6 +3,8 @@
  * Change contact details, hours and copy here — nothing is hardcoded in components.
  */
 
+import { buildWhatsAppLink } from "@/lib/whatsapp";
+
 /** Public Google Analytics 4 measurement ID. Safe to ship in the browser. */
 export const GA_MEASUREMENT_ID = "G-J96RVDQSF1";
 
@@ -24,7 +26,7 @@ export const SITE = {
 } as const;
 
 export function waLink(message: string) {
-  return `https://wa.me/${SITE.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  return buildWhatsAppLink({ number: SITE.whatsappNumber, text: message });
 }
 
 export function telLink() {

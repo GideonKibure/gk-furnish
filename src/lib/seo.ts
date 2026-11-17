@@ -46,6 +46,7 @@ export function seo({
   }
   meta.push({ name: "robots", content: noindex ? "noindex, nofollow" : "index, follow" });
   meta.push({ name: "twitter:image:alt", content: title });
+  if (type === "product") meta.push({ property: "og:locale", content: "en_TZ" });
   return { meta, links: [{ rel: "canonical", href: url }] };
 }
 

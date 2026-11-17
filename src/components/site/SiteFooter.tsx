@@ -5,6 +5,7 @@ import { useAuthUser } from "@/hooks/use-auth";
 import { useLang } from "@/i18n/LanguageProvider";
 import { sectionText, settingsToSite, siteSettingsQuery, pageSectionsQuery } from "@/lib/site-content";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useSaveData } from "./SaveData";
 import { SITE } from "@/config/site";
 
 function TikTokIcon({ className }: { className?: string }) {
@@ -58,7 +59,7 @@ export function SiteFooter() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={l}
-                className="grid h-10 w-10 place-items-center rounded-full border border-white/20 transition-colors hover:border-gold hover:text-gold"
+                className="grid h-11 w-11 place-items-center rounded-full border border-white/20 transition-colors hover:border-gold hover:text-gold"
               >
                 <Icon className="h-4 w-4" />
               </a>
@@ -66,7 +67,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.explore}</h3>
+          <h2 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.explore}</h2>
           <ul className="mt-4 space-y-2.5">
             {!signedIn && (
               <li><Link to="/about" className={link}>{t.nav.about}</Link></li>
@@ -75,11 +76,12 @@ export function SiteFooter() {
             <li><Link to="/process" className={link}>{t.nav.process}</Link></li>
             <li><Link to="/gallery" className={link}>{t.nav.gallery}</Link></li>
             <li><Link to="/faq" className={link}>{t.nav.faq}</Link></li>
+            <li><Link to="/policies" className={link}>{t.nav.policies}</Link></li>
             <li><Link to="/custom-order" className={link}>{t.nav.custom}</Link></li>
           </ul>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.shop}</h3>
+          <h2 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.shop}</h2>
           <ul className="mt-4 space-y-2.5">
             {(["chairs", "tables", "beds", "table-lamps"] as const).map((s) => (
               <li key={s}>
@@ -92,7 +94,7 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <h3 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.contact}</h3>
+          <h2 className="font-sans text-sm font-semibold uppercase tracking-widest text-gold">{t.footer.contact}</h2>
           <ul className="mt-4 space-y-3 text-sm">
             <li>
               <a href={wa} target="_blank" rel="noreferrer" className={`${link} inline-flex items-center gap-2`}>
@@ -114,6 +116,7 @@ export function SiteFooter() {
             </li>
           </ul>
           <div className="mt-5"><LanguageSwitcher dark /></div>
+          <SaveDataToggle />
         </div>
       </div>
       <div className="border-t border-primary-foreground/10">
@@ -129,6 +132,24 @@ export function SiteFooter() {
       </div>
       <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-bottom))] lg:hidden" />
     </footer>
+  );
+}
+
+function SaveDataToggle() {
+  const { t } = useLang();
+  const { on, toggle } = useSaveData();
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={on}
+        className="inline-flex min-h-11 items-center rounded-lg border border-primary-foreground/30 px-3 text-sm text-primary-foreground"
+      >
+        {on ? t.footer.saveDataOn : t.footer.saveData}
+      </button>
+      <p className="mt-1 max-w-xs text-xs text-primary-foreground/70">{t.footer.saveDataHint}</p>
+    </div>
   );
 }
 

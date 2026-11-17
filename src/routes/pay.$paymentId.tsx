@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Loader2, MessageCircle, Receipt, Smartphone, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/PageHeader";
 import { WalletPicker } from "@/components/site/WalletPicker";
@@ -10,8 +11,11 @@ import { formatPrice, waLink } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
-import { getPaymentStatus, resendPaymentPrompt, startOrderPayment } from "@/lib/checkout.functions";
+import { trackEvent } from "@/lib/analytics";
+import { cancelCustomerPayment, getPaymentStatus, resendPaymentPrompt, startOrderPayment } from "@/lib/checkout.functions";
+import { completionHours, siteSettingsQuery } from "@/lib/site-content";
 import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
+import { formatPromptClock } from "@/lib/prompt-window";
 import { downloadInvoice, downloadReceipt, receiptText, type ReceiptData } from "@/lib/invoice";
 
 export const Route = createFileRoute("/pay/$paymentId")({
@@ -28,6 +32,9 @@ function PayPage() {
   const { user } = useAuthUser();
   const load = useServerFn(getPaymentStatus);
   const resend = useServerFn(resendPaymentPrompt);
+  const cancelPay = useServerFn(cancelCustomerPayment);
+  const cancelDialog = useRef<HTMLDialogElement>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const start = useServerFn(startOrderPayment);
   const [data, setData] = useState<Status | null>(null);
   const [missing, setMissing] = useState(false);
@@ -35,20 +42,35 @@ function PayPage() {
   const [phone, setPhone] = useState("");
   const [wallet, setWallet] = useState<WalletId>("mpesa");
   const [showPhone, setShowPhone] = useState(false);
+  const [waiting, setWaiting] = useState(true);
+  const [clock, setClock] = useState(() => Date.now());
+  const paidTracked = useRef(false);
+  const { data: settings } = useQuery(siteSettingsQuery);
 
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let expiredChecks = 0;
+    const started = Date.now();
     setData(null);
     setMissing(false);
+    setWaiting(true);
     const tick = async () => {
       try {
         const next = await load({ data: { paymentId } });
         if (!alive) return;
         setData(next);
-        if (next.status === "pending") timer = setTimeout(tick, 4000);
-        else if (next.status === "expired" && expiredChecks < 30) {
+        if (next.status === "completed" && !paidTracked.current) {
+          paidTracked.current = true;
+          trackEvent("payment_completed", { payment_id: paymentId });
+        }
+        if (next.status === "pending") {
+          const deadline = next.expiresAt
+            ? new Date(next.expiresAt).getTime() + 5_000
+            : started + 120_000;
+          if (Date.now() < deadline) timer = setTimeout(tick, 3000);
+          else setWaiting(false);
+        } else if (next.status === "expired" && expiredChecks < 30) {
           expiredChecks += 1;
           timer = setTimeout(tick, 10_000);
         }
@@ -62,6 +84,37 @@ function PayPage() {
       if (timer) clearTimeout(timer);
     };
   }, [paymentId]);
+
+  useEffect(() => {
+    if (data?.status !== "pending" || !data.expiresAt) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [data?.status, data?.expiresAt]);
+
+  useEffect(() => {
+    const node = cancelDialog.current;
+    if (!node) return;
+    if (confirmCancel && !node.open) node.showModal();
+    if (!confirmCancel && node.open) node.close();
+  }, [confirmCancel]);
+
+  async function confirmCancelPayment() {
+    setBusy(true);
+    try {
+      const result = await cancelPay({ data: { paymentId } });
+      if (result.outcome === "paid") toast.message(t.pay.cancelPaid);
+      else if (result.outcome === "review") toast.error(t.pay.cancelReview);
+      else if (result.outcome === "wait" || result.outcome === "cancel") toast.error(t.pay.cancelWait);
+      else toast.success(t.pay.cancelDone);
+      const next = await load({ data: { paymentId } });
+      setData(next);
+      setConfirmCancel(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t.validation.failed);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function payAgain(kind: "advance" | "full") {
     const number = phone.trim() || data?.order.phone || "";
@@ -133,6 +186,7 @@ function PayPage() {
       }
     : null;
   const advanceLeft = Math.max(0, Math.round(o.advanceRequired) - Math.round(o.paid));
+  const timeLeft = data.expiresAt ? new Date(data.expiresAt).getTime() - clock : null;
   const title = data.status === "completed" ? t.pay.paidTitle : data.status === "pending" ? t.pay.title : t.pay.failedTitle;
 
   return (
@@ -144,13 +198,37 @@ function PayPage() {
             <div>
               <Smartphone className="h-10 w-10 text-gold-ink" />
               <p className="mt-4 text-lg text-navy">
-                {fill(t.pay.body, { phone: data.phone, amount: formatPrice(data.amount) ?? "", wallet: data.wallet || "M-Pesa" })}
+                {fill(t.pay.body, { phone: data.phone, amount: formatPrice(data.amount) ?? "", wallet: data.wallet || t.pay.walletFallback })}
               </p>
-              <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t.pay.waiting}
-              </p>
+              {timeLeft != null && timeLeft > 0 && (
+                <p className="mt-4 text-2xl font-semibold tabular-nums text-navy" aria-live="polite">
+                  {fill(t.pay.countdown, { time: formatPromptClock(timeLeft) })}
+                </p>
+              )}
+              {waiting ? (
+                <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t.pay.waiting}
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  <p className="text-sm text-navy">{t.pay.confirmSoon}</p>
+                  {o.trackingToken && (
+                    <Link to="/track/$token" params={{ token: o.trackingToken }} className="btn-base btn-outline-navy">
+                      {t.pay.trackOrder}
+                    </Link>
+                  )}
+                </div>
+              )}
               <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="btn-base btn-outline-navy"
+                  disabled={busy}
+                  onClick={() => setConfirmCancel(true)}
+                >
+                  {t.pay.cancel}
+                </button>
                 {data.canResend && (
                 <button
                   type="button"
@@ -223,7 +301,16 @@ function PayPage() {
                   </Link>
                 )}
               </div>
-              <p className="mt-6 text-sm text-muted-foreground">{t.pay.productionNote}</p>
+              <p className="mt-6 text-sm text-muted-foreground">{fill(t.pay.readyIn, { hours: completionHours(settings) })}</p>
+              {o.trackingToken && (
+                <Link to="/track/$token" params={{ token: o.trackingToken }} className="btn-base btn-outline-navy mt-4">
+                  {t.pay.trackOrder}
+                </Link>
+              )}
+              <a className="btn-base btn-outline-navy mt-4" href={waLink(`${t.pay.order} ${o.number}`)} target="_blank" rel="noreferrer">
+                <MessageCircle className="h-4 w-4" />
+                {t.common.whatsapp}
+              </a>
             </div>
           )}
 
@@ -232,7 +319,9 @@ function PayPage() {
               <XCircle className="h-10 w-10 text-destructive" />
               <p className="mt-4 text-lg text-navy">
                 {data.status === "expired"
-                  ? t.pay.expiredBody
+                  ? o.status === "cancelled"
+                    ? t.pay.timedOut
+                    : t.pay.expiredBody
                   : data.failureReason === "CANCELLED"
                     ? t.pay.cancelledBody
                     : data.failureReason === "REJECTED"
@@ -316,6 +405,26 @@ function PayPage() {
           <PaymentPolicy compact />
         </aside>
       </div>
+      <dialog
+        ref={cancelDialog}
+        className="fixed inset-0 z-[80] m-auto h-fit max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-background p-5 shadow-xl backdrop:bg-navy/40"
+        onCancel={(event) => {
+          event.preventDefault();
+          if (busy) return;
+          setConfirmCancel(false);
+        }}
+      >
+        <h2 className="text-lg font-semibold text-navy">{t.pay.cancelTitle}</h2>
+        <p className="mt-2 text-sm text-navy">{t.pay.cancelBody}</p>
+        <div className="mt-4 grid gap-2">
+          <button type="button" className="btn-base btn-gold" disabled={busy} onClick={() => setConfirmCancel(false)}>
+            {t.pay.cancelKeep}
+          </button>
+          <button type="button" className="btn-base btn-outline-navy" disabled={busy} onClick={() => void confirmCancelPayment()}>
+            {t.pay.cancelConfirm}
+          </button>
+        </div>
+      </dialog>
     </>
   );
 }

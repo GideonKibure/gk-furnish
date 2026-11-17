@@ -19,6 +19,7 @@ import {
 } from "@/hooks/use-auth-popup";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
+import { cycleTab, tabbable } from "@/lib/dialog-focus";
 import { visitorId } from "@/lib/visitor";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "./BrandLogo";
@@ -222,6 +223,8 @@ function AuthDialog({
 
   const beginCloseRef = useRef(beginClose);
   beginCloseRef.current = beginClose;
+  const busyRef = useRef(false);
+  busyRef.current = busy;
 
   const intro =
     reason === "favourite"
@@ -246,36 +249,33 @@ function AuthDialog({
   }, [mode]);
 
   useEffect(() => {
-    const previous = document.body.style.overflow;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusable = dialogRef.current?.querySelector<HTMLElement>("input");
+    const focusable = dialogRef.current?.querySelector<HTMLElement>("input, button");
     focusable?.focus();
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (busyRef.current) return;
+        event.preventDefault();
         beginCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
-      const nodes = [
-        ...dialogRef.current.querySelectorAll<HTMLElement>(
-          "button, input, a, [href], [tabindex]:not([tabindex='-1'])",
-        ),
-      ].filter((node) => !node.hasAttribute("disabled"));
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      const next = cycleTab(
+        tabbable(dialogRef.current),
+        document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        event.shiftKey,
+      );
+      if (!next) return;
+      event.preventDefault();
+      next.focus();
     }
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = previous;
+      document.body.style.overflow = overflow;
       document.removeEventListener("keydown", onKey);
+      previous?.focus();
     };
   }, [mode]);
 
@@ -372,7 +372,7 @@ function AuthDialog({
           type="button"
           onClick={beginClose}
           aria-label={t.auth.later}
-          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-navy hover:bg-[#E5E5E5]"
+          className="absolute right-3 top-3 grid h-11 w-11 place-items-center rounded-full text-navy hover:bg-[#E5E5E5]"
         >
           <X className="h-4 w-4" />
         </button>

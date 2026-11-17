@@ -4,7 +4,7 @@ import { requireAdmin } from "@/integrations/supabase/admin-auth";
 import { actorLabel, writeAudit } from "@/lib/audit.server";
 import { isMissingSchema, migrationNeeded } from "@/lib/db-compat";
 import { MIGRATION_0008 } from "@/lib/ops/inventory.server";
-import { noteOrderHistory, writeOrderStatus } from "@/lib/ops/order-history.server";
+import { noteOrderHistory } from "@/lib/ops/order-history.server";
 
 const tsh = (n: number) => `${Math.round(n).toLocaleString("en-US")} TSh`;
 
@@ -243,28 +243,44 @@ export const cancelOrder = createServerFn({ method: "POST" })
       throw new Error(`${tsh(Number(order.amount_paid))} has been paid on this order. Refund it first, then cancel.`);
     }
 
-    const note = `Cancelled: ${data.reason}`;
-    await writeOrderStatus(supabaseAdmin, order.id, "cancelled", { cancel_reason: data.reason, status_reason: note });
+    const { cancelOrderRecord } = await import("@/lib/order-cancel.server");
     const actor = await actorLabel(supabaseAdmin, context.userId);
-    await noteOrderHistory(supabaseAdmin, { orderId: order.id, status: "cancelled", note, actor, statusChanged: true });
-    await writeAudit(supabaseAdmin, {
-      actor: context.userId,
-      action: "order_cancel",
-      entity: "order",
-      entityId: order.id,
-      before: { status: order.status },
-      after: { status: "cancelled", reason: data.reason },
-    });
-    const { notify } = await import("@/lib/notify.server");
-    await notify({
-      audience: "customer",
-      userId: order.user_id,
-      type: "order_status",
-      title: `Order ${order.order_number} was cancelled`,
-      body: data.reason,
-      link: `/account/orders/${order.order_number}`,
-      entity: "order",
-      entityId: order.id,
-    });
+    const result = await cancelOrderRecord(supabaseAdmin, order, data.reason, { userId: context.userId, label: actor });
+    if (!result.ok && result.reason === "delivered") {
+      throw new Error("A delivered order cannot be cancelled; refund it instead");
+    }
+    if (!result.ok && result.reason === "already_cancelled") throw new Error("This order is already cancelled");
+    if (!result.ok && result.reason === "paid") {
+      throw new Error(`${tsh(Number(order.amount_paid))} has been paid on this order. Refund it first, then cancel.`);
+    }
     return { ok: true };
+  });
+
+/** Keep one order out of the unpaid auto-cancel. Needs migration 0028. */
+export const setOrderAutoCancel = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ orderId: z.string().uuid(), disabled: z.boolean() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("orders").update({ auto_cancel_disabled: data.disabled }).eq("id", data.orderId);
+    if (error && isMissingSchema(error)) throw new Error(migrationNeeded("0028_reminders.sql"));
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Reminder and auto-cancel rows already recorded for one order. */
+export const listOrderReminders = createServerFn({ method: "GET" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ orderId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("reminder_sends")
+      .select("kind,entity,sent_at")
+      .eq("entity", "order")
+      .eq("entity_id", data.orderId)
+      .order("sent_at", { ascending: false });
+    if (error && isMissingSchema(error)) return { available: false as const, rows: [] };
+    if (error) throw new Error(error.message);
+    return { available: true as const, rows: rows ?? [] };
   });

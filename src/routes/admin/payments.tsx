@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Clock3, Download, Receipt, Trash2, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AdminEmpty,
@@ -20,18 +20,25 @@ import {
 } from "@/components/admin/admin-ui";
 import { downloadReceipt, purposeLabel } from "@/lib/invoice";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
-import { confirmSubmittedPayment } from "@/lib/admin.functions";
+import { confirmSubmittedPayment, rejectSubmittedPayment } from "@/lib/admin.functions";
+import { confirmPaymentCopy } from "@/lib/today-queue";
 import { deleteAdminPayments, getAdminPaymentSummary, listAdminPayments } from "@/lib/ops/customers.functions";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
 import { humanize, paymentRecordTone } from "@/lib/ops/status";
 
+type StatusFilter = "all" | "completed" | "pending" | "failed";
+
 export const Route = createFileRoute("/admin/payments")({
+  validateSearch: (s: Record<string, unknown>): { status?: StatusFilter } => {
+    const status = s["status"];
+    if (status === "pending" || status === "completed" || status === "failed") return { status };
+    return {};
+  },
   head: () => ({ meta: [{ title: "Payments — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminPaymentsPage,
 });
 
 type Row = Awaited<ReturnType<typeof listAdminPayments>>[number];
-type StatusFilter = "all" | "completed" | "pending" | "failed";
 type SourceFilter = "all" | Row["source"];
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -70,19 +77,38 @@ function paidAt(p: Row) {
 }
 
 function AdminPaymentsPage() {
+  const search = Route.useSearch();
   const list = useServerFn(listAdminPayments);
   const confirm = useServerFn(confirmSubmittedPayment);
+  const reject = useServerFn(rejectSubmittedPayment);
   const remove = useServerFn(deleteAdminPayments);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<Row | null>(null);
+  const confirmDialog = useRef<HTMLDialogElement>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [q, setQ] = useState("");
   const [range, setRange] = useState<DateRange | "all">("30d");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>(search.status ?? "all");
   const [source, setSource] = useState<SourceFilter>("all");
   const [method, setMethod] = useState<(typeof METHOD_OPTIONS)[number]["value"]>("all");
   const [purpose, setPurpose] = useState<(typeof PURPOSE_OPTIONS)[number]["value"]>("all");
   const [outstanding, setOutstanding] = useState<{ outstanding: number; openOrders: number } | null>(null);
   const summary = useServerFn(getAdminPaymentSummary);
+
+  useEffect(() => {
+    if (search.status) setStatus(search.status);
+  }, [search.status]);
+
+  useEffect(() => {
+    const node = confirmDialog.current;
+    if (!confirming || !node) return;
+    node.showModal();
+    return () => {
+      if (node.open) node.close();
+    };
+  }, [confirming]);
 
   useEffect(() => {
     list()
@@ -346,19 +372,53 @@ function AdminPaymentsPage() {
                 <p className="font-semibold text-navy">{tzs(p.amount)}</p>
                 <StatusPill tone={paymentRecordTone(p.status)}>{humanize(p.status)}</StatusPill>
               </div>
+              {p.status === "pending" && p.method && <p className="mt-1 text-xs text-[#6B7280]">{p.method}</p>}
+              {p.proofUrl && (
+                <a href={p.proofUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+                  <img src={p.proofUrl} alt="Payment proof" width={72} height={72} className="h-16 w-16 rounded-lg object-cover" />
+                </a>
+              )}
               {p.status === "pending" && p.source === "Submitted by customer" && (
-                <button
-                  type="button"
-                  className={btn("gold", "sm", "mt-2 w-full")}
-                  onClick={() =>
-                    void confirm({ data: { paymentId: p.id } })
-                      .then(() => list().then(setRows))
-                      .then(() => toast.success("Payment confirmed"))
-                      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not confirm"))
-                  }
-                >
-                  Confirm payment
-                </button>
+                <div className="mt-3 grid gap-2">
+                  <button type="button" className={btn("gold", undefined, "min-h-11 w-full")} onClick={() => setConfirming(p)}>
+                    Confirm
+                  </button>
+                  {rejecting === p.id ? (
+                    <form
+                      className="grid gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const note = reason.trim();
+                        if (note.length < 3) {
+                          toast.error("Enter a short reason");
+                          return;
+                        }
+                        setBusy(p.id);
+                        void reject({ data: { paymentId: p.id, reason: note } })
+                          .then(() => list().then(setRows))
+                          .then(() => {
+                            setRejecting(null);
+                            setReason("");
+                            toast.success("Payment rejected");
+                          })
+                          .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reject"))
+                          .finally(() => setBusy(null));
+                      }}
+                    >
+                      <label className="text-xs font-semibold text-navy" htmlFor={`reject-${p.id}`}>
+                        Reason
+                      </label>
+                      <input id={`reject-${p.id}`} value={reason} onChange={(event) => setReason(event.target.value)} className="h-11 rounded-lg border border-[#E5E5E5] px-3 text-sm" />
+                      <button type="submit" className={btn("danger", undefined, "min-h-11 w-full")} disabled={busy !== null}>
+                        Reject
+                      </button>
+                    </form>
+                  ) : (
+                    <button type="button" className={btn("danger", undefined, "min-h-11 w-full")} onClick={() => { setRejecting(p.id); setReason(""); }}>
+                      Reject
+                    </button>
+                  )}
+                </div>
               )}
               {p.status === "completed" && (
                 <button type="button" className={btn("outline", "sm", "mt-2 w-full")} onClick={() => receipt(p)}>
@@ -371,6 +431,44 @@ function AdminPaymentsPage() {
             </div>
           )}
         />
+      )}
+      {confirming && (
+        <dialog
+          ref={confirmDialog}
+          className="w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-xl backdrop:bg-[#14213D]/40"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (busy !== null) return;
+            setConfirming(null);
+          }}
+        >
+          <h2 className="text-lg font-semibold text-navy">Confirm payment</h2>
+          <p className="mt-2 text-sm text-[#374151]">{confirmPaymentCopy(tzs(confirming.amount), confirming.orders?.order_number ?? "this order")}</p>
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              className={btn("gold", undefined, "min-h-11 w-full")}
+              disabled={busy !== null}
+              onClick={() => {
+                const payment = confirming;
+                setBusy(payment.id);
+                void confirm({ data: { paymentId: payment.id } })
+                  .then(() => list().then(setRows))
+                  .then(() => {
+                    setConfirming(null);
+                    toast.success("Payment confirmed");
+                  })
+                  .catch((e) => toast.error(e instanceof Error ? e.message : "Could not confirm"))
+                  .finally(() => setBusy(null));
+              }}
+            >
+              Confirm
+            </button>
+            <button type="button" className={btn("outline", undefined, "min-h-11 w-full")} onClick={() => setConfirming(null)}>
+              Go back
+            </button>
+          </div>
+        </dialog>
       )}
     </div>
   );

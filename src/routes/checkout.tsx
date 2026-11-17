@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, MapPin, Pencil, Store, Truck } from "lucide-react";
+import { MapPin, Store, Truck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Stepper } from "@/components/brand/Stepper";
 import { DeliveryFields, type DeliveryValues } from "@/components/site/DeliveryFields";
 import { PayInstructions } from "@/components/site/PayInstructions";
 import { PaymentPolicy } from "@/components/site/PaymentPolicy";
+import { Honeypot } from "@/components/site/Honeypot";
+import { MoneyTimeline } from "@/components/site/MoneyTimeline";
 import { WalletPicker } from "@/components/site/WalletPicker";
 import { formatAmount, formatPrice } from "@/config/site";
 import { useAuthUser } from "@/hooks/use-auth";
@@ -17,17 +18,27 @@ import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { getMyProfile } from "@/lib/account.functions";
 import { listMyAddresses, type SavedAddress } from "@/lib/addresses.functions";
+import { trackEvent } from "@/lib/analytics";
+import { clearBuyNow, readBuyNow, type BuyNowLine } from "@/lib/buy-now";
 import { useCart } from "@/lib/cart";
+import { productsQuery } from "@/lib/catalog";
 import { createCheckout, getCheckoutConfig } from "@/lib/checkout.functions";
+import { quoteCheckout } from "@/lib/checkout-quote";
 import { composeDeliveryLocation, deliveryFeeStatusFor, placeFromProfileLocation, type FulfilmentMethod } from "@/lib/delivery";
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
 import { phoneMatchesWallet, walletById, type WalletId } from "@/lib/palmpesa";
-import { advanceAmount, advanceSettingsFrom, advanceTierFor, MIN_MOBILE_PAYMENT_TZS } from "@/lib/payment-policy";
+import { advanceSettingsFrom } from "@/lib/payment-policy";
+import { selectedOptionPrice } from "@/lib/order-options";
 import { asksForPrice, isPurchasable } from "@/lib/product-display";
+import { normaliseTzMobile } from "@/lib/phone-tz";
 import { siteSettingsQuery, completionHours } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
+  validateSearch: (search: Record<string, unknown>): { buy?: boolean } => {
+    const buy = search["buy"] === "1" || search["buy"] === 1 || search["buy"] === true;
+    return buy ? { buy: true } : {};
+  },
   head: () => ({ meta: [{ title: "Checkout — GK furnish" }, { name: "robots", content: "noindex" }] }),
   component: CheckoutPage,
 });
@@ -37,12 +48,15 @@ function todayIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const phoneOk = (v: string) => /^[+\d\s()-]{7,20}$/.test(v.trim());
+const phoneOk = (v: string) => normaliseTzMobile(v) != null;
 
 function CheckoutPage() {
   const { t, lang } = useLang();
+  const { buy } = Route.useSearch();
   const nav = useNavigate();
   const cart = useCart();
+  const { data: catalog = [] } = useQuery(productsQuery);
+  const [buyLine, setBuyLine] = useState<BuyNowLine | null>(null);
   const { user, ready: authReady } = useAuthUser();
   const { open: openAuth } = useAuthPopup();
   const send = useServerFn(createCheckout);
@@ -67,16 +81,22 @@ function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<"advance" | "full">("advance");
   const [payMethod, setPayMethod] = useState<"mobile" | "bank">("mobile");
-  const [wallet, setWallet] = useState<WalletId>("mpesa");
+  const [wallet, setWallet] = useState<WalletId | null>(null);
   const methods = config?.methods ?? DEFAULT_PAY_METHODS;
   const payChannels = useMemo(
     () => (["mobile", "bank"] as const).filter((kind) => (kind === "bank" ? methods.nmb : methods.mpesa || methods.airtel)),
     [methods.airtel, methods.mpesa, methods.nmb],
   );
   const [agreed, setAgreed] = useState(false);
+  const [policiesAccepted, setPoliciesAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [method, setMethod] = useState<FulfilmentMethod>("delivery");
+  const [method, setMethod] = useState<FulfilmentMethod>("collection");
+  const [manualPay, setManualPay] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [requestId] = useState(() => crypto.randomUUID());
+  const started = useRef(Date.now());
+  const phoneTracked = useRef(false);
   const [addressId, setAddressId] = useState<string>("");
   const [saveAddress, setSaveAddress] = useState(false);
   const [place, setPlace] = useState<DeliveryValues>({ region: "", district: "", address_line: "" });
@@ -90,6 +110,30 @@ function CheckoutPage() {
   });
 
   const filled = useRef({ name: "", phone: "", email: "", location: "" });
+
+  useEffect(() => {
+    if (buy) setBuyLine(readBuyNow());
+  }, [buy]);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("gk-checkout-remember") === "0") {
+        setRemember(false);
+        return;
+      }
+      const name = localStorage.getItem("gk-checkout-name") ?? "";
+      const phone = localStorage.getItem("gk-checkout-phone") ?? "";
+      if (!name && !phone) return;
+      setForm((current) => ({
+        ...current,
+        customer_name: current.customer_name || name,
+        phone: current.phone || phone,
+        payment_phone: current.payment_phone || phone,
+      }));
+    } catch {
+      // Storage can be blocked. Checkout still works.
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -136,18 +180,43 @@ function CheckoutPage() {
     }));
   }
 
-  const subtotal = cart.subtotal;
-  const itemCount = cart.count;
-  const products = cart.entries.flatMap((e) => (e.product ? [e.product] : []));
+  const buyProduct = buyLine ? catalog.find((item) => item.id === buyLine.product_id) : undefined;
+  const buyUnit = buyProduct && buyLine ? selectedOptionPrice(buyProduct, buyLine.material, buyLine.size) : null;
+  const lines = buy && buyLine && buyProduct && buyUnit != null
+    ? [{
+        key: "buy-now",
+        product_id: buyLine.product_id,
+        quantity: buyLine.quantity,
+        material: buyLine.material,
+        size: buyLine.size,
+        color: buyLine.color,
+        product: buyProduct,
+        unitPrice: buyUnit,
+        lineTotal: buyUnit * buyLine.quantity,
+      }]
+    : cart.entries.map((entry) => ({
+        key: entry.key,
+        product_id: entry.product_id,
+        quantity: entry.quantity,
+        material: entry.material,
+        size: entry.size,
+        color: entry.color,
+        product: entry.product,
+        unitPrice: entry.unitPrice,
+        lineTotal: entry.lineTotal,
+      }));
+  const subtotal = lines.reduce((sum, line) => sum + (line.lineTotal ?? 0), 0);
+  const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const products = lines.flatMap((e) => (e.product ? [e.product] : []));
   const feeStatus = deliveryFeeStatusFor(method, products, method === "delivery" ? place.region : undefined);
-  const tier = advanceTierFor({ total: subtotal, itemCount }, advanceSettingsFrom(settings));
-  const advance = Math.min(subtotal, Math.max(MIN_MOBILE_PAYMENT_TZS, advanceAmount(subtotal, tier.percent)));
-  const payNow = choice === "full" ? subtotal : advance;
-  const tierLabel = tier.tier === "large" ? t.checkout.tierLarge : tier.tier === "custom" ? t.checkout.tierCustom : t.checkout.tierStandard;
-  const blocked = cart.entries.some((e) => !e.product || asksForPrice(e.product) || e.unitPrice == null || !isPurchasable(e.product));
+  const quote = quoteCheckout(subtotal, itemCount, advanceSettingsFrom(settings));
+  const advance = quote.advance;
+  const payNow = choice === "full" ? quote.full : quote.advance;
+  const tierLabel = quote.tier === "large" ? t.checkout.tierLarge : quote.tier === "custom" ? t.checkout.tierCustom : t.checkout.tierStandard;
+  const blocked = lines.some((e) => !e.product || asksForPrice(e.product) || e.unitPrice == null || !isPurchasable(e.product));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const online = Boolean(config?.onlinePayment);
-  const promptPay = online && payMethod === "mobile";
+  const snippePayNow = Boolean(config?.snippePayNow) && !manualPay;
+  const promptPay = snippePayNow && payMethod === "mobile";
   const collectionAddress = config?.collectionAddress ?? "Mbeya, Tanzania";
   const placeLabel = useMemo(
     () =>
@@ -171,15 +240,6 @@ function CheckoutPage() {
     return !Object.keys(errs).length;
   }
 
-  function next() {
-    if (step === 0) {
-      if (!validateDelivery()) return;
-      setStep(1);
-      return;
-    }
-    setStep(2);
-  }
-
   async function placeOrder() {
     if (!validateDelivery()) {
       setStep(0);
@@ -189,17 +249,45 @@ function CheckoutPage() {
       setErrors({ specs: t.checkout.specsRequired });
       return;
     }
-    const payPhone = (form.payment_phone || form.phone).trim();
-    if (promptPay && !phoneMatchesWallet(payPhone, wallet)) {
+    if (!policiesAccepted) {
+      setErrors({ policies: t.validation.policiesRequired });
+      return;
+    }
+    const customerPhone = normaliseTzMobile(form.phone);
+    const payPhone = (form.payment_phone || customerPhone || "").trim();
+    if (promptPay && !wallet) {
+      setErrors({ wallet: t.checkout.walletRequired });
+      return;
+    }
+    if (promptPay && wallet && !phoneMatchesWallet(payPhone, wallet)) {
       setStep(1);
       setErrors({ payment_phone: t.checkout.walletMismatch });
       return;
     }
     setBusy(true);
     try {
+      if (remember) {
+        try {
+          localStorage.setItem("gk-checkout-remember", "1");
+          localStorage.setItem("gk-checkout-name", form.customer_name.trim());
+          localStorage.setItem("gk-checkout-phone", form.phone.trim());
+        } catch {
+          // Ignore storage failures.
+        }
+      } else {
+        try {
+          localStorage.setItem("gk-checkout-remember", "0");
+          localStorage.removeItem("gk-checkout-name");
+          localStorage.removeItem("gk-checkout-phone");
+        } catch {
+          // Ignore storage failures.
+        }
+      }
+      if (promptPay) trackEvent("payment_started", { method: "snippe" });
       const r = await send({
         data: {
-          items: cart.entries.map((entry) => ({
+          client_request_id: requestId,
+          items: lines.map((entry) => ({
             product_id: entry.product_id,
             quantity: entry.quantity,
             material: entry.material,
@@ -207,7 +295,7 @@ function CheckoutPage() {
             color: entry.color,
           })),
           customer_name: form.customer_name.trim(),
-          phone: form.phone.trim(),
+          phone: customerPhone ?? form.phone.trim(),
           email: form.email.trim(),
           fulfilment_method: method,
           region: method === "delivery" ? place.region : "",
@@ -218,12 +306,16 @@ function CheckoutPage() {
           notes: form.notes.trim(),
           payment_choice: choice,
           payment_method: payMethod,
-          ...(promptPay ? { wallet } : {}),
+          ...(promptPay && wallet ? { wallet } : {}),
           payment_phone: payPhone,
           specs_agreed: true,
+          policies_accepted: true,
+          company_website: (document.getElementById("company_website") as HTMLInputElement | null)?.value ?? "",
+          started_at: started.current,
         },
       });
-      await cart.clear();
+      if (buy) clearBuyNow();
+      else await cart.clear();
       if (r.paymentId) {
         void nav({ to: "/pay/$paymentId", params: { paymentId: r.paymentId } });
         return;
@@ -249,19 +341,30 @@ function CheckoutPage() {
           needed: form.needed_by,
           location: r.deliveryLocation,
           track: r.trackingToken ?? undefined,
-          delivery: r.deliveryFeeStatus,
+          delivery:
+            r.deliveryFeeStatus === "pending" || r.deliveryFeeStatus === "confirmed" || r.deliveryFeeStatus === "free"
+              ? r.deliveryFeeStatus
+              : undefined,
         },
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.validation.failed);
+      const message = err instanceof Error ? err.message : "";
+      toast.error(message.includes("few minutes") ? t.validation.slowDown : message || t.validation.failed);
     } finally {
       setBusy(false);
     }
   }
 
-  const err = (k: string) => errors[k] && <p className="field-error">{errors[k]}</p>;
+  const err = (k: string) =>
+    errors[k] ? (
+      <p id={`err-${k}`} className="field-error">
+        {errors[k]}
+      </p>
+    ) : null;
+  const invalid = (k: string) =>
+    errors[k] ? { "aria-invalid": true as const, "aria-describedby": `err-${k}` } : { "aria-invalid": false as const };
 
-  if (cart.ready && cart.entries.length === 0) {
+  if ((buy ? buyLine == null && catalog.length > 0 : cart.ready) && lines.length === 0) {
     return (
       <div className="container-page section-y text-center">
         <h1 className="display-lg">{t.checkout.title}</h1>
@@ -284,7 +387,7 @@ function CheckoutPage() {
     <div className="kpi-card">
       <h2 className="text-base font-bold">{t.checkout.summary}</h2>
       <ul className="mt-3 space-y-2.5 text-sm">
-        {cart.entries.map((entry) => (
+        {lines.map((entry) => (
           <li key={entry.key} className="flex justify-between gap-3">
             <span className="min-w-0 text-navy">
               <span className="font-medium">{entry.quantity}×</span>{" "}
@@ -328,47 +431,40 @@ function CheckoutPage() {
 
   return (
     <div className="bg-sand">
-      <div className="container-page py-5 md:py-8">
+      <div className="container-page py-5 pb-28 md:pt-8 md:pb-28 lg:pb-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="display-lg">{t.checkout.title}</h1>
-          {authReady && !user && (
-            <p className="max-w-xl text-sm text-navy">
-              {t.checkout.signInPrompt}{" "}
-              <button type="button" onClick={() => openAuth({ reason: "checkout", mode: "signin" })} className="font-semibold text-gold-ink underline">
-                {t.nav.signIn}
-              </button>
-            </p>
-          )}
         </div>
-        <Stepper
-          className="mt-4 max-w-xl"
-          steps={[t.steps.delivery, t.steps.payment, t.steps.review]}
-          current={step}
-          onStepClick={(index) => setStep(index)}
-        />
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <Honeypot />
+        <div className="mx-auto mt-6 grid max-w-xl grid-cols-1 gap-6">
           <div className="min-w-0 space-y-4">
-            {step === 0 && (
               <>
                 <section className="panel p-4 md:p-5">
                   <h2 className="text-base font-bold">{t.checkout.contact}</h2>
-                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="field-label" htmlFor="c-name">{t.order.name} *</label>
-                      <input id="c-name" className="field-input" autoComplete="name" value={form.customer_name} onChange={set("customer_name")} aria-invalid={Boolean(errors["customer_name"])} />
-                      {err("customer_name")}
-                    </div>
+                  <div className="mt-3 grid gap-4">
                     <div>
                       <label className="field-label" htmlFor="c-phone">{t.order.phone} *</label>
-                      <input id="c-phone" type="tel" inputMode="tel" autoComplete="tel" className="field-input" placeholder="+255…" value={form.phone} onChange={set("phone")} aria-invalid={Boolean(errors["phone"])} />
+                      <input id="c-phone" type="tel" inputMode="tel" autoComplete="tel" enterKeyHint="next" className="field-input" placeholder="0692 713 993" value={form.phone} onChange={set("phone")} onBlur={() => { if (form.phone.trim() && !phoneOk(form.phone)) setErrors((current) => ({ ...current, phone: t.validation.phoneInvalid })); if (!phoneTracked.current && phoneOk(form.phone)) { phoneTracked.current = true; trackEvent("checkout_phone_entered"); } }} {...invalid("phone")} />
                       {err("phone")}
                     </div>
                     <div>
-                      <label className="field-label" htmlFor="c-email">{t.order.email}</label>
-                      <input id="c-email" type="email" autoComplete="email" className="field-input" value={form.email} onChange={set("email")} aria-invalid={Boolean(errors["email"])} />
-                      {err("email")}
+                      <label className="field-label" htmlFor="c-name">{t.order.name} *</label>
+                      <input id="c-name" className="field-input" autoComplete="name" enterKeyHint="next" value={form.customer_name} onChange={set("customer_name")} {...invalid("customer_name")} />
+                      {err("customer_name")}
                     </div>
+                    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-navy">
+                      <input type="checkbox" className="h-4 w-4 accent-[var(--gold-ink)]" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                      {t.checkout.rememberMe}
+                    </label>
+                    <details>
+                      <summary className="cursor-pointer text-sm font-semibold text-navy">{t.checkout.emailToggle}</summary>
+                      <div className="mt-2">
+                        <label className="field-label" htmlFor="c-email">{t.order.email}</label>
+                        <input id="c-email" type="email" inputMode="email" autoComplete="email" enterKeyHint="done" className="field-input" value={form.email} onChange={set("email")} {...invalid("email")} />
+                        {err("email")}
+                      </div>
+                    </details>
                   </div>
                 </section>
 
@@ -377,8 +473,8 @@ function CheckoutPage() {
                   <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t.delivery.method}>
                     {(
                       [
-                        { id: "delivery", icon: Truck, title: t.delivery.deliveryOption, hint: t.delivery.deliveryOptionHint },
                         { id: "collection", icon: Store, title: t.delivery.collectionOption, hint: t.delivery.collectionOptionHint },
+                        { id: "delivery", icon: Truck, title: t.delivery.deliveryOption, hint: t.delivery.deliveryOptionHint },
                       ] as const
                     ).map((o) => (
                       <label
@@ -470,7 +566,7 @@ function CheckoutPage() {
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="field-label" htmlFor="c-needed">{t.order.neededBy}</label>
-                      <input id="c-needed" type="date" min={todayIso()} className="field-input" value={form.needed_by} onChange={set("needed_by")} aria-invalid={Boolean(errors["needed_by"])} />
+                      <input id="c-needed" type="date" min={todayIso()} className="field-input" value={form.needed_by} onChange={set("needed_by")} {...invalid("needed_by")} />
                       <p className="mt-1.5 text-xs text-muted-foreground">{fill(t.order.completionNote, { hours: completionHours(settings) })}</p>
                       {err("needed_by")}
                     </div>
@@ -481,9 +577,7 @@ function CheckoutPage() {
                   </div>
                 </section>
               </>
-            )}
 
-            {step === 1 && (
               <>
                 <section className="panel p-4 md:p-5">
                   <div>
@@ -503,7 +597,7 @@ function CheckoutPage() {
                           <input type="radio" name="payment_method" className="sr-only" checked={payMethod === kind} onChange={() => setPayMethod(kind)} />
                           <span className="block font-semibold text-navy">{kind === "mobile" ? t.checkout.methodMobile : t.checkout.methodBank}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {kind === "mobile" ? (online ? t.checkout.phoneHint : t.checkout.methodMobileHint) : t.checkout.methodBankHint}
+                            {kind === "mobile" ? (snippePayNow ? t.checkout.phoneHint : t.checkout.methodMobileHint) : t.checkout.methodBankHint}
                           </span>
                         </label>
                       ))}
@@ -521,10 +615,11 @@ function CheckoutPage() {
                           autoComplete="tel"
                           value={form.payment_phone}
                           onChange={set("payment_phone")}
-                          aria-invalid={Boolean(errors["payment_phone"])}
+                          {...invalid("payment_phone")}
                         />
                         <p className="mt-1.5 text-xs text-muted-foreground">{t.checkout.phoneHint}</p>
                         {err("payment_phone")}
+                        {err("wallet")}
                       </div>
                     )}
                     {payChannels.length > 0 && !promptPay && (
@@ -545,7 +640,9 @@ function CheckoutPage() {
                       >
                         <input type="radio" name="payment_choice" className="sr-only" checked={choice === kind} onChange={() => setChoice(kind)} />
                         <span className="block font-semibold text-navy">
-                          {kind === "advance" ? fill(t.checkout.advanceLabel, { percent: tier.percent }) : t.checkout.fullLabel}
+                          {kind === "advance"
+                            ? fill(t.checkout.advanceLabel, { amount: formatAmount(advance) })
+                            : fill(t.checkout.fullLabel, { amount: formatAmount(subtotal) })}
                         </span>
                         <span className="mt-0.5 block text-sm text-muted-foreground">
                           {kind === "advance"
@@ -558,99 +655,38 @@ function CheckoutPage() {
                   {feeStatus === "pending" && <p className="mt-3 text-xs text-muted-foreground">{t.delivery.pendingNote}</p>}
                 </section>
                 <PaymentPolicy />
+                <MoneyTimeline />
               </>
-            )}
 
-            {step === 2 && (
-              <section className="panel p-4 md:p-5">
-                <h2 className="text-base font-bold">{t.steps.reviewTitle}</h2>
-                <dl className="mt-3 divide-y divide-border text-sm">
-                  {[
-                    {
-                      label: t.steps.contactDetails,
-                      value: [form.customer_name, form.phone, form.email].filter(Boolean).join(" · "),
-                      go: 0,
-                    },
-                    {
-                      label: method === "collection" ? t.steps.collectAt : t.steps.deliverTo,
-                      value: placeLabel,
-                      go: 0,
-                    },
-                    { label: t.order.neededBy, value: form.needed_by || "—", go: 0 },
-                    {
-                      label: t.steps.paymentPlan,
-                      value:
-                        choice === "advance"
-                          ? `${fill(t.checkout.advanceLabel, { percent: tier.percent })} — ${formatAmount(advance)}`
-                          : `${t.checkout.fullLabel} — ${formatAmount(subtotal)}`,
-                      go: 1,
-                    },
-                    {
-                      label: t.checkout.payment,
-                      value:
-                        payChannels.length === 0
-                          ? t.checkout.methodsOff
-                          : promptPay
-                            ? `${t.checkout.methodMobile} — ${walletById(wallet)?.label ?? wallet}`
-                            : payMethod === "bank"
-                              ? t.checkout.methodBank
-                              : t.checkout.methodMobile,
-                      go: 1,
-                    },
-                    ...(form.notes ? [{ label: t.order.notes, value: form.notes, go: 0 }] : []),
-                  ].map((row) => (
-                    <div key={row.label} className="flex items-start justify-between gap-3 py-2.5">
-                      <div className="min-w-0">
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{row.label}</dt>
-                        <dd className="mt-0.5 break-words text-navy">{row.value}</dd>
-                      </div>
-                      <button type="button" onClick={() => setStep(row.go)} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-gold-ink hover:underline">
-                        <Pencil className="h-3 w-3" />
-                        {t.steps.edit}
-                      </button>
-                    </div>
-                  ))}
-                </dl>
-                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg bg-sand p-3 text-sm text-navy">
-                  <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--gold-ink)]" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-                  <span>{t.checkout.specsAgree}</span>
-                </label>
-                {err("specs")}
-                <p className="mt-3 text-xs text-muted-foreground">{t.steps.trackHint}</p>
-              </section>
+            {summary}
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-sand p-3 text-sm text-navy">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--gold-ink)]" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+              <span>{t.checkout.specsAgree}</span>
+            </label>
+            {err("specs")}
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-sand p-3 text-sm text-navy">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--gold-ink)]" checked={policiesAccepted} onChange={(e) => setPoliciesAccepted(e.target.checked)} />
+              <span>
+                {t.checkout.policiesAgree}{" "}
+                <Link to="/policies" className="font-semibold underline-offset-2 hover:underline">{t.checkout.policiesLink}</Link>
+              </span>
+            </label>
+            {err("policies")}
+            <button
+              type="button"
+              className="btn-base btn-gold btn-lg w-full"
+              onClick={() => void placeOrder()}
+              disabled={busy || blocked || (!buy && !cart.ready) || !authReady}
+            >
+              {busy ? t.checkout.placing : fill(t.checkout.payAmount, { amount: formatAmount(payNow) })}
+            </button>
+            {!manualPay && (
+              <button type="button" className="min-h-11 text-sm font-semibold text-navy underline" onClick={() => setManualPay(true)}>
+                {t.checkout.manualInstead}
+              </button>
             )}
-
-            <div className="flex flex-wrap-reverse items-center justify-between gap-3 [&>*:last-child]:max-sm:w-full">
-              {step > 0 ? (
-                <button type="button" className="btn-base btn-outline-navy" onClick={() => setStep(step - 1)}>
-                  <ArrowLeft className="h-4 w-4" />
-                  {t.steps.back}
-                </button>
-              ) : (
-                <Link to="/cart" className="btn-base btn-ghost">
-                  <ArrowLeft className="h-4 w-4" />
-                  {t.cart.title}
-                </Link>
-              )}
-              {step < 2 ? (
-                <button type="button" className="btn-base btn-gold btn-lg" onClick={next} disabled={blocked}>
-                  {step === 0 ? t.steps.continuePayment : t.steps.continueReview}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-base btn-gold btn-lg"
-                  onClick={() => void placeOrder()}
-                  disabled={busy || blocked || !cart.ready || !authReady}
-                >
-                  {busy ? t.checkout.placing : t.checkout.placeOrder}
-                </button>
-              )}
-            </div>
           </div>
 
-          <aside className="h-fit lg:sticky lg:top-24">{summary}</aside>
         </div>
       </div>
     </div>

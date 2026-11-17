@@ -333,7 +333,7 @@ export async function downloadQuote(quote: SavedQuote) {
       quote.validUntil ? `<p class="muted">Valid until ${escapeHtml(quote.validUntil)}</p>` : ""
     }`,
     logo,
-  )}`
+  )}
     <h2>Customer</h2>
     <div class="grid">
       <div class="card">

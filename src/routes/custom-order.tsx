@@ -1,26 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, ImagePlus, MessageCircle, Phone, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { MessageCircle, Phone } from "lucide-react";
+import { CustomOrderForm } from "@/components/site/CustomOrderForm";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
-import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
-import { telLink, waLink } from "@/config/site";
-import { useAuthUser } from "@/hooks/use-auth";
-import { sessionContact } from "@/hooks/use-customer-name";
+import { WhatsAppOrderLink } from "@/components/site/WhatsAppOrderLink";
+import { telLink } from "@/config/site";
 import { useSiteImages } from "@/hooks/use-site-images";
-import { getMyProfile } from "@/lib/account.functions";
-import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
-import { STANDARD_COLORS } from "@/lib/color-swatches";
-import { productsQuery } from "@/lib/catalog";
-import { pageSectionsQuery, siteSettingsQuery, completionHours } from "@/lib/site-content";
-import { BED_SIZES, MATERIAL_OPTIONS, formatPreference, packPreference } from "@/lib/order-options";
-import { submitCustomOrder } from "@/lib/orders.functions";
-import { seo } from "@/lib/seo";
-import { cn } from "@/lib/utils";
+import { pageSectionsQuery } from "@/lib/site-content";
+import { absoluteUrl, seo } from "@/lib/seo";
+import { whatsAppOrderText } from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/custom-order")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -37,159 +27,10 @@ export const Route = createFileRoute("/custom-order")({
   component: Custom,
 });
 
-const IMG_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-
-function toBase64(file: File) {
-  return new Promise<string>((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result).split(",")[1] ?? "");
-    r.onerror = () => rej(r.error);
-    r.readAsDataURL(file);
-  });
-}
-
 function Custom() {
   const { t } = useLang();
-  const { product: productSlug } = Route.useSearch();
-  const { data: catalogue = [] } = useQuery({ ...productsQuery, enabled: Boolean(productSlug) });
-  const named = useRef(false);
-  const { data: settings } = useQuery(siteSettingsQuery);
-  const nav = useNavigate();
-  const { user } = useAuthUser();
-  const loadProfile = useServerFn(getMyProfile);
-  const send = useServerFn(submitCustomOrder);
-  const { data: profile } = useQuery({
-    queryKey: ["my-profile", user?.id],
-    queryFn: () => loadProfile(),
-    enabled: Boolean(user),
-    staleTime: 5 * 60_000,
-  });
-  const [contact, setContact] = useState({ full_name: "", phone: "", email: "", delivery_location: "" });
-  const filled = useRef({ name: "", phone: "", email: "", location: "" });
+  const { product } = Route.useSearch();
   const { image } = useSiteImages();
-  const [errs, setErrs] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [finishPreview, setFinishPreview] = useState<string | null>(null);
-  const [showExtras, setShowExtras] = useState(false);
-  const [furnitureType, setFurnitureType] = useState("");
-  useEffect(() => {
-    if (named.current || !productSlug) return;
-    const match = catalogue.find((item) => item.slug === productSlug);
-    if (!match) return;
-    named.current = true;
-    setFurnitureType(match.name);
-  }, [catalogue, productSlug]);
-  const [colors, setColors] = useState<string[]>([]);
-  const [materials, setMaterials] = useState<string[]>([]);
-  const [colorNote, setColorNote] = useState("");
-  const [materialNote, setMaterialNote] = useState("");
-  const [bedSize, setBedSize] = useState("");
-  const [neededBy, setNeededBy] = useState("");
-  const bed = /\bbed\b|\bkitanda\b/i.test(furnitureType);
-
-  useEffect(() => {
-    if (!user) return;
-    const session = sessionContact(user);
-    const name = profile?.full_name?.trim() || session.name;
-    const phone = profile?.phone?.trim() || session.phone;
-    const email = profile?.email?.trim() || session.email;
-    const location = profile?.default_location?.trim() || "";
-    setContact((current) => ({
-      full_name: current.full_name && current.full_name !== filled.current.name ? current.full_name : name,
-      phone: current.phone && current.phone !== filled.current.phone ? current.phone : phone,
-      email: current.email && current.email !== filled.current.email ? current.email : email,
-      delivery_location: current.delivery_location && current.delivery_location !== filled.current.location ? current.delivery_location : location,
-    }));
-    filled.current = { name, phone, email, location };
-  }, [user, profile]);
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const v = (k: string) => String(fd.get(k) ?? "").trim();
-    const f = {
-      full_name: v("full_name"),
-      phone: v("phone"),
-      email: v("email"),
-      furniture_type: v("furniture_type"),
-      design_description: v("design_description"),
-      preferred_dimensions: bed ? bedSize : v("preferred_dimensions"),
-      preferred_material: packPreference(materials, materialNote),
-      preferred_color: packPreference(colors, colorNote),
-      needed_by: neededBy,
-      budget: v("budget"),
-      finish: v("finish"),
-      delivery_location: v("delivery_location"),
-      additional_requirements: v("additional_requirements"),
-      quantity: Math.max(1, Number(v("quantity")) || 1),
-    };
-    const file = fd.get("reference_image");
-    const img = file instanceof File && file.size > 0 ? file : null;
-    const finishFile = fd.get("finish_image");
-    const finish = finishFile instanceof File && finishFile.size > 0 ? finishFile : null;
-    const x: Record<string, string> = {};
-    if (!f.full_name) x["full_name"] = t.validation.nameRequired;
-    if (!f.phone) x["phone"] = t.validation.phoneRequired;
-    else if (!/^[+\d\s()-]{7,20}$/.test(f.phone)) x["phone"] = t.validation.phoneInvalid;
-    if (!f.furniture_type) x["furniture_type"] = t.validation.typeRequired;
-    if (!f.design_description) x["design_description"] = t.validation.descriptionRequired;
-    if (!f.delivery_location) x["delivery_location"] = t.validation.locationRequired;
-    if (!f.needed_by) x["needed_by"] = t.validation.dateRequired;
-    if (bed && !f.preferred_dimensions) x["preferred_dimensions"] = t.validation.sizeRequired;
-    if (f.email && !/^\S+@\S+\.\S+$/.test(f.email)) x["email"] = t.validation.emailInvalid;
-    for (const [key, photo] of [
-      ["reference_image", img],
-      ["finish_image", finish],
-    ] as const) {
-      if (photo && (!IMG_TYPES.includes(photo.type as (typeof IMG_TYPES)[number]) || photo.size > 5 * 1024 * 1024)) {
-        x[key] = t.validation.imageInvalid;
-      }
-    }
-    setErrs(x);
-    if (Object.keys(x).length) return;
-    setBusy(true);
-    try {
-      const reference_image = img
-        ? { name: img.name, type: img.type as (typeof IMG_TYPES)[number], base64: await toBase64(img) }
-        : undefined;
-      const finish_image = finish
-        ? { name: finish.name, type: finish.type as (typeof IMG_TYPES)[number], base64: await toBase64(finish) }
-        : undefined;
-      const r = await send({ data: { ...f, reference_image, finish_image } });
-      nav({
-        to: "/order-success",
-        search: {
-          ref: r.requestNumber,
-          item: r.type,
-          qty: r.quantity,
-          custom: true,
-          name: f.full_name,
-          phone: f.phone,
-          email: f.email || undefined,
-          color: formatPreference(f.preferred_color) || undefined,
-          size: f.preferred_dimensions || undefined,
-          material: formatPreference(f.preferred_material) || undefined,
-          needed: f.needed_by,
-          location: f.delivery_location,
-          track: r.trackingToken ?? undefined,
-        },
-      });
-    } catch {
-      toast.error(t.validation.failed);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const fieldErr = (n: string) =>
-    errs[n] ? <p className="field-error">{errs[n]}</p> : null;
-  const sectionLabel = (index: number, label: string) => (
-    <p className="mb-1 flex items-center gap-2 text-sm font-bold text-navy">
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-gold text-xs text-navy">{index}</span>
-      {label}
-    </p>
-  );
 
   return (
     <>
@@ -221,10 +62,14 @@ function Custom() {
             <div className="panel p-5 md:p-6">
               <p className="text-sm font-semibold text-navy">{t.custom.preferContact}</p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <a href={waLink(t.whatsapp.general)} target="_blank" rel="noreferrer" className="btn-base btn-gold flex-1">
+                <WhatsAppOrderLink
+                  source="custom"
+                  text={whatsAppOrderText([t.whatsapp.customIntro, absoluteUrl("/custom-order")])}
+                  className="btn-base btn-outline-navy min-h-11 flex-1"
+                >
                   <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </a>
+                  {t.whatsapp.orderButton}
+                </WhatsAppOrderLink>
                 <a href={telLink()} className="btn-base btn-outline-navy flex-1">
                   <Phone className="h-4 w-4" />
                   {t.common.call}
@@ -240,264 +85,7 @@ function Custom() {
           </Reveal>
 
           <Reveal variant="right">
-            <form
-              onSubmit={onSubmit}
-              noValidate
-              className="kpi-card !p-5 md:!p-7"
-            >
-              <div className="mb-5 flex items-start gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-gold-tint text-navy">
-                  <Sparkles className="h-5 w-5" />
-                </span>
-                <div>
-                  <h2 className="font-display text-xl font-bold text-navy">{t.custom.formTitle}</h2>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{t.custom.formIntro}</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">{sectionLabel(1, t.customExtra.steps[0] ?? t.custom.contactSection)}</div>
-                <div>
-                  <label className="field-label" htmlFor="full_name">
-                    {t.custom.fullName} *
-                  </label>
-                  <input id="full_name" name="full_name" className="field-input" autoComplete="name" value={contact.full_name} onChange={(e) => setContact((c) => ({ ...c, full_name: e.target.value }))} />
-                  {fieldErr("full_name")}
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="phone">
-                    {t.custom.phone} *
-                  </label>
-                  <input id="phone" name="phone" type="tel" className="field-input" placeholder="+255…" autoComplete="tel" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
-                  {fieldErr("phone")}
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="email">
-                    {t.custom.email}
-                  </label>
-                  <input id="email" name="email" type="email" className="field-input" autoComplete="email" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
-                  {fieldErr("email")}
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="delivery_location">
-                    {t.custom.location} *
-                  </label>
-                  <input id="delivery_location" name="delivery_location" className="field-input" placeholder="Mbeya, area, street, building…" value={contact.delivery_location} onChange={(e) => setContact((c) => ({ ...c, delivery_location: e.target.value }))} />
-                  {fieldErr("delivery_location")}
-                </div>
-
-                <div className="border-t border-border pt-4 sm:col-span-2">{sectionLabel(2, t.customExtra.steps[1] ?? t.custom.designSection)}</div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="furniture_type">
-                    {t.custom.type} *
-                  </label>
-                  <input
-                    id="furniture_type"
-                    name="furniture_type"
-                    className="field-input"
-                    placeholder={t.custom.typePlaceholder}
-                    value={furnitureType}
-                    onChange={(e) => setFurnitureType(e.target.value)}
-                  />
-                  {fieldErr("furniture_type")}
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="design_description">
-                    {t.custom.description} *
-                  </label>
-                  <textarea
-                    id="design_description"
-                    name="design_description"
-                    rows={4}
-                    className="field-input"
-                    placeholder={t.custom.descriptionPlaceholder}
-                  />
-                  {fieldErr("design_description")}
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="quantity">
-                    {t.custom.quantity}
-                  </label>
-                  <input id="quantity" name="quantity" type="number" min={1} defaultValue={1} className="field-input" />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="reference_image">
-                    {t.custom.attach}
-                  </label>
-                  <label
-                    htmlFor="reference_image"
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input bg-sand px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold-ink hover:bg-gold-tint",
-                    )}
-                  >
-                    <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
-                    <span className="truncate">{preview ? t.custom.photoChosen : t.custom.attachHint}</span>
-                  </label>
-                  <input
-                    id="reference_image"
-                    name="reference_image"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const fl = e.target.files?.[0];
-                      setPreview(fl ? URL.createObjectURL(fl) : null);
-                    }}
-                  />
-                  {preview && <img src={preview} alt="" className="mt-3 h-28 w-28 rounded-lg border border-border object-cover" />}
-                  {fieldErr("reference_image")}
-                </div>
-
-                {bed && (
-                  <div className="sm:col-span-2">
-                    <p className="field-label">{t.order.size} *</p>
-                    <TextChoices
-                      name="bed_size"
-                      value={bedSize}
-                      onChange={setBedSize}
-                      options={BED_SIZES.map((value) => ({ value, label: value }))}
-                    />
-                    {fieldErr("preferred_dimensions")}
-                  </div>
-                )}
-                <div className="sm:col-span-2">
-                  <p className="field-label">{t.custom.material}</p>
-                  <p className="mb-2 text-xs text-muted-foreground">{t.custom.selectMany}</p>
-                  <TextChoices
-                    multiple
-                    name="preferred_material"
-                    value={materials}
-                    onChange={setMaterials}
-                    options={MATERIAL_OPTIONS.map((value) => ({ value, label: value }))}
-                  />
-                  <label className="field-label mt-3" htmlFor="material_note">
-                    {t.custom.materialNote}
-                  </label>
-                  <input
-                    id="material_note"
-                    value={materialNote}
-                    onChange={(e) => setMaterialNote(e.target.value)}
-                    className="field-input"
-                    placeholder={t.custom.materialNotePlaceholder}
-                    maxLength={240}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <p className="field-label">{t.custom.color}</p>
-                  <p className="mb-2 text-xs text-muted-foreground">{t.custom.selectMany}</p>
-                  <ColorImageChoices
-                    multiple
-                    name="preferred_color"
-                    value={colors}
-                    onChange={setColors}
-                    options={[...STANDARD_COLORS]}
-                  />
-                  <label className="field-label mt-3" htmlFor="color_note">
-                    {t.custom.colorNote}
-                  </label>
-                  <input
-                    id="color_note"
-                    value={colorNote}
-                    onChange={(e) => setColorNote(e.target.value)}
-                    className="field-input"
-                    placeholder={t.custom.colorNotePlaceholder}
-                    maxLength={240}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="finish_image">
-                    {t.custom.finishPhoto}
-                  </label>
-                  <label
-                    htmlFor="finish_image"
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input bg-sand px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-gold-ink hover:bg-gold-tint"
-                  >
-                    <ImagePlus className="h-4 w-4 shrink-0 text-navy" />
-                    <span className="truncate">{finishPreview ? t.custom.photoChosen : t.custom.finishPhotoHint}</span>
-                  </label>
-                  <input
-                    id="finish_image"
-                    name="finish_image"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const fl = e.target.files?.[0];
-                      setFinishPreview(fl ? URL.createObjectURL(fl) : null);
-                    }}
-                  />
-                  {finishPreview && <img src={finishPreview} alt="" className="mt-3 h-28 w-28 rounded-lg border border-border object-cover" />}
-                  <p className="mt-1.5 text-xs text-muted-foreground">{t.custom.attachHint}</p>
-                  {fieldErr("finish_image")}
-                </div>
-                <div className="border-t border-border pt-4 sm:col-span-2">{sectionLabel(3, t.customExtra.steps[2] ?? "")}</div>
-                <div>
-                  <label className="field-label" htmlFor="finish">
-                    {t.customExtra.finish}
-                  </label>
-                  <input id="finish" name="finish" className="field-input" maxLength={120} placeholder={t.customExtra.finishPlaceholder} />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="budget">
-                    {t.custom.budget}
-                  </label>
-                  <input id="budget" name="budget" className="field-input" maxLength={80} placeholder={t.customExtra.budgetPlaceholder} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="field-label" htmlFor="needed_by">
-                    {t.customExtra.neededBy} *
-                  </label>
-                  <input
-                    id="needed_by"
-                    name="needed_by"
-                    type="date"
-                    min={(() => {
-                      const d = new Date();
-                      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                    })()}
-                    value={neededBy}
-                    onChange={(e) => setNeededBy(e.target.value)}
-                    className="field-input"
-                  />
-                  <p className="mt-1.5 text-xs text-muted-foreground">{fill(t.order.completionNote, { hours: completionHours(settings) })}</p>
-                  {fieldErr("needed_by")}
-                </div>
-
-                <div className="sm:col-span-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowExtras((v) => !v)}
-                    className="text-sm font-semibold text-navy underline-offset-2 hover:underline"
-                  >
-                    {showExtras ? t.custom.hideExtras : t.custom.showExtras}
-                  </button>
-                </div>
-
-                {showExtras && (
-                  <>
-                    {!bed && (
-                      <div>
-                        <label className="field-label" htmlFor="preferred_dimensions">
-                          {t.custom.dimensions}
-                        </label>
-                        <input id="preferred_dimensions" name="preferred_dimensions" className="field-input" />
-                      </div>
-                    )}
-                    <div className={bed ? "sm:col-span-2" : undefined}>
-                      <label className="field-label" htmlFor="additional_requirements">
-                        {t.custom.requirements}
-                      </label>
-                      <textarea id="additional_requirements" name="additional_requirements" rows={3} className="field-input" />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <button type="submit" disabled={busy} className="btn-base btn-gold mt-6 w-full">
-                {busy ? t.custom.submitting : t.custom.submit}
-                {!busy && <ArrowRight className="h-4 w-4" />}
-              </button>
-            </form>
+            <CustomOrderForm {...(product ? { productSlug: product } : {})} />
           </Reveal>
         </div>
       </section>

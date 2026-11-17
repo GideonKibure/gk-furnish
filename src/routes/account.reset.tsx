@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { PasswordChecklist } from "@/components/admin/PasswordInput";
 import { AuthCard, useRoleDestination } from "@/components/site/AuthCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/i18n/LanguageProvider";
-import { adminPasswordChecks } from "@/lib/password-rules";
+import { getOwnerPasswordPolicy } from "@/lib/password-policy.functions";
+import { adminPasswordChecks, passwordMeetsPolicy } from "@/lib/password-rules";
 
 export const Route = createFileRoute("/account/reset")({
   head: () => ({ meta: [{ title: "New password — GK furnish" }, { name: "robots", content: "noindex" }] }),
@@ -29,6 +31,8 @@ function ResetPage() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [strongRule, setStrongRule] = useState(true);
+  const loadPolicy = useServerFn(getOwnerPasswordPolicy);
 
   useEffect(() => {
     if (!fromEmailLink) {
@@ -56,19 +60,21 @@ function ResetPage() {
     const timer = setTimeout(() => {
       if (!done) setState("invalid");
     }, 6000);
+    void loadPolicy().then((policy) => setStrongRule(policy.strong)).catch(() => setStrongRule(true));
     return () => {
       sub.subscription.unsubscribe();
       clearTimeout(timer);
     };
-  }, []);
+  }, [fromEmailLink, destination, loadPolicy]);
 
   const checks = adminPasswordChecks(password, t.auth.passwordRules);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    if (role.isAdmin ? !checks.every((c) => c.ok) : password.length < 8) {
-      setError(role.isAdmin ? t.auth.passwordWeak : t.auth.passwordShort);
+    const adminStrict = role.isAdmin && strongRule;
+    if (!passwordMeetsPolicy(password, adminStrict)) {
+      setError(adminStrict ? t.auth.passwordWeak : t.auth.passwordShort);
       return;
     }
     if (password !== confirm) {

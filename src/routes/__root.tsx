@@ -13,6 +13,7 @@ import { NavigationProgress } from "@/components/site/NavigationProgress";
 import { SiteVisitTracker } from "@/components/site/SiteVisitTracker";
 import { AuthPopupProvider } from "@/components/site/auth-popup";
 import { GoogleAnalytics } from "@/components/site/GoogleAnalytics";
+import { SaveDataProvider } from "@/components/site/SaveData";
 import { SITE } from "@/config/site";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
@@ -76,6 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#14213D" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: SITE.name },
       { title: "Furniture shop in Mbeya | GK Furnish" },
       { name: "description", content: "GK Furnish makes affordable furniture in Mbeya for students, homes and offices, and builds custom pieces to order. Prices in TZS, with delivery arranged across Tanzania." },
       ...(typeof googleVerification === "string" && /^[A-Za-z0-9_-]{8,}$/.test(googleVerification)
@@ -92,12 +95,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
       { rel: "icon", href: "/favicon-48.png", type: "image/png", sizes: "48x48" },
       { rel: "icon", href: "/favicon-192.png", type: "image/png", sizes: "192x192" },
       { rel: "apple-touch-icon", href: "/favicon-192.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "sitemap", type: "application/xml", href: "/sitemap.xml" },
     ],
     scripts: [{ type: "application/ld+json", children: ORGANIZATION_LD }],
@@ -126,6 +130,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
+        <SaveDataProvider>
         <NavigationProgress />
         {isAdmin ? (
           <Outlet />
@@ -145,6 +150,7 @@ function RootComponent() {
         )}
         <SiteVisitTracker />
         <Toaster position="top-center" />
+        </SaveDataProvider>
       </LanguageProvider>
     </QueryClientProvider>
   );

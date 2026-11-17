@@ -9,7 +9,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import { fill } from "@/i18n/fill";
+import { useLang } from "@/i18n/LanguageProvider";
+import { cycleTab, tabbable } from "@/lib/dialog-focus";
 import { cn } from "@/lib/utils";
+import { cardSrcSet, cardVariantUrl } from "@/lib/image-size";
+import { useSaveData } from "./SaveData";
 
 type GalleryImage = { src: string; label?: string };
 
@@ -34,13 +39,20 @@ export function ZoomGallery({
   video?: string | null;
   videoLabel?: string;
 }) {
+  const { t } = useLang();
   const items = normalizeImages(images);
   const [i, setI] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-  const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const [full, setFull] = useState(false);
+  const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
+  const dragX = useRef<number | null>(null);
+  const swiped = useRef(false);
   const n = items.length;
   const active = items[Math.min(i, Math.max(0, n - 1))] ?? items[0];
+  const { on: saveData } = useSaveData();
+  const clip = saveData ? null : (video ?? null);
+  const shown = active?.src ? (saveData ? cardVariantUrl(active.src) : active.src) : undefined;
+  const sources = !saveData && active?.src ? cardSrcSet(active.src) : null;
   const go = (d: number) => {
     setShowVideo(false);
     setI((v) => (v + d + n) % n);
@@ -58,7 +70,7 @@ export function ZoomGallery({
     });
   }
 
-  const thumbs = (n > 1 || video) && (
+  const thumbs = (n > 1 || clip) && (
     <div className="flex gap-2 overflow-x-auto no-scrollbar md:max-h-[34rem] md:flex-col md:overflow-y-auto md:overflow-x-visible">
       {items.map((item, k) => (
         <button
@@ -68,17 +80,28 @@ export function ZoomGallery({
             setShowVideo(false);
             setI(k);
           }}
-          aria-label={item.label ?? `Image ${k + 1}`}
+          aria-label={item.label ?? `${alt} ${k + 1}`}
           aria-current={!showVideo && k === i ? "true" : undefined}
           className={cn(
             "h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-colors md:h-[4.5rem] md:w-[4.5rem]",
             !showVideo && k === i ? "border-gold" : "border-border hover:border-navy/30",
           )}
         >
-          <img src={item.src} alt="" loading={k === 0 ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
+          <img
+            src={cardVariantUrl(item.src)}
+            alt=""
+            width={72}
+            height={72}
+            loading={k === 0 ? "eager" : "lazy"}
+            decoding="async"
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              if (event.currentTarget.src !== item.src) event.currentTarget.src = item.src;
+            }}
+          />
         </button>
       ))}
-      {video && (
+      {clip && (
         <button
           type="button"
           onClick={() => setShowVideo(true)}
@@ -89,7 +112,9 @@ export function ZoomGallery({
             showVideo ? "border-gold" : "border-border hover:border-navy/30",
           )}
         >
-          {items[0] && <img src={items[0].src} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
+          {items[0] && (
+            <img src={cardVariantUrl(items[0].src)} alt="" width={72} height={72} className="absolute inset-0 h-full w-full object-cover opacity-50" />
+          )}
           <span className="relative grid h-8 w-8 place-items-center rounded-full bg-white/90 text-navy">
             <Play className="ml-0.5 h-4 w-4 fill-current" />
           </span>
@@ -105,21 +130,40 @@ export function ZoomGallery({
         onMouseMove={showVideo ? undefined : onMove}
         onMouseLeave={() => setZoom(null)}
       >
-        {showVideo && video ? (
-          <ProductVideo src={video} poster={items[0]?.src} className="absolute inset-0" />
+        {showVideo && clip ? (
+          <ProductVideo src={clip} poster={items[0]?.src} className="absolute inset-0" />
         ) : (
         <button
           type="button"
           className="absolute inset-0 z-0 cursor-zoom-in"
-          onClick={() => setFull(true)}
+          onPointerDown={(event) => {
+            dragX.current = event.clientX;
+            swiped.current = false;
+          }}
+          onPointerUp={(event) => {
+            if (dragX.current == null) return;
+            const moved = event.clientX - dragX.current;
+            dragX.current = null;
+            if (Math.abs(moved) < 48) return;
+            swiped.current = true;
+            go(moved < 0 ? 1 : -1);
+          }}
+          onClick={() => {
+            if (swiped.current) {
+              swiped.current = false;
+              return;
+            }
+            setFull(true);
+          }}
           aria-label="Open fullscreen gallery"
         >
           <img
-            src={active?.src}
+            src={shown}
+            {...(sources ? { srcSet: sources, sizes: "(min-width: 1024px) 50vw, 100vw" } : {})}
             alt={active?.label ? `${alt} — ${active.label}` : alt}
             width={1200}
             height={1200}
-            fetchPriority="high"
+            fetchPriority={i === 0 ? "high" : "low"}
             decoding="async"
             className="h-full w-full object-cover transition-[transform,filter] duration-200 ease-out will-change-transform"
             style={
@@ -139,7 +183,7 @@ export function ZoomGallery({
             style={{
               left: `${zoom.x}%`,
               top: `${zoom.y}%`,
-              backgroundImage: `url(${active.src})`,
+              backgroundImage: `url(${shown ?? active.src})`,
               backgroundSize: "240% 240%",
               backgroundPosition: `${zoom.x}% ${zoom.y}%`,
             }}
@@ -150,7 +194,7 @@ export function ZoomGallery({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 max-md:hidden">
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-navy">
               <ZoomIn className="h-3.5 w-3.5" />
-              {hint ?? "Hover to zoom · tap for fullscreen"}
+              {hint ?? t.detail.zoomHint}
             </p>
           </div>
         )}
@@ -159,8 +203,8 @@ export function ZoomGallery({
           <button
             type="button"
             onClick={() => setFull(true)}
-            aria-label="Fullscreen"
-            className="absolute right-3 top-3 z-[3] grid h-10 w-10 place-items-center rounded-full bg-white/95 text-navy shadow-sm transition-transform hover:scale-105"
+            aria-label={t.detail.fullscreen}
+            className="absolute right-3 top-3 z-[3] grid h-11 w-11 place-items-center rounded-full bg-white/95 text-navy shadow-sm"
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -170,11 +214,13 @@ export function ZoomGallery({
           <>
             <NavBtn
               side="left"
+              label={t.detail.previousPhoto}
               className="z-[3] opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
               onClick={() => go(-1)}
             />
             <NavBtn
               side="right"
+              label={t.detail.nextPhoto}
               className="z-[3] opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
               onClick={() => go(1)}
             />
@@ -200,10 +246,12 @@ export function ZoomGallery({
 
 function NavBtn({
   side,
+  label,
   onClick,
   className,
 }: {
   side: "left" | "right";
+  label: string;
   onClick: () => void;
   className?: string;
 }) {
@@ -215,9 +263,9 @@ function NavBtn({
         e.stopPropagation();
         onClick();
       }}
-      aria-label={side === "left" ? "Previous" : "Next"}
+      aria-label={label}
       className={cn(
-        "absolute top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-background/90 text-navy shadow-sm backdrop-blur transition-transform hover:scale-105",
+        "absolute top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-background/90 text-navy shadow-sm backdrop-blur transition-transform hover:scale-105",
         side === "left" ? "left-3" : "right-3",
         className,
       )}
@@ -243,6 +291,11 @@ export function Lightbox({
   captions?: string[];
 }) {
   const n = images.length;
+  const { t } = useLang();
+  const { on: saveData } = useSaveData();
+  const layerRef = useRef<HTMLDivElement>(null);
+  const current = images[index];
+  const src = current ? (saveData ? cardVariantUrl(current) : current) : undefined;
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
@@ -261,22 +314,44 @@ export function Lightbox({
     [n, onIndex, resetView],
   );
 
+  const keys = useRef({ change, index, onClose, resetView });
+  keys.current = { change, index, onClose, resetView };
   useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    layerRef.current?.querySelector<HTMLElement>("button")?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") change(index + 1);
-      if (e.key === "ArrowLeft") change(index - 1);
+      const current = keys.current;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        current.onClose();
+        return;
+      }
+      if (e.key === "Tab" && layerRef.current) {
+        const next = cycleTab(
+          tabbable(layerRef.current),
+          document.activeElement instanceof HTMLElement ? document.activeElement : null,
+          e.shiftKey,
+        );
+        if (next) {
+          e.preventDefault();
+          next.focus();
+        }
+        return;
+      }
+      if (e.key === "ArrowRight") current.change(current.index + 1);
+      if (e.key === "ArrowLeft") current.change(current.index - 1);
       if (e.key === "+" || e.key === "=") setScale((s) => Math.min(4, s + 0.35));
       if (e.key === "-") setScale((s) => Math.max(1, s - 0.35));
-      if (e.key === "0") resetView();
+      if (e.key === "0") current.resetView();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      previous?.focus();
     };
-  }, [change, index, onClose, resetView]);
+  }, []);
 
   function onWheel(e: ReactWheelEvent) {
     e.preventDefault();
@@ -329,7 +404,7 @@ export function Lightbox({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-ink/96 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div ref={layerRef} className="fixed inset-0 z-[80] flex flex-col bg-ink/96 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={alt}>
       <div className="flex items-center justify-between gap-3 px-4 py-3 text-primary-foreground">
         <p className="text-sm font-medium tabular-nums opacity-80">
           {captions?.[index] ?? `${index + 1} / ${n}`}
@@ -337,8 +412,8 @@ export function Lightbox({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-            aria-label="Zoom out"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+            aria-label={t.detail.zoomOut}
             onClick={() =>
               setScale((s) => {
                 const next = Math.max(1, s - 0.4);
@@ -351,8 +426,8 @@ export function Lightbox({
           </button>
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
-            aria-label="Zoom in"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+            aria-label={t.detail.zoomIn}
             onClick={() => setScale((s) => Math.min(4, s + 0.4))}
           >
             <ZoomIn className="h-4 w-4" />
@@ -360,8 +435,8 @@ export function Lightbox({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+            aria-label={t.nav.close}
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
           >
             <X className="h-5 w-5" />
           </button>
@@ -374,8 +449,10 @@ export function Lightbox({
         onWheel={onWheel}
       >
         <img
-          src={images[index]}
+          src={src}
           alt={alt}
+          width={1200}
+          height={1200}
           onDoubleClick={toggleZoom}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -390,8 +467,8 @@ export function Lightbox({
         />
         {n > 1 && (
           <>
-            <NavBtn side="left" className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index - 1)} />
-            <NavBtn side="right" className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index + 1)} />
+            <NavBtn side="left" label={t.detail.previousPhoto} className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index - 1)} />
+            <NavBtn side="right" label={t.detail.nextPhoto} className="!bg-white/15 !text-white hover:!bg-white/25" onClick={() => change(index + 1)} />
           </>
         )}
       </div>
@@ -403,6 +480,7 @@ export function Lightbox({
               key={k}
               type="button"
               onClick={() => change(k)}
+              aria-label={fill(t.detail.photoNumber, { n: k + 1 })}
               className={cn(
                 "h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-opacity",
                 k === index ? "border-gold opacity-100" : "border-transparent opacity-50 hover:opacity-90",

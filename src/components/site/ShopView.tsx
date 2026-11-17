@@ -1,16 +1,22 @@
+import { Link } from "@tanstack/react-router";
 import { SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import { EmptyState } from "@/components/brand/EmptyState";
 import { FilterSidebar } from "@/components/brand/FilterSidebar";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { formatPrice } from "@/config/site";
 import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import type { Category, Product } from "@/lib/catalog";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows } from "@/lib/order-options";
 import { asksForPrice, isPurchasable, popularity } from "@/lib/product-display";
 import { orderBySeed, stableShopSeed } from "@/lib/shop-order";
+import { bandForLimits, bandsForPrices, rankSearch, searchTier, type BudgetBand } from "@/lib/shop-search";
 import { PriceFilter } from "./PriceFilter";
 import { ProductGrid } from "./ProductCard";
+import { WhatsAppOrderLink } from "./WhatsAppOrderLink";
 
 export const SORTS = ["popular", "new", "low", "high", "name"] as const;
 export type ShopSort = (typeof SORTS)[number];
@@ -18,6 +24,7 @@ export type ShopSort = (typeof SORTS)[number];
 export const shopSearchSchema = z.object({
   q: z.string().trim().max(80).optional().catch(undefined),
   cat: z.string().trim().max(80).optional().catch(undefined),
+  min: z.coerce.number().int().min(0).optional().catch(undefined),
   max: z.coerce.number().int().min(0).optional().catch(undefined),
   avail: z.coerce.boolean().optional().catch(undefined),
   sort: z.enum(SORTS).optional().catch(undefined),
@@ -27,6 +34,23 @@ export type ShopSearch = z.infer<typeof shopSearchSchema>;
 function productMaxPrice(p: Product) {
   const rows = optionPriceRows(p);
   return rows.length ? Math.max(...rows.map((row) => row.price)) : p.price;
+}
+
+function searchDoc(p: Product) {
+  return {
+    name: `${p.name} ${p.name_sw ?? ""}`,
+    category: `${p.categories?.name ?? ""} ${p.categories?.name_sw ?? ""}`,
+    description: `${p.short_description ?? ""} ${p.sku ?? ""}`,
+  };
+}
+
+function bandLabel(band: BudgetBand, under: string, over: string, between: string) {
+  if (band.id === "under-100000") return fill(under, { amount: formatPrice(100_000) ?? "" });
+  if (band.id === "over-700000") return fill(over, { amount: formatPrice(700_000) ?? "" });
+  if (band.id === "100000-300000") {
+    return fill(between, { min: formatPrice(100_000) ?? "", max: formatPrice(300_000) ?? "" });
+  }
+  return fill(between, { min: formatPrice(300_000) ?? "", max: formatPrice(700_000) ?? "" });
 }
 
 /**
@@ -64,25 +88,23 @@ export function ShopView({
     () => (sort === "mixed" ? orderBySeed(products, seed) : products),
     [products, seed, sort],
   );
-  const q = (search.q ?? "").toLowerCase();
+  const q = (search.q ?? "").trim();
   const selectedCat = lockedCategoryId
     ? (categories.find((c) => c.id === lockedCategoryId)?.slug ?? "")
     : (search.cat ?? "");
   const catId = categories.find((c) => c.slug === selectedCat)?.id;
 
-  const matchesText = (p: Product) =>
-    !q ||
-    `${p.name} ${p.name_sw ?? ""} ${p.short_description ?? ""} ${p.categories?.name ?? ""} ${p.sku ?? ""}`
-      .toLowerCase()
-      .includes(q);
-
-  const base = useMemo(() => catalogue.filter(matchesText), [catalogue, q]);
+  const base = useMemo(() => {
+    if (!q) return catalogue;
+    if (sort === "mixed") return rankSearch(catalogue, q, searchDoc);
+    return catalogue.filter((product) => searchTier(q, searchDoc(product)) != null);
+  }, [catalogue, q, sort]);
 
   const list = useMemo(() => {
     const r = base.filter(
       (p) =>
         (!catId || p.category_id === catId) &&
-        (asksForPrice(p) || lowestOptionPrice(p) <= max) &&
+        (asksForPrice(p) || ((search.min == null || lowestOptionPrice(p) >= search.min) && lowestOptionPrice(p) <= max)) &&
         (!search.avail || (isPurchasable(p) && p.stock_quantity > 0)),
     );
     if (sort === "new") r.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -91,12 +113,32 @@ export function ShopView({
     if (sort === "high") r.sort((a, b) => (asksForPrice(b) ? Number.NEGATIVE_INFINITY : highestOptionPrice(b)) - (asksForPrice(a) ? Number.NEGATIVE_INFINITY : highestOptionPrice(a)));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
     return r;
-  }, [base, catId, max, search.avail, sort]);
+  }, [base, catId, max, search.avail, search.min, sort]);
 
   const inCategory = base.filter((p) => !catId || p.category_id === catId);
   const inStockCount = inCategory.filter((p) => isPurchasable(p) && p.stock_quantity > 0).length;
 
   const set = (patch: Partial<ShopSearch>) => onSearch({ ...search, ...patch });
+  const bands = useMemo(
+    () => bandsForPrices(products.filter((product) => !asksForPrice(product)).map((product) => lowestOptionPrice(product))),
+    [products],
+  );
+  const activeBand = bandForLimits(bands, search.min, search.max)?.id ?? "";
+
+  useEffect(() => {
+    const term = q.trim();
+    if (!term || list.length > 0) return;
+    trackEvent("search_no_results", { search_term: term });
+  }, [q, list.length]);
+
+  function chooseBand(band: BudgetBand) {
+    const on = activeBand === band.id;
+    trackEvent("filter_budget_chip", { chip: band.id });
+    set({
+      min: on ? undefined : (band.min ?? undefined),
+      max: on ? undefined : (band.max ?? undefined),
+    });
+  }
   const selectCategory = (slug: string) => {
     if (onCategory) onCategory(slug);
     else set({ cat: slug || undefined });
@@ -127,7 +169,7 @@ export function ShopView({
           max={maxAll}
           count={list.length}
           resultsLabel={t.products.results}
-          onChange={(value) => set({ max: value >= maxAll ? undefined : value })}
+          onChange={(value) => set({ min: undefined, max: value >= maxAll ? undefined : value })}
         />
       }
       availabilityLabel={t.shop.availability}
@@ -166,7 +208,7 @@ export function ShopView({
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="btn-base btn-outline-navy btn-sm lg:hidden"
+              className="btn-base btn-outline-navy min-h-11 lg:hidden"
             >
               <SlidersHorizontal className="h-4 w-4" />
               {t.shop.filters}
@@ -180,7 +222,7 @@ export function ShopView({
                     sort: e.target.value === "mixed" ? undefined : (e.target.value as ShopSort),
                   })
                 }
-                className="field-input !min-h-9 !w-auto !py-1.5 !pr-8 text-sm font-medium"
+                className="field-input !min-h-11 !w-auto !py-1.5 !pr-8 text-sm font-medium"
               >
                 {sortOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -191,7 +233,33 @@ export function ShopView({
             </label>
           </div>
         </div>
-        <ProductGrid products={list} eagerFirst className="xl:grid-cols-3 2xl:grid-cols-4" />
+        {bands.length > 0 && (
+          <BudgetChips bands={bands} active={activeBand} onChoose={chooseBand} />
+        )}
+        {list.length === 0 ? (
+          <EmptyState
+            title={t.shop.noMatch}
+            action={
+              <div className="flex w-full max-w-sm flex-col gap-2">
+                <button type="button" className="btn-base btn-outline-navy min-h-11 w-full" onClick={clear}>
+                  {t.shop.clearFilters}
+                </button>
+                <WhatsAppOrderLink
+                  source="search"
+                  text={fill(t.shop.whatsappSearch, { q: search.q?.trim() || t.shop.title })}
+                  className="btn-base btn-outline-navy min-h-11 w-full"
+                >
+                  {t.shop.askWhatsApp}
+                </WhatsAppOrderLink>
+                <Link to="/custom-order" className="btn-base btn-gold min-h-11 w-full">
+                  {t.shop.requestCustom}
+                </Link>
+              </div>
+            }
+          />
+        ) : (
+          <ProductGrid products={list} eagerFirst className="xl:grid-cols-3 2xl:grid-cols-4" />
+        )}
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -201,6 +269,11 @@ export function ShopView({
         >
           <SheetTitle className="sr-only">{t.shop.filters}</SheetTitle>
           <SheetDescription className="sr-only">{t.shop.title}</SheetDescription>
+          {bands.length > 0 && (
+            <div className="mt-6">
+              <BudgetChips bands={bands} active={activeBand} onChoose={chooseBand} />
+            </div>
+          )}
           <div className="mt-6 flex-1">{sidebar}</div>
           <button
             type="button"
@@ -211,6 +284,40 @@ export function ShopView({
           </button>
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function BudgetChips({
+  bands,
+  active,
+  onChoose,
+}: {
+  bands: BudgetBand[];
+  active: string;
+  onChoose: (band: BudgetBand) => void;
+}) {
+  const { t } = useLang();
+  return (
+    <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label={t.shop.priceRange}>
+      {bands.map((band) => {
+        const on = band.id === active;
+        return (
+          <button
+            key={band.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChoose(band)}
+            className={
+              on
+                ? "btn-base min-h-11 border-2 border-gold bg-white px-3 text-sm font-semibold text-navy"
+                : "btn-base min-h-11 border border-[#E5E5E5] bg-white px-3 text-sm font-semibold text-navy"
+            }
+          >
+            {bandLabel(band, t.shop.budgetUnder, t.shop.budgetOver, t.shop.budgetBetween)}
+          </button>
+        );
+      })}
     </div>
   );
 }

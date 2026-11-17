@@ -170,6 +170,12 @@
     outline-offset: 2px;
   }
 
+  @media (max-width: 1023px) {
+    html {
+      scroll-padding-bottom: 5.5rem;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -340,8 +346,8 @@
 @utility icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 999px;
   color: var(--navy);
   transition: background-color 160ms ease;
@@ -973,6 +979,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .reveal,
   .hero-slide,
   .hero-letter,
@@ -996,4 +1011,14 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Save data turns off motion the same way reduced-motion does. */
+html[data-save-data="on"] *,
+html[data-save-data="on"] *::before,
+html[data-save-data="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

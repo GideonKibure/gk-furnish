@@ -1,8 +1,26 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/palmpesa",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/snippe",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -1,13 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { MapPin, Phone, Share2, Wallet } from "lucide-react";
+import { MapPin, Phone, Share2, Truck, Wallet } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { AdminCard, AdminPageHeader } from "@/components/admin/admin-ui";
+import { WhatsappTemplates } from "@/components/admin/WhatsappTemplates";
 import { getAdminSiteSettings, updateAdminSiteSettings, updateAdvanceTiers } from "@/lib/content.functions";
 import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { advanceSettingsFrom } from "@/lib/payment-policy";
 import { DEFAULT_COMPLETION_HOURS } from "@/lib/site-content";
+import { TZ_REGIONS } from "@/lib/delivery";
+import { parseDeliveryZones } from "@/lib/product-facts";
+
+function optionalSettingNumber(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) ? n : null;
+}
 
 export const Route = createFileRoute("/admin/settings")({
   head: () => ({ meta: [{ title: "Site settings — Admin" }, { name: "robots", content: "noindex" }] }),
@@ -47,7 +57,7 @@ function Field({
 }: {
   name: string;
   label: string;
-  value: string | null | undefined;
+  value: string | number | null | undefined;
   span?: boolean;
 }) {
   return (
@@ -65,6 +75,7 @@ function AdminSettingsPage() {
   const save = useServerFn(updateAdminSiteSettings);
   const [row, setRow] = useState<Awaited<ReturnType<typeof load>> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [zones, setZones] = useState<{ region: string; fee: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -73,6 +84,16 @@ function AdminSettingsPage() {
       .catch((e) => toast.error(e instanceof Error ? e.message : "Load failed"))
       .finally(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    if (!row || !("delivery_zones" in row)) return;
+    setZones(
+      parseDeliveryZones(row.delivery_zones).map((zone) => ({
+        region: zone.region,
+        fee: zone.fee_tzs ? String(zone.fee_tzs) : "",
+      })),
+    );
+  }, [row]);
 
   async function onSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -101,6 +122,21 @@ function AdminSettingsPage() {
           airtel_enabled: fd.get("airtel_enabled") === "on",
           nmb_enabled: fd.get("nmb_enabled") === "on",
           order_completion_hours: Math.min(720, Math.max(1, Math.round(Number(fd.get("order_completion_hours")) || DEFAULT_COMPLETION_HOURS))),
+          warranty_months_structure: optionalSettingNumber(fd.get("warranty_months_structure")),
+          warranty_months_finish: optionalSettingNumber(fd.get("warranty_months_finish")),
+          inspection_window_hours: optionalSettingNumber(fd.get("inspection_window_hours")),
+          refund_processing_days: optionalSettingNumber(fd.get("refund_processing_days")),
+          ready_made_return_window_hours: optionalSettingNumber(fd.get("ready_made_return_window_hours")),
+          unpaid_expiry_days: optionalSettingNumber(fd.get("unpaid_expiry_days")),
+          quote_unpaid_expiry_days: optionalSettingNumber(fd.get("quote_unpaid_expiry_days")),
+          reminders_enabled: fd.get("reminders_enabled") === "on",
+          policy_version: String(fd.get("policy_version") ?? "").trim(),
+          delivery_zones: zones
+            .filter((zone) => (TZ_REGIONS as readonly string[]).includes(zone.region))
+            .map((zone) => {
+              const fee = Math.round(Number(zone.fee));
+              return { region: zone.region as (typeof TZ_REGIONS)[number], fee_tzs: Number.isFinite(fee) && fee > 0 ? fee : null };
+            }),
         },
       });
       setRow(updated);
@@ -110,6 +146,15 @@ function AdminSettingsPage() {
       }
       if (updated.order_completion_hours === undefined) {
         toast.info("The completion time was not saved. Run drizzle/migrations/0021_order_completion_hours.sql in the Supabase SQL editor.", { duration: 10000 });
+      }
+      if (updated.policy_version === undefined && updated.warranty_months_structure === undefined) {
+        toast.info("The policy settings were not saved. Run drizzle/migrations/0027_policy_settings.sql in the Supabase SQL editor.", { duration: 10000 });
+      }
+      if (updated.reminders_enabled === undefined) {
+        toast.info("Reminders were not saved. Run drizzle/migrations/0028_reminders.sql in the Supabase SQL editor.", { duration: 10000 });
+      }
+      if (!("delivery_zones" in updated)) {
+        toast.info("Delivery estimates were not saved. Run drizzle/migrations/0030_product_size.sql in the Supabase SQL editor.", { duration: 10000 });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -190,6 +235,82 @@ function AdminSettingsPage() {
         </SettingsGroup>
 
         <SettingsGroup
+          icon={<Truck className="h-4 w-4" />}
+          title="Delivery estimates"
+          description="Optional. Leave this empty and the shop hides the estimator. A fee here is only a guide. It is never added to the order."
+        >
+          {zones.map((zone, index) => (
+            <div key={`${zone.region}-${index}`} className="grid gap-2 sm:col-span-2 sm:grid-cols-[1fr_10rem_auto]">
+              <select
+                className="field-input"
+                value={zone.region}
+                aria-label="Region"
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setZones((current) => current.map((item, i) => (i === index ? { ...item, region: next } : item)));
+                }}
+              >
+                <option value="">Region</option>
+                {TZ_REGIONS.map((region) => (
+                  <option key={region} value={region}>{region}</option>
+                ))}
+              </select>
+              <input
+                className="field-input"
+                inputMode="numeric"
+                aria-label="Fee in TZS"
+                placeholder="Fee TZS"
+                value={zone.fee}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setZones((current) => current.map((item, i) => (i === index ? { ...item, fee: next } : item)));
+                }}
+              />
+              <button
+                type="button"
+                className="btn-base min-h-11 border border-border px-3"
+                onClick={() => setZones((current) => current.filter((_, i) => i !== index))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn-base min-h-11 border border-navy px-4 text-navy"
+            onClick={() => setZones((current) => [...current, { region: "", fee: "" }])}
+          >
+            Add a region
+          </button>
+        </SettingsGroup>
+
+        <SettingsGroup
+          icon={<MapPin className="h-4 w-4" />}
+          title="Policies"
+          description="Leave a number blank to show “Ask us on WhatsApp” on the public policy page. 0 ready-made hours means no returns. Run 0027_policy_settings.sql before the first save."
+        >
+          <Field name="policy_version" label="Policy version" value={row.policy_version} />
+          <Field name="warranty_months_structure" label="Structure warranty (months)" value={row.warranty_months_structure} />
+          <Field name="warranty_months_finish" label="Finish warranty (months)" value={row.warranty_months_finish} />
+          <Field name="inspection_window_hours" label="Inspection window (hours)" value={row.inspection_window_hours} />
+          <Field name="refund_processing_days" label="Refund processing (days)" value={row.refund_processing_days} />
+          <Field name="ready_made_return_window_hours" label="Ready-made return window (hours, 0 = no returns)" value={row.ready_made_return_window_hours} />
+          <Field name="unpaid_expiry_days" label="Unpaid order expiry (days, blank or 0 = off)" value={row.unpaid_expiry_days} />
+          <Field name="quote_unpaid_expiry_days" label="Quotation expiry (days, blank or 0 = off)" value={row.quote_unpaid_expiry_days} />
+        </SettingsGroup>
+
+        <SettingsGroup
+          icon={<Wallet className="h-4 w-4" />}
+          title="Reminders"
+          description="Off until you tick the switch. Blank or 0 day counts never cancel anything. Suggested once you want cancel: 3 days for shop orders, 7 days for quotations. Run 0028_reminders.sql before the first save. Try /api/cron/reminders?dryRun=1 on staging before a live run."
+        >
+          <label className="flex items-center gap-2 text-sm font-semibold text-navy sm:col-span-2">
+            <input type="checkbox" name="reminders_enabled" defaultChecked={row.reminders_enabled === true} className="h-4 w-4 accent-[#14213D]" />
+            Send reminders and allow unpaid auto-cancel
+          </label>
+        </SettingsGroup>
+
+        <SettingsGroup
           icon={<Wallet className="h-4 w-4" />}
           title="Payment accounts"
           description="Turn a method off to hide it from checkout and the order page. Leave the NMB number blank until you have it."
@@ -230,6 +351,7 @@ function AdminSettingsPage() {
       </form>
 
       <AdvanceTiersForm row={row} onSaved={setRow} />
+      <WhatsappTemplates />
     </div>
   );
 }

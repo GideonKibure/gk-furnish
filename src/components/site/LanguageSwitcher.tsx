@@ -25,10 +25,10 @@ export function LanguageSwitcher({ dark = false, compact = false }: { dark?: boo
             type="button"
             onClick={() => setLang(o.v)}
             aria-pressed={active}
-            aria-label={o.full}
+            aria-label={`${o.full} (${o.short})`}
             title={o.full}
             className={cn(
-              "rounded-full px-2.5 py-1 transition-colors",
+              "min-h-11 rounded-full px-3 transition-colors",
               active
                 ? "bg-navy text-white"
                 : dark

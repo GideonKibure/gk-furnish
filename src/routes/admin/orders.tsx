@@ -20,6 +20,7 @@ import {
   tzs,
   type Column,
 } from "@/components/admin/admin-ui";
+import { ChatOrderForm } from "@/components/admin/ChatOrderForm";
 import { DeliveryFeePanel } from "@/components/admin/DeliveryFeePanel";
 import { CancelOrderButton, OrderOpsPanel } from "@/components/admin/OrderOpsPanel";
 import { OrderPolicyPanel } from "@/components/admin/OrderPolicyPanel";
@@ -28,6 +29,7 @@ import { formatPrice } from "@/config/site";
 import { colorSwatch } from "@/lib/color-swatches";
 import { csvDate, downloadCsv } from "@/lib/ops/csv";
 import { rangeBounds, type DateRange } from "@/lib/ops/date-range";
+import { listOrderReminders, setOrderAutoCancel } from "@/lib/ops/order-ops.functions";
 import {
   customerStageWrite,
   ORDER_STATUSES_BY_ACTION,
@@ -45,6 +47,7 @@ import {
 } from "@/lib/ops/status";
 import { parseCatalogColor } from "@/lib/order-options";
 import { deliveryFeePending } from "@/lib/payment-policy";
+import { orderBlockedWhy, orderNeedsAdvance } from "@/lib/today-queue";
 import {
   createAdminOrder,
   deleteAdminOrder,
@@ -55,8 +58,12 @@ import {
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin/orders")({
-  validateSearch: (s: Record<string, unknown>): { q?: string } =>
-    typeof s["q"] === "string" && s["q"].trim() ? { q: s["q"].trim().slice(0, 80) } : {},
+  validateSearch: (s: Record<string, unknown>): { q?: string; view?: "advance" | "blocked" } => {
+    const out: { q?: string; view?: "advance" | "blocked" } = {};
+    if (typeof s["q"] === "string" && s["q"].trim()) out.q = s["q"].trim().slice(0, 80);
+    if (s["view"] === "advance" || s["view"] === "blocked") out.view = s["view"];
+    return out;
+  },
   head: () => ({ meta: [{ title: "Orders — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminOrdersPage,
 });
@@ -137,6 +144,7 @@ function AdminOrdersPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   async function refresh() {
     setOrders(await list());
@@ -170,9 +178,11 @@ function AdminOrdersPage() {
       if (showArchived && canArchive && !o.archived_at) return false;
       if (from != null && new Date(o.created_at).getTime() < from) return false;
       if (payment !== "all" && paymentState(o) !== payment) return false;
+      if (search.view === "advance" && !orderNeedsAdvance(o)) return false;
+      if (search.view === "blocked" && !orderBlockedWhy(o)) return false;
       return matches(o, q);
     });
-  }, [orders, range, payment, q, showArchived, canArchive]);
+  }, [orders, range, payment, q, showArchived, canArchive, search.view]);
 
   const tabs = ORDER_TABS.map((t) => ({
     id: t.id,
@@ -275,6 +285,16 @@ function AdminOrdersPage() {
               <Download className="h-4 w-4" />
               Export CSV
             </button>
+            <button
+              type="button"
+              className={btn("outline")}
+              onClick={() => {
+                setShowChat((open) => !open);
+                if (!products.length) listProducts().then(setProducts).catch(() => undefined);
+              }}
+            >
+              {showChat ? "Close chat order" : "Create order from chat"}
+            </button>
             <button type="button" className={btn("gold")} onClick={() => setShowForm((v) => !v)}>
               {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {showForm ? "Close" : "Add order"}
@@ -282,6 +302,8 @@ function AdminOrdersPage() {
           </>
         }
       />
+
+      {showChat && <ChatOrderForm products={products} onCreated={refresh} />}
 
       {showForm && (
         <NewOrderForm
@@ -359,6 +381,71 @@ function AdminOrdersPage() {
   );
 }
 
+const REMINDER_LABELS: Record<string, string> = {
+  order_unpaid_24h: "Unpaid reminder (24 hours)",
+  order_unpaid_last_day: "Last-day payment reminder",
+  partial_paid_hold: "Part-paid order kept open",
+  cancel_unpaid_order: "Cancelled: unpaid expiry",
+};
+
+function OrderReminders({ orderId, disabled }: { orderId: string; disabled: boolean }) {
+  const save = useServerFn(setOrderAutoCancel);
+  const load = useServerFn(listOrderReminders);
+  const [held, setHeld] = useState(disabled);
+  const [rows, setRows] = useState<{ kind: string; sent_at: string }[]>([]);
+  const [available, setAvailable] = useState(true);
+
+  useEffect(() => {
+    let live = true;
+    void load({ data: { orderId } })
+      .then((result) => {
+        if (!live) return;
+        setAvailable(result.available);
+        setRows(result.rows);
+      })
+      .catch(() => {
+        if (live) setAvailable(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [load, orderId]);
+
+  return (
+    <div className="w-full space-y-2 border-t border-[#F0F0F0] pt-3">
+      <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-[#14213D]"
+          checked={held}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setHeld(next);
+            void save({ data: { orderId, disabled: next } }).catch((err) => {
+              setHeld(!next);
+              toast.error(err instanceof Error ? err.message : "Could not save the auto-cancel setting");
+            });
+          }}
+        />
+        Do not auto-cancel
+      </label>
+      {!available && (
+        <p className="text-xs text-[#6B7280]">Reminder history needs drizzle/migrations/0028_reminders.sql.</p>
+      )}
+      {available && rows.length === 0 && <p className="text-xs text-[#6B7280]">No reminders recorded for this order.</p>}
+      {rows.length > 0 && (
+        <ul className="space-y-1 text-xs text-[#374151]">
+          {rows.map((row) => (
+            <li key={`${row.kind}-${row.sent_at}`}>
+              {REMINDER_LABELS[row.kind] ?? row.kind} · {formatDate(row.sent_at, true)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function OrderDetail({
   order: o,
   canArchive,
@@ -429,6 +516,7 @@ function OrderDetail({
             Cancel with a reason below; refunds are recorded per payment.
           </p>
           {o.cancel_reason && <p className="w-full text-xs font-medium text-[#991B1B]">Cancelled: {o.cancel_reason}</p>}
+          <OrderReminders orderId={o.id} disabled={o.auto_cancel_disabled === true} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

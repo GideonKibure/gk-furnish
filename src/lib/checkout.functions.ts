@@ -2,55 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { formatAmount } from "@/config/site";
 import { optionalSupabaseAuth } from "@/integrations/supabase/customer-auth";
+import { CheckoutInput } from "@/lib/checkout-input";
+import { chargeNow, existingOrderForRequest, orderAfterPromptFailure } from "@/lib/checkout-quote";
 import { composeOrderNotes, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
 import { walletById } from "@/lib/palmpesa";
-import {
-  advanceAmount,
-  advanceSettingsFrom,
-  advanceTierFor,
-  balanceDue,
-  MIN_MOBILE_PAYMENT_TZS,
-} from "@/lib/payment-policy";
+import { advanceAmount, advanceSettingsFrom, advanceTierFor, balanceDue } from "@/lib/payment-policy";
+import { policyAcceptanceStamp, policySettingsFrom } from "@/lib/policy";
 
 const phone = z.string().trim().min(7).max(20).regex(/^[+\d\s()-]+$/);
-const opt = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
-
-const CheckoutInput = z
-  .object({
-    items: z
-      .array(
-        z.object({
-          product_id: z.string().uuid(),
-          quantity: z.number().int().min(1).max(100),
-          material: z.string().trim().max(120),
-          size: z.string().trim().max(120),
-          color: z.string().trim().max(120),
-        }),
-      )
-      .min(1)
-      .max(30),
-    customer_name: z.string().trim().min(1).max(120),
-    phone,
-    email: z.string().trim().email().max(200).optional().or(z.literal("")),
-    fulfilment_method: z.enum(["delivery", "collection"]).default("delivery"),
-    region: opt(80),
-    district: opt(80),
-    address_line: opt(200),
-    /** Older clients send one free-text location. */
-    delivery_location: opt(200),
-    save_address: z.boolean().optional(),
-    needed_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
-    notes: opt(1000),
-    payment_choice: z.enum(["advance", "full"]),
-    payment_method: z.enum(["mobile", "bank", "cash"]).default("mobile"),
-    wallet: z.enum(["mpesa", "airtel", "yas", "halopesa"]).optional(),
-    payment_phone: phone.optional().or(z.literal("")),
-    specs_agreed: z.literal(true),
-  })
-  .refine(
-    (d) => d.fulfilment_method === "collection" || Boolean(d.region && d.address_line) || Boolean(d.delivery_location),
-    { message: "Delivery address is required", path: ["address_line"] },
-  );
 
 /** Phone prompts are on for Snippe when its key is set, or for PalmPesa when PAYMENT_MODE is palmpesa. */
 async function onlinePaymentsOn() {
@@ -63,27 +22,86 @@ export const getCheckoutConfig = createServerFn({ method: "GET" }).handler(async
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("*").eq("id", 1).maybeSingle();
   const { payAccountsFrom, payMethodsFrom } = await import("@/lib/pay-accounts");
+  const { snippeReconcileEnabled } = await import("@/lib/snippe-decision");
+  const methods = payMethodsFrom(data);
   return {
     onlinePayment: await onlinePaymentsOn(),
+    snippePayNow: snippeReconcileEnabled(process.env) && (methods.mpesa || methods.airtel),
     collectionAddress: data?.collection_address || data?.location || "Mbeya, Tanzania",
     pay: payAccountsFrom(data),
     methods: payMethodsFrom(data),
   };
 });
 
-/** Amount the customer pays now; never below the mobile money minimum or above what is left. */
-function chargeNow(target: number, left: number) {
-  if (left <= 0) return 0;
-  return Math.min(left, Math.max(MIN_MOBILE_PAYMENT_TZS, Math.round(target)));
-}
-
 export const createCheckout = createServerFn({ method: "POST" })
   .middleware([optionalSupabaseAuth])
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { guardPublicForm } = await import("@/lib/abuse.server");
+    const { publicFormOutcome } = await import("@/lib/form-timing");
+    const outcome = publicFormOutcome(data.company_website, data.started_at, Date.now());
+    if (outcome === "silent") {
+      console.warn("honeypot checkout");
+      return {
+        orderNumber: "GK-0000",
+        trackingToken: null,
+        paymentId: null,
+        paymentError: null,
+        onlinePayment: false,
+        subtotal: 0,
+        deliveryFeeStatus: "free" as const,
+        total: 0,
+        advancePercent: 0,
+        advanceRequired: 0,
+        amount: 0,
+        deliveryLocation: "",
+        itemSummary: "",
+        quantity: 0,
+      };
+    }
+    if (outcome === "slow") throw new Error("Please wait a few minutes and try again.");
+    await guardPublicForm(supabaseAdmin, {
+      form: "checkout",
+      phone: data.phone,
+      companyWebsite: data.company_website,
+      turnstileToken: data.turnstile_token,
+    });
 
     const { isMissingSchema } = await import("@/lib/db-compat");
+    if (data.client_request_id) {
+      const found = await supabaseAdmin
+        .from("orders")
+        .select("id,order_number,tracking_token,subtotal_amount,total_amount,advance_percent,advance_required,delivery_fee_status,delivery_location")
+        .eq("client_request_id", data.client_request_id)
+        .maybeSingle();
+      if (found.data && existingOrderForRequest(found.data.id)) {
+        const payment = await supabaseAdmin
+          .from("payments")
+          .select("id")
+          .eq("order_id", found.data.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return {
+          orderNumber: found.data.order_number,
+          trackingToken: found.data.tracking_token || null,
+          paymentId: payment.data?.id ?? null,
+          paymentError: null,
+          onlinePayment: Boolean(payment.data?.id),
+          subtotal: Number(found.data.subtotal_amount ?? found.data.total_amount),
+          deliveryFeeStatus: found.data.delivery_fee_status,
+          total: Number(found.data.total_amount),
+          advancePercent: found.data.advance_percent,
+          advanceRequired: Number(found.data.advance_required),
+          amount: Number(found.data.advance_required),
+          deliveryLocation: found.data.delivery_location,
+          itemSummary: "",
+          quantity: 0,
+        };
+      }
+      if (found.error && !isMissingSchema(found.error)) throw new Error(found.error.message);
+    }
     const { notify } = await import("@/lib/notify.server");
     const { composeDeliveryLocation, deliveryFeeStatusFor, orderTotal } = await import("@/lib/delivery");
 
@@ -154,8 +172,11 @@ export const createCheckout = createServerFn({ method: "POST" })
       amount_due: total,
       amount_paid: 0,
     };
+    const stamp = policyAcceptanceStamp(policySettingsFrom(settingsRow).policyVersion, new Date());
     const fullOrder = {
       ...baseOrder,
+      ...stamp,
+      ...(data.client_request_id ? { client_request_id: data.client_request_id } : {}),
       fulfilment_method: method,
       region: method === "delivery" ? data.region || null : null,
       district: method === "delivery" ? data.district || null : null,
@@ -167,6 +188,47 @@ export const createCheckout = createServerFn({ method: "POST" })
 
     let schemaReady = true;
     let inserted = await supabaseAdmin.from("orders").insert(fullOrder).select("id,order_number,tracking_token").single();
+    if (inserted.error?.code === "23505" && data.client_request_id) {
+      const again = await supabaseAdmin
+        .from("orders")
+        .select("id,order_number,tracking_token")
+        .eq("client_request_id", data.client_request_id)
+        .maybeSingle();
+      if (again.data) {
+        return {
+          orderNumber: again.data.order_number,
+          trackingToken: again.data.tracking_token || null,
+          paymentId: null,
+          paymentError: null,
+          onlinePayment: false,
+          subtotal: 0,
+          deliveryFeeStatus: "free",
+          total: 0,
+          advancePercent: 0,
+          advanceRequired: 0,
+          amount: 0,
+          deliveryLocation: "",
+          itemSummary: "",
+          quantity: 0,
+        };
+      }
+    }
+    if (
+      inserted.error &&
+      isMissingSchema(inserted.error) &&
+      (inserted.error.message ?? "").includes("client_request_id")
+    ) {
+      const { client_request_id: _ignored, ...withoutKey } = fullOrder;
+      inserted = await supabaseAdmin.from("orders").insert(withoutKey).select("id,order_number,tracking_token").single();
+    }
+    if (
+      inserted.error &&
+      isMissingSchema(inserted.error) &&
+      /policy_version|policy_accepted_at/.test(inserted.error.message ?? "")
+    ) {
+      const { policy_version: _version, policy_accepted_at: _accepted, ...withoutStamp } = fullOrder;
+      inserted = await supabaseAdmin.from("orders").insert(withoutStamp).select("id,order_number,tracking_token").single();
+    }
     if (inserted.error && isMissingSchema(inserted.error)) {
       // Migration 0007 not run yet: save the order the old way.
       schemaReady = false;
@@ -258,7 +320,10 @@ export const createCheckout = createServerFn({ method: "POST" })
     const amount = chargeNow(dueNow, total);
     let paymentId: string | null = null;
     let paymentError: string | null = null;
-    if (data.payment_method === "mobile" && data.wallet && (await onlinePaymentsOn())) {
+    const { palmPaymentsSelected } = await import("@/lib/order-payments.server");
+    const { snippeReconcileEnabled } = await import("@/lib/snippe-decision");
+    const promptReady = palmPaymentsSelected() || snippeReconcileEnabled(process.env);
+    if (data.payment_method === "mobile" && data.wallet && promptReady) {
       try {
         const { startMobilePayment } = await import("@/lib/order-payments.server");
         const purpose = data.payment_choice === "full" ? "full" : "advance";
@@ -274,7 +339,11 @@ export const createCheckout = createServerFn({ method: "POST" })
           wallet: data.wallet,
         });
       } catch (err) {
-        paymentError = err instanceof Error ? err.message : "We could not send the payment prompt.";
+        const failed = orderAfterPromptFailure(
+          order.order_number,
+          err instanceof Error ? err.message : "We could not send the payment prompt.",
+        );
+        paymentError = failed.paymentError;
       }
     }
     const channel = !anyOpen
@@ -371,7 +440,7 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
       supabaseAdmin
         .from("payments")
         .select(
-          "id,amount,status,purpose,phone,provider,receipt_number,snippe_reference,metadata,created_at,updated_at,order_id,orders(order_number,customer_name,phone,email,delivery_location,total_amount,amount_paid,advance_percent,advance_required,status,created_at,order_items(product_name,quantity,unit_price,material,size,color))",
+          "id,amount,status,purpose,phone,provider,receipt_number,snippe_reference,metadata,created_at,updated_at,order_id,orders(order_number,tracking_token,customer_name,phone,email,delivery_location,total_amount,amount_paid,advance_percent,advance_required,status,created_at,order_items(product_name,quantity,unit_price,material,size,color))",
         )
         .eq("id", data.paymentId)
         .maybeSingle();
@@ -387,9 +456,22 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
       ({ data: payment } = await load());
       if (!payment) throw new Error("Payment not found");
     }
+    const { PROMPT_WINDOW_MS, promptWindowClosed } = await import("@/lib/prompt-window");
+    const prompted = Boolean(payment.snippe_reference) || readPalmMeta(payment.metadata).source === "palmpesa";
+    if (
+      prompted &&
+      payment.status === "pending" &&
+      promptWindowClosed(payment.created_at, Date.now())
+    ) {
+      const { expireUnconfirmedPrompt } = await import("@/lib/order-payments.server");
+      await expireUnconfirmedPrompt(supabaseAdmin, payment.id);
+      ({ data: payment } = await load());
+      if (!payment) throw new Error("Payment not found");
+    }
 
     const order = payment.orders as {
       order_number: string;
+      tracking_token: string | null;
       customer_name: string;
       phone: string;
       email: string | null;
@@ -405,9 +487,17 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
     if (!order) throw new Error("Order not found");
     const masked = payment.phone ? `${payment.phone.slice(0, 5)}••••${payment.phone.slice(-3)}` : "";
     const palmMeta = readPalmMeta(payment.metadata);
+    const phonePrompt = Boolean(payment.snippe_reference) || palmMeta.source === "palmpesa";
     return {
       id: payment.id,
       status: payment.status as "pending" | "completed" | "failed" | "expired",
+      ...(phonePrompt
+        ? {
+            expiresAt: new Date(
+              new Date(payment.created_at).getTime() + PROMPT_WINDOW_MS,
+            ).toISOString(),
+          }
+        : {}),
       amount: Number(payment.amount),
       purpose: payment.purpose,
       phone: masked,
@@ -421,6 +511,7 @@ export const getPaymentStatus = createServerFn({ method: "GET" })
       paidAt: payment.updated_at,
       order: {
         number: order.order_number,
+        trackingToken: order.tracking_token,
         customerName: order.customer_name,
         phone: order.phone,
         email: order.email,
@@ -454,6 +545,16 @@ export const resendPaymentPrompt = createServerFn({ method: "POST" })
     if (!payment?.snippe_reference || payment.status !== "pending") throw new Error("This payment cannot be resent");
     await resendPrompt(payment.snippe_reference);
     return { ok: true };
+  });
+
+/** Stop a payment that is still unconfirmed. Confirmed money is left as it is. */
+export const cancelCustomerPayment = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ paymentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { cancelUnconfirmedPayment } = await import("@/lib/order-payments.server");
+    const outcome = await cancelUnconfirmedPayment(supabaseAdmin, data.paymentId);
+    return { outcome };
   });
 
 /**

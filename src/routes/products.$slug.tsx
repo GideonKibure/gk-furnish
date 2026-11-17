@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Check, Factory, Handshake, MapPin, MessageCircle, Ruler, ShoppingCart, Truck, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,16 +15,24 @@ import { ConditionBadge, ProductGrid } from "@/components/site/ProductCard";
 import { ProductReviews } from "@/components/site/ProductReviews";
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { ZoomGallery } from "@/components/site/ZoomGallery";
-import { formatPrice, formatPriceSpan, SITE, waLink } from "@/config/site";
+import { WhatsAppOrderLink } from "@/components/site/WhatsAppOrderLink";
+import { formatPrice, formatPriceSpan, SITE } from "@/config/site";
 import { fill } from "@/i18n/fill";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
+import { saveBuyNow } from "@/lib/buy-now";
 import { productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { absoluteUrl, breadcrumbLd, productSeoCopy, seo } from "@/lib/seo";
+import { siteSettingsQuery } from "@/lib/site-content";
+import { policySettingsFrom } from "@/lib/policy";
+import { whatsAppOrderText } from "@/lib/whatsapp";
 import { highestOptionPrice, lowestOptionPrice, optionPriceRows, optionLabel, parseCatalogColor, parseOptionList, publicFeatures, selectedOptionPrice } from "@/lib/order-options";
-import { freeDeliveryPlaces, joinPlaces } from "@/lib/delivery";
+import { freeDeliveryPlaces, deliveredFreeIn, joinPlaces, TZ_REGIONS } from "@/lib/delivery";
 import { asksForPrice, compareAtPrice, discountPercent, isPurchasable } from "@/lib/product-display";
+import { availabilityFact, canAddPricedProduct, deliveryFact, lowStockLeft, measureCm, parseDeliveryZones, priceHintAmount } from "@/lib/product-facts";
 import { productGalleryItems, productVideoSrc } from "@/lib/product-image";
 import { cn } from "@/lib/utils";
+import { CatalogueError, ProductPending } from "@/components/site/CatalogueState";
 
 export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
@@ -71,6 +79,12 @@ export const Route = createFileRoute("/products/$slug")({
       image: loaderData.image,
       type: "product",
     });
+    if (!loaderData.quote && loaderData.price > 0) {
+      base.meta.push(
+        { property: "product:price:amount", content: String(Math.round(loaderData.price)) },
+        { property: "product:price:currency", content: "TZS" },
+      );
+    }
     const availability = loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
     const offerUrl = absoluteUrl(path);
     const offers =
@@ -129,6 +143,8 @@ export const Route = createFileRoute("/products/$slug")({
     return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(graph) }] };
   },
   component: Detail,
+  pendingComponent: ProductPending,
+  errorComponent: CatalogueError,
 });
 
 type Tab = "description" | "specs" | "care" | "reviews";
@@ -149,6 +165,8 @@ function Detail() {
   const { t, lang } = useLang();
   const { data } = useSuspenseQuery(productsQuery);
   const { data: ratings = {} } = useQuery(ratingSummaryQuery);
+  const { data: siteSettings } = useQuery(siteSettingsQuery);
+  const policy = policySettingsFrom(siteSettings);
   const p = data.find((x) => x.slug === slug);
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
@@ -158,11 +176,47 @@ function Detail() {
   const [askOpen, setAskOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("description");
   const [shareUrl, setShareUrl] = useState("");
+  const [region, setRegion] = useState("");
+  const [barHidden, setBarHidden] = useState(false);
   const addToCart = useAddToCart();
+  const nav = useNavigate();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gk-delivery-region") ?? "";
+      if ((TZ_REGIONS as readonly string[]).includes(saved)) setRegion(saved);
+    } catch {
+      /* the estimate still works without a remembered region */
+    }
+  }, []);
 
   useEffect(() => {
     setShareUrl(window.location.href);
   }, [slug]);
+
+  useEffect(() => {
+    const show = (event: FocusEvent) => {
+      const target = event.target;
+      const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+      setBarHidden(typing);
+    };
+    const hide = (event: FocusEvent) => {
+      const next = event.relatedTarget;
+      const typing = next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement || next instanceof HTMLSelectElement;
+      setBarHidden(typing);
+    };
+    document.addEventListener("focusin", show);
+    document.addEventListener("focusout", hide);
+    return () => {
+      document.removeEventListener("focusin", show);
+      document.removeEventListener("focusout", hide);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!p) return;
+    trackEvent("view_product", { product_id: p.id });
+  }, [p]);
 
   if (!p) return null;
 
@@ -194,26 +248,52 @@ function Detail() {
   const selectedSize = dimensions.includes(size) ? size : "";
   const selectedColor = colors.some((item) => item.stored === color) ? color : "";
   const unpriced = asksForPrice(p);
-  const msg = `${t.whatsapp.productPrefix} ${p.name}${!unpriced && price ? ` ${t.whatsapp.pricedAt} ${price}` : ""}.`;
+  const orderText = whatsAppOrderText([
+    t.whatsapp.productIntro,
+    p.name,
+    [selectedMaterial, selectedSize, colors.find((item) => item.stored === selectedColor)?.label].filter(Boolean).join(", "),
+    fill(t.whatsapp.quantity, { count: qty }),
+    absoluteUrl(`/products/${p.slug}`),
+  ]);
   const related = data.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
   const rating = ratings[p.id];
-  const canBuy = isPurchasable(p);
+  const canBuy = canAddPricedProduct(unpriced, isPurchasable(p));
+  const availability = availabilityFact(p);
+  const left = lowStockLeft(p.stock_quantity);
+  const hintAmount = priceHintAmount(p, unpriced);
+  const hintLabel = hintAmount ? formatPrice(hintAmount) : null;
+  const zones = parseDeliveryZones(siteSettings?.delivery_zones);
+  const fact = deliveryFact({
+    region,
+    freeForRegion: deliveredFreeIn(p, region),
+    zones,
+  });
+  const width = measureCm(p.width_cm);
+  const depth = measureCm(p.depth_cm);
+  const height = measureCm(p.height_cm);
+  const capacity = localized(lang, p.capacity_text_en ?? "", p.capacity_text_sw);
   const finish = localized(lang, p.finish ?? "", p.finish_sw);
   const care = localized(lang, p.care_info ?? "", p.care_info_sw) || t.pdp.careDefault;
   const catName = p.categories ? localized(lang, p.categories.name, p.categories.name_sw) : "";
 
   async function onAdd(buyNow: boolean) {
-    if (!p) return;
+    if (!p || !canAddPricedProduct(unpriced, canBuy)) return;
     const choice = {
-      material: selectedMaterial,
-      size: selectedSize,
-      color: colors.find((item) => item.stored === selectedColor)?.label ?? "",
+      material: selectedMaterial || materials[0] || "",
+      size: selectedSize || dimensions[0] || "",
+      color: (colors.find((item) => item.stored === selectedColor) ?? colors[0])?.label ?? "",
     };
     if (missingChoices(p, choice).length) {
       setOpen(true);
       return;
     }
-    await addToCart(p, { ...choice, quantity: qty }, buyNow);
+    if (buyNow) {
+      trackEvent("buy_now_click", { product_id: p.id });
+      saveBuyNow({ product_id: p.id, quantity: qty, material: choice.material, size: choice.size, color: choice.color });
+      await nav({ to: "/checkout", search: { buy: true } });
+      return;
+    }
+    await addToCart(p, { ...choice, quantity: qty }, false);
   }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -224,7 +304,7 @@ function Detail() {
   ];
 
   return (
-    <div className="pb-10 md:pb-16">
+    <div className="pb-28 lg:pb-16">
       <div className="container-page pt-4 md:pt-6">
         <Breadcrumbs
           items={[
@@ -248,7 +328,15 @@ function Detail() {
             )}
 
             {unpriced ? (
-              <p className="mt-4 text-sm leading-relaxed text-navy/80">{t.pdp.askPriceNote}</p>
+              <div className="mt-4">
+                {hintLabel && (
+                  <p className="text-sm text-muted-foreground">
+                    {fill(t.pdp.fromHint, { amount: hintLabel })}
+                    <span className="mt-0.5 block">{t.pdp.hintNote}</span>
+                  </p>
+                )}
+                <p className="mt-2 text-sm leading-relaxed text-navy/80">{t.pdp.askPriceNote}</p>
+              </div>
             ) : (
               <>
                 <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -263,6 +351,82 @@ function Detail() {
             {unpriced && (
               <div className="mt-3">
                 <ConditionBadge condition={p.item_condition} />
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2 text-sm text-navy">
+              <p>{t.pdp.collectFree}</p>
+              <p>
+                {fact.kind === "free"
+                  ? fill(t.pdp.deliveryFreeTo, { region: fact.region })
+                  : fact.kind === "estimate"
+                    ? fill(t.pdp.deliveryEstimate, { region: fact.region, amount: formatPrice(fact.fee) ?? "" })
+                    : t.pdp.deliveryConfirm}
+              </p>
+              {zones.length > 0 && (
+                <label className="block">
+                  <span className="field-label">{t.pdp.yourRegion}</span>
+                  <select
+                    className="field-input mt-1"
+                    value={region}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setRegion(next);
+                      try {
+                        if (next) localStorage.setItem("gk-delivery-region", next);
+                        else localStorage.removeItem("gk-delivery-region");
+                      } catch {
+                        /* the choice still applies on this page */
+                      }
+                    }}
+                  >
+                    <option value="">{t.pdp.yourRegion}</option>
+                    {TZ_REGIONS.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            {(width != null || depth != null || height != null || capacity || finish) && (
+              <div className="mt-4">
+                <h2 className="text-base font-bold text-navy">{t.pdp.sizeDetails}</h2>
+                <dl className="mt-2 space-y-1 text-sm">
+                  {(width != null || depth != null || height != null) && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{t.detail.dimensions}</dt>
+                      <dd className="tabular-nums font-medium text-navy">
+                        {fill(t.pdp.dimensionsCm, {
+                          width: width ?? "–",
+                          depth: depth ?? "–",
+                          height: height ?? "–",
+                        })}
+                      </dd>
+                    </div>
+                  )}
+                  {capacity && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{t.pdp.capacity}</dt>
+                      <dd className="font-medium text-navy">{capacity}</dd>
+                    </div>
+                  )}
+                  {finish && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{t.pdp.finish}</dt>
+                      <dd className="font-medium text-navy">{finish}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+
+            {(availability || left != null) && (
+              <div className="mt-3 space-y-1 text-sm font-medium text-navy">
+                {availability && (
+                  <p>{availability.kind === "ready" ? t.pdp.readyNow : fill(t.pdp.madeInDays, { days: availability.days })}</p>
+                )}
+                {left != null && <p>{fill(t.pdp.onlyLeft, { count: left })}</p>}
               </div>
             )}
 
@@ -329,28 +493,47 @@ function Detail() {
               </div>
             )}
 
+            {!unpriced && (
+              <div className="mt-5">
+                <QtyStepper value={qty} onChange={setQty} label={t.detail.quantity} />
+              </div>
+            )}
+            <div className={barHidden ? undefined : "max-lg:hidden"}>
             {unpriced ? (
               <button type="button" className="btn-base btn-gold btn-lg mt-5 w-full" onClick={() => setAskOpen(true)}>
                 {t.cart.askPrice}
               </button>
             ) : (
-              <>
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <QtyStepper value={qty} onChange={setQty} label={t.detail.quantity} />
-                  <button type="button" className="btn-base btn-gold btn-lg min-w-[9.5rem] flex-1" disabled={!canBuy} onClick={() => void onAdd(false)}>
-                    <ShoppingCart className="h-4 w-4" />
-                    {t.cart.add}
-                  </button>
-                </div>
-                <button type="button" className="btn-base btn-navy btn-lg mt-3 w-full" disabled={!canBuy} onClick={() => void onAdd(true)}>
+              <div className="mt-3 flex flex-row gap-3">
+                <button type="button" className="btn-base btn-gold btn-lg min-h-11 flex-1" disabled={!canBuy} onClick={() => void onAdd(true)}>
                   {t.cart.buyNow}
                 </button>
-              </>
+                <button type="button" className="btn-base btn-outline-navy btn-lg min-h-11 flex-1" disabled={!canBuy} onClick={() => void onAdd(false)}>
+                  <ShoppingCart className="h-4 w-4" />
+                  {t.cart.add}
+                </button>
+              </div>
             )}
-            <a href={waLink(msg)} target="_blank" rel="noreferrer" className="btn-base btn-ghost mt-2 w-full">
+            <WhatsAppOrderLink source="product" text={orderText} className="btn-base btn-outline-navy mt-2 min-h-11 w-full">
               <MessageCircle className="h-4 w-4" />
-              {t.detail.askWhatsapp}
-            </a>
+              {t.whatsapp.orderButton}
+            </WhatsAppOrderLink>
+            </div>
+            <ul className="mt-3 space-y-1 text-sm text-navy">
+              <li>
+                {policy.warrantyMonthsStructure == null
+                  ? t.policies.ask
+                  : fill(t.policies.structureMonths, { months: policy.warrantyMonthsStructure })}
+                {" · "}
+                <Link to="/policies" className="font-semibold underline-offset-2 hover:underline">{t.policies.trustGuarantee}</Link>
+              </li>
+              <li>{t.policies.trustCollection}</li>
+              <li>
+                <WhatsAppOrderLink source="product" text={orderText} className="inline-flex min-h-11 items-center font-semibold underline-offset-2 hover:underline">
+                  {t.policies.trustWhatsapp}
+                </WhatsAppOrderLink>
+              </li>
+            </ul>
 
             <div className="mt-4 space-y-2 rounded-xl bg-sand p-3.5 text-sm text-navy/80">
               <p className="flex items-start gap-2">
@@ -449,7 +632,38 @@ function Detail() {
           initialMaterial={selectedMaterial}
         />
       )}
-      <PriceAskDialog productName={name} productImage={gallery[0]?.src ?? ""} open={askOpen} onOpenChange={setAskOpen} />
+      <PriceAskDialog productName={name} productImage={gallery[0]?.src ?? ""} productUrl={absoluteUrl(`/products/${p.slug}`)} open={askOpen} onOpenChange={setAskOpen} />
+
+      <div
+        className={cn(
+          "fixed inset-x-0 z-30 border-t border-border bg-white px-3 py-2 lg:hidden",
+          "bottom-[calc(4rem+env(safe-area-inset-bottom))]",
+          barHidden && "hidden",
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-sm font-bold text-navy">
+            {unpriced ? (hintLabel ? fill(t.pdp.fromHint, { amount: hintLabel }) : t.cart.askPrice) : (price ?? t.common.priceOnRequest)}
+          </p>
+          {unpriced ? (
+            <button type="button" className="btn-base btn-gold min-h-11 px-4" onClick={() => setAskOpen(true)}>
+              {t.cart.askPrice}
+            </button>
+          ) : (
+            <button type="button" className="btn-base btn-gold min-h-11 px-4" disabled={!canBuy} onClick={() => void onAdd(true)}>
+              {t.cart.buyNow}
+            </button>
+          )}
+          <WhatsAppOrderLink
+            source="product"
+            text={orderText}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-navy text-navy"
+          >
+            <MessageCircle className="h-5 w-5" />
+            <span className="sr-only">{t.whatsapp.orderButton}</span>
+          </WhatsAppOrderLink>
+        </div>
+      </div>
 
       {related.length > 0 && (
         <section className="border-t border-border bg-sand">

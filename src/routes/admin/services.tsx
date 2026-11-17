@@ -198,7 +198,7 @@ function AdminServicesPage() {
               <p className="mb-2 text-xs text-[#6B7280]">JPG, PNG or WebP under 5MB, or MP4/WebM under 20MB. Video plays on its own and starts again when it ends.</p>
               {current?.media_url && (
                 current.media_kind === "video" ? (
-                  <video src={current.media_url} muted loop autoPlay playsInline className="mb-2 h-36 w-full max-w-sm rounded-lg object-cover" />
+                  <video src={current.media_url} muted playsInline controls className="mb-2 h-36 w-full max-w-sm rounded-lg object-cover" />
                 ) : (
                   <img src={current.media_url} alt="" className="mb-2 h-36 w-full max-w-sm rounded-lg object-cover" />
                 )

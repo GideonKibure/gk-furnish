@@ -9,6 +9,7 @@ import { categoriesQuery, productsQuery } from "@/lib/catalog";
 import { pageSectionsQuery } from "@/lib/site-content";
 import { categoryImageSlot } from "@/lib/site-images";
 import { seo } from "@/lib/seo";
+import { CatalogueError, ShopPending } from "@/components/site/CatalogueState";
 
 export const Route = createFileRoute("/categories/")({
   head: () =>
@@ -24,6 +25,8 @@ export const Route = createFileRoute("/categories/")({
       context.queryClient.ensureQueryData(pageSectionsQuery).catch(() => []),
     ]),
   component: Cats,
+  pendingComponent: ShopPending,
+  errorComponent: CatalogueError,
 });
 
 function Cats() {

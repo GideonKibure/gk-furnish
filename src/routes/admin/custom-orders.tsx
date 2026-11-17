@@ -23,10 +23,17 @@ import { downloadToDevice, photoFileName } from "@/lib/download-file";
 import { downloadQuote } from "@/lib/invoice";
 import { CUSTOM_STATUSES, customStatusLabel, customStatusTone, humanize } from "@/lib/ops/status";
 import { parseCatalogColor, unpackPreference } from "@/lib/order-options";
+import { isPriceAsk, queueAgeLabel } from "@/lib/today-queue";
+import { applyTemplate, DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_LABELS, type TemplateBook, type TemplateKey } from "@/lib/wa-template";
+import { getWhatsappTemplates } from "@/lib/wa-template.functions";
 
 export const Route = createFileRoute("/admin/custom-orders")({
-  validateSearch: (s: Record<string, unknown>): { q?: string } =>
-    typeof s["q"] === "string" && s["q"].trim() ? { q: s["q"].trim().slice(0, 80) } : {},
+  validateSearch: (s: Record<string, unknown>): { q?: string; view?: "price" | "custom" } => {
+    const out: { q?: string; view?: "price" | "custom" } = {};
+    if (typeof s["q"] === "string" && s["q"].trim()) out.q = s["q"].trim().slice(0, 80);
+    if (s["view"] === "price" || s["view"] === "custom") out.view = s["view"];
+    return out;
+  },
   head: () => ({ meta: [{ title: "Custom requests — Admin" }, { name: "robots", content: "noindex" }] }),
   component: AdminCustomOrdersPage,
 });
@@ -82,7 +89,59 @@ function PreferenceBlock({ label, stored, swatches = false }: { label: string; s
   );
 }
 
-function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<void> }) {
+function isTemplateKey(value: string): value is TemplateKey {
+  return TEMPLATE_KEYS.some((item) => item === value);
+}
+
+function ReplyWhatsApp({ order, templates }: { order: Row; templates: TemplateBook | null }) {
+  const [key, setKey] = useState<(typeof TEMPLATE_KEYS)[number]>(order.quotes.length ? "quote_ready" : "need_details");
+  const [lang, setLang] = useState<"en" | "sw">("en");
+  const pair = templates?.[key] ?? DEFAULT_TEMPLATES[key];
+  const filled = applyTemplate(pair[lang], { name: order.full_name, order_number: order.request_number });
+  const phone = order.phone.replace(/\D/g, "");
+  const href = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(filled.text)}` : null;
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <label className="text-xs font-semibold text-[#6B7280]" htmlFor={`reply-${order.id}`}>
+        WhatsApp reply
+      </label>
+      <select
+        id={`reply-${order.id}`}
+        className="h-11 rounded-lg border border-[#E5E5E5] bg-white px-2 text-sm text-navy"
+        value={key}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (isTemplateKey(value)) setKey(value);
+        }}
+      >
+        {TEMPLATE_KEYS.map((item) => (
+          <option key={item} value={item}>{TEMPLATE_LABELS[item]}</option>
+        ))}
+      </select>
+      <label className="text-xs font-semibold text-[#6B7280]" htmlFor={`reply-lang-${order.id}`}>
+        Language
+        <select
+          id={`reply-lang-${order.id}`}
+          className="mt-1 h-11 w-full rounded-lg border border-[#E5E5E5] bg-white px-2 text-sm text-navy"
+          value={lang}
+          onChange={(event) => setLang(event.target.value === "sw" ? "sw" : "en")}
+        >
+          <option value="en">English</option>
+          <option value="sw">Kiswahili</option>
+        </select>
+      </label>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className={btn("outline", undefined, "min-h-11")}>
+          Reply on WhatsApp
+        </a>
+      ) : (
+        <p className="text-xs text-[#6B7280]">This request has no phone number.</p>
+      )}
+    </div>
+  );
+}
+
+function QuotePanel({ order, onSaved, templates }: { order: Row; onSaved: () => Promise<void>; templates: TemplateBook | null }) {
   const save = useServerFn(saveCustomOrderQuote);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -167,9 +226,12 @@ function QuotePanel({ order, onSaved }: { order: Row; onSaved: () => Promise<voi
           ))}
         </div>
       )}
-      <button type="button" className={btn(open ? "outline" : "gold")} onClick={() => setOpen((value) => !value)}>
-        {open ? "Close quote" : quotes.length ? "Prepare a new quote version" : "Prepare quote"}
-      </button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <ReplyWhatsApp order={order} templates={templates} />
+        <button type="button" className={btn(open ? "outline" : "gold", undefined, "min-h-11")} onClick={() => setOpen((value) => !value)}>
+          {open ? "Close quote" : "Send quotation"}
+        </button>
+      </div>
       {open && (
         <div className="mt-3 space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -296,6 +358,8 @@ function AdminCustomOrdersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [q, setQ] = useState(search.q ?? "");
   const [tab, setTab] = useState<Tab>("all");
+  const loadTemplates = useServerFn(getWhatsappTemplates);
+  const [templates, setTemplates] = useState<TemplateBook | null>(null);
 
   async function refresh() {
     setRows(await list());
@@ -303,24 +367,31 @@ function AdminCustomOrdersPage() {
 
   useEffect(() => {
     refresh().catch((e) => toast.error(e instanceof Error ? e.message : "Load failed"));
+    loadTemplates().then((result) => setTemplates(result.templates)).catch(() => setTemplates(null));
   }, []);
 
   useEffect(() => {
     if (search.q) setQ(search.q);
   }, [search.q]);
 
+  const listed = useMemo(() => {
+    const base = rows ?? [];
+    if (search.view === "price") return base.filter((row) => isPriceAsk(row.design_description));
+    if (search.view === "custom") return base.filter((row) => !isPriceAsk(row.design_description));
+    return base;
+  }, [rows, search.view]);
   const searched = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!rows || !term) return rows ?? [];
+    if (!term) return listed;
     const digits = term.replace(/\D/g, "");
-    return rows.filter(
+    return listed.filter(
       (r) =>
         r.request_number.toLowerCase().includes(term) ||
         r.full_name.toLowerCase().includes(term) ||
         r.furniture_type.toLowerCase().includes(term) ||
         (digits.length >= 3 && r.phone.replace(/\D/g, "").includes(digits)),
     );
-  }, [rows, q]);
+  }, [listed, q]);
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "all", label: "All", count: searched.length },
     ...STATUSES.map((s) => ({ id: s, label: customStatusLabel(s), count: searched.filter((r) => r.status === s).length })),
@@ -374,7 +445,10 @@ function AdminCustomOrdersPage() {
                   <StatusPill tone={customStatusTone(r.status)}>{customStatusLabel(r.status)}</StatusPill>
                   {r.user_id && <StatusPill tone="info">Registered customer</StatusPill>}
                 </div>
-                <p className="mt-1 text-xs text-[#6B7280]">{formatDate(r.created_at, true)}</p>
+                <p className="mt-1 text-xs text-[#6B7280]">
+                  {formatDate(r.created_at, true)}
+                  {queueAgeLabel(r.created_at, Date.now()) ? ` · ${queueAgeLabel(r.created_at, Date.now())}` : ""}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -493,7 +567,7 @@ function AdminCustomOrdersPage() {
                 )}
               </div>
             </div>
-            <QuotePanel order={r} onSaved={refresh} />
+            <QuotePanel order={r} onSaved={refresh} templates={templates} />
           </AdminCard>
         ))}
         {rows && !shown.length && (

@@ -4,20 +4,17 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BadgeCheck,
-  ClipboardList,
   Hammer,
-  HandCoins,
+  Handshake,
+  Layers,
   MessageCircle,
-  PackageCheck,
+  Paintbrush,
   Phone,
   Ruler,
   ShieldCheck,
-  ShoppingBag,
   Tag,
   Truck,
-  Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryTile } from "@/components/brand/CategoryTile";
 import { FeatureBadges } from "@/components/brand/FeatureBadges";
 import { StarRating } from "@/components/brand/StarRating";
@@ -25,13 +22,15 @@ import { SectionTitle } from "@/components/site/PageHeader";
 import { ServiceMedia } from "@/components/site/ServiceMedia";
 import { formatAmount } from "@/config/site";
 import { ProductGrid } from "@/components/site/ProductCard";
-import { HERO_VIDEO_SRC, IMAGES, imageFor } from "@/data/images";
+import { IMAGES, imageFor } from "@/data/images";
+import { DEFAULT_PAY_ACCOUNTS } from "@/lib/pay-accounts";
 import { useSiteImages } from "@/hooks/use-site-images";
 import { localized, useLang } from "@/i18n/LanguageProvider";
 import { approvedReviewsQuery, categoriesQuery, productsQuery, ratingSummaryQuery, servicesQuery } from "@/lib/catalog";
 import { pageSectionsQuery, sectionText, settingsToSite, siteSettingsQuery } from "@/lib/site-content";
 import { categoryImageSlot } from "@/lib/site-images";
 import { seo } from "@/lib/seo";
+import { CatalogueError, ShopPending } from "@/components/site/CatalogueState";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -56,100 +55,11 @@ export const Route = createFileRoute("/")({
       context.queryClient.prefetchQuery(ratingSummaryQuery),
     ]),
   component: Home,
+  pendingComponent: ShopPending,
+  errorComponent: CatalogueError,
 });
 
-function HeroLetters({ text }: { text: string }) {
-  const words = text.split(" ");
-  let count = 0;
-  return (
-    <>
-      {words.map((word, wi) => (
-        <span key={`${word}-${wi}`} className="inline-block whitespace-nowrap">
-          {[...word].map((letter) => {
-            const delay = count * 38;
-            count += 1;
-            return (
-              <span key={delay} className="hero-letter" style={{ animationDelay: `${delay}ms` }}>
-                {letter}
-              </span>
-            );
-          })}
-          {wi < words.length - 1 ? "\u00a0" : null}
-        </span>
-      ))}
-    </>
-  );
-}
-
-function useHeroVideo() {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    const slow = connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "");
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const wide = window.matchMedia("(min-width: 768px)").matches;
-    setOn(!slow && !reduced && wide);
-  }, []);
-  return on;
-}
-
-const HERO_ALT = [
-  "Furniture made by GK Furnish in Mbeya",
-  "Furniture for a home",
-  "Study tables from GK Furnish",
-  "Study chairs from GK Furnish",
-  "Beds from GK Furnish",
-];
-
-function HeroSlides({ slides, index }: { slides: string[]; index: number }) {
-  const videoOn = useHeroVideo();
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (index === 0) video.play().catch(() => undefined);
-    else video.pause();
-  }, [index, videoOn]);
-
-  return (
-    <>
-      {slides.map((src, i) => (
-        <div
-          key={src + i}
-          aria-hidden={i !== index}
-          className={cn("hero-slide absolute inset-0", i === index ? "opacity-100" : "opacity-0")}
-        >
-          {i === 0 && videoOn ? (
-            <video
-              ref={videoRef}
-              className="h-full w-full object-cover"
-              src={HERO_VIDEO_SRC}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              poster={src}
-              aria-label={HERO_ALT[0]}
-            />
-          ) : (
-            <img
-              src={src}
-              alt={i === index ? (HERO_ALT[i] ?? "GK Furnish furniture") : ""}
-              width={1600}
-              height={1000}
-              decoding="async"
-              fetchPriority={i === 0 ? "high" : "low"}
-              loading={i === 0 ? "eager" : "lazy"}
-              className="h-full w-full object-cover"
-            />
-          )}
-        </div>
-      ))}
-    </>
-  );
-}
+const PROCESS_ICONS = [MessageCircle, Handshake, Layers, Hammer, Paintbrush, BadgeCheck, Truck] as const;
 
 function Home() {
   const { t, lang } = useLang();
@@ -160,82 +70,93 @@ function Home() {
   const { data: services = [] } = useQuery(servicesQuery);
   const { data: settings } = useQuery(siteSettingsQuery);
   const site = settingsToSite(settings);
-  const fixes = t.home2.heroFixes;
-  const [fixIndex, setFixIndex] = useState(0);
-  const fix = fixes[fixIndex] ?? fixes[0];
-  const slideForFix = [3, 4, 2];
-
-  useEffect(() => {
-    if (fixes.length < 2) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setFixIndex((i) => (i + 1) % fixes.length), 4200);
-    return () => window.clearInterval(timer);
-  }, [fixes.length]);
 
   const customTitle = sectionText(sections, "home", "custom_title", lang, t.home.customTitle);
   const customBody = sectionText(sections, "home", "custom_body", lang, t.home.customBody);
   const { image, gallery } = useSiteImages();
   const customImage = image("home.custom", IMAGES.custom);
-  const slides = useMemo(
-    () =>
-      [
-        image("home.hero", IMAGES.hero),
-        image("home.feature.homes", IMAGES.room),
-        image("home.feature.desks", IMAGES.tables),
-        image("home.feature.chairs", IMAGES.chairs),
-        image("home.feature.beds", IMAGES.beds),
-      ].filter((src): src is string => Boolean(src)),
-    [image],
-  );
+  const heroSrc = image("home.hero", IMAGES.hero);
 
   const featured = products.filter((p) => p.is_featured).slice(0, 8);
   const latest = products.slice(0, 4);
   const productName = new Map(products.map((p) => [p.id, localized(lang, p.name, p.name_sw)]));
   const whyIcons = [BadgeCheck, Ruler, Tag, Truck, ShieldCheck];
-  const howIcons = [ShoppingBag, ClipboardList, Wallet, PackageCheck];
   const wa = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(t.whatsapp.general)}`;
   const dial = site.phoneDial.startsWith("+") ? site.phoneDial : `+${site.phoneDial.replace(/\D/g, "")}`;
 
   return (
     <>
-      {/* Hero */}
-      <section className="bg-sand pb-24 md:pb-28 lg:pb-12">
-        <div className="container-page pt-4 md:pt-6">
-          <div className="grid overflow-hidden rounded-2xl border border-border bg-navy md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-            <div className="order-2 flex flex-col justify-center px-5 py-8 text-white sm:px-8 md:order-1 md:px-10 md:py-12 lg:px-12">
+      <section className="bg-sand">
+        <div className="container-page py-4">
+          <div className="grid overflow-hidden rounded-2xl border border-border bg-navy md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="flex flex-col justify-center px-4 py-5 text-white sm:px-8 md:px-10 md:py-12">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">{t.home.heroEyebrow}</p>
-              <h1 className="mt-3 max-w-xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-white md:text-5xl">
-                <span className="sr-only">
-                  {t.home2.heroAsk} {fix?.word}
-                </span>
-                <span aria-hidden className="block text-white">
-                  <HeroLetters text={t.home2.heroAsk} />
-                </span>
-                {fix && (
-                  <span key={fix.word} aria-hidden className="mt-1 block text-gold">
-                    <HeroLetters text={fix.word} />
-                  </span>
-                )}
+              <h1 className="mt-2 max-w-xl text-[1.65rem] font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
+                {t.home2.promiseTitle}
               </h1>
-              <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-white/80 md:text-base">{t.home.heroSubtitle}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                {fix && (
-                  <Link to="/categories/$slug" params={{ slug: fix.slug }} className="btn-base btn-gold btn-lg group">
-                    {fix.cta}
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                )}
-                <Link to="/custom-order" className="btn-base btn-lg border border-white/30 bg-transparent text-white hover:bg-white/10">
-                  {t.home2.describeRoom}
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">{t.home2.promiseSupport}</p>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <Link to="/products" className="btn-base btn-gold min-h-11 w-full sm:w-auto">
+                  {t.home2.browseFurniture}
+                </Link>
+                <Link
+                  to="/custom-order"
+                  className="btn-base min-h-11 w-full border border-white/40 bg-transparent text-white hover:bg-white/10 sm:w-auto"
+                >
+                  {t.home2.customQuote}
                 </Link>
               </div>
             </div>
-            <div className="relative order-1 min-h-56 sm:min-h-72 md:order-2 md:min-h-[32rem]">
-              <HeroSlides slides={slides} index={slides.length ? (slideForFix[fixIndex] ?? 0) % slides.length : 0} />
-            </div>
+            {heroSrc && (
+              <div className="relative h-36 sm:h-48 md:h-auto md:min-h-72">
+                <img
+                  src={heroSrc}
+                  alt={t.home2.heroAlt}
+                  width={1600}
+                  height={1000}
+                  decoding="async"
+                  fetchPriority="high"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              </div>
+            )}
           </div>
           <FeatureBadges className="mt-4" />
         </div>
+      </section>
+
+      <section className="container-page section-y">
+        <SectionTitle title={t.home2.forTitle} />
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {(
+            [
+              { label: t.home2.forStudents, to: "/categories/$slug" as const, params: { slug: "chairs" } },
+              { label: t.home2.forHomes, to: "/products" as const },
+              { label: t.home2.forOffices, to: "/categories/$slug" as const, params: { slug: "tables" } },
+              { label: t.home2.forSchools, to: "/custom-order" as const },
+              { label: t.home2.forGuests, to: "/custom-order" as const },
+            ] as const
+          ).map((item) => (
+            <li key={item.label}>
+              {"params" in item ? (
+                <Link
+                  to={item.to}
+                  params={item.params}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-border bg-white px-3 py-3 text-center text-sm font-semibold text-navy"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Link
+                  to={item.to}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-border bg-white px-3 py-3 text-center text-sm font-semibold text-navy"
+                >
+                  {item.label}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Categories */}
@@ -298,20 +219,17 @@ function Home() {
         </div>
       </section>
 
-      {/* How ordering works */}
       <section className="bg-navy text-white">
         <div className="container-page section-y">
-          <div className="mb-6">
-            <h2 className="section-title !text-white">{t.home2.howTitle}</h2>
-          </div>
-          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {t.home2.howSteps.map((step, i) => {
-              const Icon = howIcons[i] ?? HandCoins;
+          <h2 className="section-title !text-white">{t.process.title}</h2>
+          <ol className="mt-6 flex gap-3 overflow-x-auto pb-2">
+            {t.process.steps.map((step, i) => {
+              const Icon = PROCESS_ICONS[i] ?? Hammer;
               return (
-                <li key={step.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                <li key={step.title} className="w-56 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] p-4">
                   <div className="flex items-center gap-3">
                     <span className="grid h-9 w-9 place-items-center rounded-full bg-gold text-sm font-bold text-navy">{i + 1}</span>
-                    <Icon className="h-5 w-5 text-gold" strokeWidth={1.8} />
+                    <Icon className="h-5 w-5 text-gold" strokeWidth={1.8} aria-hidden />
                   </div>
                   <h3 className="mt-3 text-base font-bold !text-white">{step.title}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-white/70">{step.body}</p>
@@ -413,30 +331,33 @@ function Home() {
         </section>
       )}
 
-      {/* Gallery */}
       <section className="container-page section-y">
-        <SectionTitle
-          title={t.home.galleryTitle}
-          action={
-            <Link to="/gallery" className="inline-flex items-center gap-1 text-sm font-semibold text-gold-ink hover:underline">
-              {t.home.galleryCta}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          }
-        />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {gallery.slice(0, 8).map((g) => (
-            <Link key={g.id} to="/gallery" className="group relative block overflow-hidden rounded-xl border border-border">
-              <img
-                src={g.url}
-                alt={localized(lang, g.caption, g.caption_sw)}
-                loading="lazy"
-                decoding="async"
-                className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-            </Link>
-          ))}
-        </div>
+        <SectionTitle title={t.home2.proofTitle} />
+        <p className="text-base font-semibold text-navy">{site.location}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t.home2.proofOwner}: {DEFAULT_PAY_ACCOUNTS.mpesaName}
+        </p>
+        <a href={wa} target="_blank" rel="noreferrer" className="btn-base btn-outline-navy mt-4 min-h-11 w-fit">
+          <MessageCircle className="h-4 w-4" />
+          {t.common.whatsapp}
+        </a>
+        {gallery.length > 0 && (
+          <div className="mt-5 flex gap-3 overflow-x-auto pb-1">
+            {gallery.slice(0, 8).map((g) => (
+              <Link key={g.id} to="/gallery" className="block w-36 shrink-0 overflow-hidden rounded-xl border border-border">
+                <img
+                  src={g.url}
+                  alt={localized(lang, g.caption, g.caption_sw)}
+                  width={320}
+                  height={320}
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-square w-full object-cover"
+                />
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Contact strip */}
@@ -447,7 +368,7 @@ function Home() {
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t.home2.contactBody}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a href={wa} target="_blank" rel="noreferrer" className="btn-base btn-gold">
+            <a href={wa} target="_blank" rel="noreferrer" className="btn-base btn-outline-navy min-h-11">
               <MessageCircle className="h-4 w-4" />
               {t.common.whatsapp}
             </a>

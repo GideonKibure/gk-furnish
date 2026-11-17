@@ -380,6 +380,66 @@ export type Database = {
         }
         Relationships: []
       }
+      form_rate_buckets: {
+        Row: {
+          form: string
+          hits: number
+          subject: string
+          window_start: string
+        }
+        Insert: {
+          form: string
+          hits?: number
+          subject: string
+          window_start: string
+        }
+        Update: {
+          form?: string
+          hits?: number
+          subject?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      system_heartbeats: {
+        Row: {
+          name: string
+          seen_at: string
+        }
+        Insert: {
+          name: string
+          seen_at?: string
+        }
+        Update: {
+          name?: string
+          seen_at?: string
+        }
+        Relationships: []
+      }
+      reminder_sends: {
+        Row: {
+          entity: string
+          entity_id: string
+          id: string
+          kind: string
+          sent_at: string
+        }
+        Insert: {
+          entity: string
+          entity_id: string
+          id?: string
+          kind: string
+          sent_at?: string
+        }
+        Update: {
+          entity?: string
+          entity_id?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       product_reviews: {
         Row: {
           author_name: string
@@ -666,9 +726,15 @@ export type Database = {
           status: string
           status_reason: string | null
           stock_applied: boolean
+          needs_attention: boolean
+          needs_attention_reason: string | null
           subtotal_amount: number | null
           total_amount: number
           tracking_token: string
+          client_request_id: string | null
+          policy_version: string | null
+          policy_accepted_at: string | null
+          auto_cancel_disabled: boolean
           user_id: string | null
         }
         Insert: {
@@ -704,9 +770,15 @@ export type Database = {
           status?: string
           status_reason?: string | null
           stock_applied?: boolean
+          needs_attention?: boolean
+          needs_attention_reason?: string | null
           subtotal_amount?: number | null
           total_amount?: number
           tracking_token?: string
+          client_request_id?: string | null
+          policy_version?: string | null
+          policy_accepted_at?: string | null
+          auto_cancel_disabled?: boolean
           user_id?: string | null
         }
         Update: {
@@ -742,9 +814,15 @@ export type Database = {
           status?: string
           status_reason?: string | null
           stock_applied?: boolean
+          needs_attention?: boolean
+          needs_attention_reason?: string | null
           subtotal_amount?: number | null
           total_amount?: number
           tracking_token?: string
+          client_request_id?: string | null
+          policy_version?: string | null
+          policy_accepted_at?: string | null
+          auto_cancel_disabled?: boolean
           user_id?: string | null
         }
         Relationships: []
@@ -793,6 +871,7 @@ export type Database = {
           provider: string | null
           provider_order_id: string | null
           provider_reference: string | null
+          confirmed_via: string | null
           purpose: string
           receipt_number: string | null
           snippe_reference: string | null
@@ -816,6 +895,7 @@ export type Database = {
           provider?: string | null
           provider_order_id?: string | null
           provider_reference?: string | null
+          confirmed_via?: string | null
           purpose?: string
           receipt_number?: string | null
           snippe_reference?: string | null
@@ -839,6 +919,7 @@ export type Database = {
           provider?: string | null
           provider_order_id?: string | null
           provider_reference?: string | null
+          confirmed_via?: string | null
           purpose?: string
           receipt_number?: string | null
           snippe_reference?: string | null
@@ -942,6 +1023,7 @@ export type Database = {
           airtel_name: string | null
           airtel_number: string | null
           collection_address: string | null
+          delivery_zones: Json
           email: string | null
           mpesa_enabled: boolean
           mpesa_lipa_name: string | null
@@ -950,6 +1032,16 @@ export type Database = {
           nmb_account_number: string | null
           nmb_enabled: boolean
           order_completion_hours: number
+          warranty_months_structure: number | null
+          warranty_months_finish: number | null
+          inspection_window_hours: number | null
+          refund_processing_days: number | null
+          ready_made_return_window_hours: number | null
+          unpaid_expiry_days: number | null
+          quote_unpaid_expiry_days: number | null
+          reminders_enabled: boolean
+          owner_strong_password: boolean
+          policy_version: string | null
           facebook_url: string | null
           id: number
           instagram_url: string | null
@@ -960,6 +1052,7 @@ export type Database = {
           tiktok_url: string | null
           updated_at: string
           whatsapp_number: string | null
+          whatsapp_templates: Json
         }
         Insert: {
           advance_custom_percent?: number
@@ -972,6 +1065,7 @@ export type Database = {
           airtel_name?: string | null
           airtel_number?: string | null
           collection_address?: string | null
+          delivery_zones?: Json
           email?: string | null
           facebook_url?: string | null
           id?: number
@@ -984,12 +1078,23 @@ export type Database = {
           nmb_account_number?: string | null
           nmb_enabled?: boolean
           order_completion_hours?: number
+          warranty_months_structure?: number | null
+          warranty_months_finish?: number | null
+          inspection_window_hours?: number | null
+          refund_processing_days?: number | null
+          ready_made_return_window_hours?: number | null
+          unpaid_expiry_days?: number | null
+          quote_unpaid_expiry_days?: number | null
+          reminders_enabled?: boolean
+          owner_strong_password?: boolean
+          policy_version?: string | null
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
           tiktok_url?: string | null
           updated_at?: string
           whatsapp_number?: string | null
+          whatsapp_templates?: Json
         }
         Update: {
           advance_custom_percent?: number
@@ -1002,6 +1107,7 @@ export type Database = {
           airtel_name?: string | null
           airtel_number?: string | null
           collection_address?: string | null
+          delivery_zones?: Json
           email?: string | null
           facebook_url?: string | null
           id?: number
@@ -1014,12 +1120,23 @@ export type Database = {
           nmb_account_number?: string | null
           nmb_enabled?: boolean
           order_completion_hours?: number
+          warranty_months_structure?: number | null
+          warranty_months_finish?: number | null
+          inspection_window_hours?: number | null
+          refund_processing_days?: number | null
+          ready_made_return_window_hours?: number | null
+          unpaid_expiry_days?: number | null
+          quote_unpaid_expiry_days?: number | null
+          reminders_enabled?: boolean
+          owner_strong_password?: boolean
+          policy_version?: string | null
           phone_dial?: string | null
           phone_display?: string | null
           tagline?: string | null
           tiktok_url?: string | null
           updated_at?: string
           whatsapp_number?: string | null
+          whatsapp_templates?: Json
         }
         Relationships: []
       }
@@ -1102,6 +1219,14 @@ export type Database = {
           description: string
           description_sw: string | null
           dimensions: string | null
+          width_cm: number | null
+          depth_cm: number | null
+          height_cm: number | null
+          capacity_text_en: string | null
+          capacity_text_sw: string | null
+          availability_type: string | null
+          lead_time_days: number | null
+          price_hint_tzs_from: number | null
           discount_percent: number | null
           features: string[]
           finish: string | null
@@ -1144,6 +1269,14 @@ export type Database = {
           description?: string
           description_sw?: string | null
           dimensions?: string | null
+          width_cm?: number | null
+          depth_cm?: number | null
+          height_cm?: number | null
+          capacity_text_en?: string | null
+          capacity_text_sw?: string | null
+          availability_type?: string | null
+          lead_time_days?: number | null
+          price_hint_tzs_from?: number | null
           discount_percent?: number | null
           features?: string[]
           finish?: string | null
@@ -1186,6 +1319,14 @@ export type Database = {
           description?: string
           description_sw?: string | null
           dimensions?: string | null
+          width_cm?: number | null
+          depth_cm?: number | null
+          height_cm?: number | null
+          capacity_text_en?: string | null
+          capacity_text_sw?: string | null
+          availability_type?: string | null
+          lead_time_days?: number | null
+          price_hint_tzs_from?: number | null
           discount_percent?: number | null
           features?: string[]
           finish?: string | null

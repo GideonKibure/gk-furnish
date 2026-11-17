@@ -11,6 +11,7 @@ import { noteOrderHistory, statusRejected, writeOrderStatus } from "@/lib/ops/or
 import { CUSTOM_NEEDS_QUOTE, CUSTOM_STATUSES, ORDER_STATUSES, orderStatusLabel } from "@/lib/ops/status";
 import { formatPreference, unpackReferenceImages } from "@/lib/order-options";
 import { advanceAmount, advanceSettingsFrom, advanceTierFor, statusBlockers } from "@/lib/payment-policy";
+import { buildTodayQueue, isPriceAsk, orderBlockedWhy, orderNeedsAdvance } from "@/lib/today-queue";
 
 const slugify = (s: string) =>
   s
@@ -39,20 +40,22 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const bounds = rangeBounds(data.range);
-    const [orders, products, custom, payments] = await Promise.all([
+    const [orders, products, custom, payments, waitingPayments] = await Promise.all([
       supabaseAdmin.from("orders").select("*").order("created_at", { ascending: false }),
       supabaseAdmin.from("products").select("id,stock_quantity,is_available,name").order("stock_quantity", { ascending: true }),
       supabaseAdmin
         .from("custom_orders")
-        .select("id,request_number,full_name,furniture_type,status,created_at")
+        .select("id,request_number,full_name,furniture_type,status,created_at,design_description")
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("payments")
         .select("id,amount,updated_at")
         .eq("status", "completed")
         .gte("updated_at", bounds.prevFrom.toISOString()),
+      supabaseAdmin.from("payments").select("id,status,created_at").eq("status", "pending"),
     ]);
     if (orders.error) throw new Error(orders.error.message);
+    if (waitingPayments.error && !isMissingSchema(waitingPayments.error)) throw new Error(waitingPayments.error.message);
 
     const orderRows = (orders.data ?? []).map((o) => o as typeof o & OrderExtras).filter((o) => !o.archived_at);
     const productRows = products.data ?? [];
@@ -98,8 +101,22 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
     const customAwaiting = customRows.filter((c) => CUSTOM_NEEDS_QUOTE.includes(c.status));
     const customAccepted = customRows.filter((c) => c.status === "accepted");
     const ops = await dashboardOperations(supabaseAdmin, bounds, productRows);
+    const unanswered = customRows.filter((row) => CUSTOM_NEEDS_QUOTE.includes(row.status));
+    const today = buildTodayQueue({
+      paymentsWaiting: (waitingPayments.data ?? []).map((row) => ({ createdAt: row.created_at })),
+      priceRequests: unanswered.filter((row) => isPriceAsk(row.design_description)).map((row) => ({ createdAt: row.created_at })),
+      customRequests: unanswered.filter((row) => !isPriceAsk(row.design_description)).map((row) => ({ createdAt: row.created_at })),
+      needingAdvance: orderRows.filter((row) => orderNeedsAdvance(row)).map((row) => ({ createdAt: row.created_at })),
+      blocked: orderRows.flatMap((row) => {
+        const why = orderBlockedWhy(row);
+        return why ? [{ createdAt: row.created_at, why }] : [];
+      }),
+      lowStockCount: ops.lowStockCount,
+      lowStockHref: ops.lowStockSource === "inventory" ? "/admin/inventory" : "/admin/products",
+    });
 
     return {
+      today,
       ...ops,
       range: data.range,
       bucket: bounds.bucket,
@@ -151,6 +168,9 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
         created_at: c.created_at,
       })),
       customAcceptedCount: customAccepted.length,
+      overdueFollowUps: await import("@/lib/reminders.server")
+        .then((mod) => mod.overdueFollowUps(supabaseAdmin))
+        .catch(() => ({ count: 0, rows: [] as { id: string; title: string; link: string }[] })),
     };
   });
 
@@ -323,6 +343,11 @@ const ProductInput = z.object({
     )
     .max(2)
     .optional(),
+  /** Photos already uploaded with a signed URL. Used instead of sending the file through the server. */
+  angle_urls: z
+    .array(z.object({ slot: z.number().int().min(0).max(1), url: z.string().trim().min(1).max(800) }))
+    .max(2)
+    .optional(),
   /** Slots to remove from product_images. */
   clear_angle_slots: z.array(z.number().int().min(0).max(1)).max(2).optional(),
   /** Public URL of a video already uploaded for this product. */
@@ -355,6 +380,18 @@ const ProductInput = z.object({
       stock_display: z.enum(["label", "count"]),
       available_region: z.enum(TZ_REGIONS).nullable(),
       item_condition: z.enum(["new", "used"]),
+    })
+    .optional(),
+  size: z
+    .object({
+      width_cm: z.number().positive().max(1000).nullable(),
+      depth_cm: z.number().positive().max(1000).nullable(),
+      height_cm: z.number().positive().max(1000).nullable(),
+      capacity_text_en: z.string().trim().max(80).nullable(),
+      capacity_text_sw: z.string().trim().max(80).nullable(),
+      availability_type: z.enum(["ready", "made_to_order"]).nullable(),
+      lead_time_days: z.number().int().min(1).max(365).nullable(),
+      price_hint_tzs_from: z.number().positive().max(1_000_000_000).nullable(),
     })
     .optional(),
 });
@@ -420,6 +457,7 @@ async function syncProductAngles(
   productId: string,
   uploads: { slot: number; file: z.infer<typeof ImageUpload> }[] | undefined,
   clearSlots: number[] | undefined,
+  urls: { slot: number; url: string }[] | undefined,
 ) {
   const { data: existing, error: listErr } = await supabaseAdmin
     .from("product_images")
@@ -438,11 +476,13 @@ async function syncProductAngles(
   }
   const clearSet = new Set(clearSlots ?? []);
   const uploadBySlot = new Map((uploads ?? []).map((u) => [u.slot, u.file]));
+  const urlBySlot = new Map((urls ?? []).map((u) => [u.slot, u.url]));
 
   for (let slot = 0; slot <= 1; slot++) {
     const current = bySlot.get(slot);
     const nextFile = uploadBySlot.get(slot);
-    const shouldClear = clearSet.has(slot) && !nextFile;
+    const nextUrl = urlBySlot.get(slot);
+    const shouldClear = clearSet.has(slot) && !nextFile && !nextUrl;
 
     if (shouldClear && current) {
       const path = storagePathFromPublicUrl(current.image_url);
@@ -453,9 +493,11 @@ async function syncProductAngles(
       continue;
     }
 
-    if (!nextFile) continue;
+    if (!nextFile && !nextUrl) continue;
 
-    const uploaded = await uploadProductStorage(supabaseAdmin, nextFile);
+    const uploaded = nextUrl
+      ? { path: storagePathFromPublicUrl(nextUrl) ?? "", url: nextUrl }
+      : await uploadProductStorage(supabaseAdmin, nextFile!);
     if (current) {
       const oldPath = storagePathFromPublicUrl(current.image_url);
       if (oldPath && oldPath !== uploaded.path) {
@@ -559,6 +601,30 @@ export const signProductVideoUpload = createServerFn({ method: "POST" })
     return { path, token: signed.token, publicUrl: pub.publicUrl };
   });
 
+/** Signed upload for a product photo. The browser sends the file straight to storage. */
+export const signProductPhotoUpload = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ ext: z.enum(["webp", "jpg"]) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const id = crypto.randomUUID();
+    const fullPath = `${id}.${data.ext}`;
+    const cardPath = `${id}-w800.${data.ext}`;
+    const [full, card] = await Promise.all([
+      supabaseAdmin.storage.from("product-images").createSignedUploadUrl(fullPath),
+      supabaseAdmin.storage.from("product-images").createSignedUploadUrl(cardPath),
+    ]);
+    if (full.error || !full.data || card.error || !card.data) {
+      throw new Error(full.error?.message ?? card.error?.message ?? "Could not prepare the photo upload");
+    }
+    const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(fullPath);
+    return {
+      full: { path: fullPath, token: full.data.token },
+      card: { path: cardPath, token: card.data.token },
+      publicUrl: pub.publicUrl,
+    };
+  });
+
 export const upsertAdminProduct = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((d) => ProductInput.parse(d))
@@ -620,7 +686,15 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       item_condition: itemCondition,
       ...extendedCore
     } = extended;
-    async function write(includeExtended: boolean, includeRegion: boolean, includeFreeRegion: boolean, includePlaces: boolean, includeCondition: boolean) {
+    const size = data.size;
+    async function write(
+      includeExtended: boolean,
+      includeRegion: boolean,
+      includeFreeRegion: boolean,
+      includePlaces: boolean,
+      includeCondition: boolean,
+      includeSize: boolean,
+    ) {
       const body = !includeExtended
         ? payload
         : {
@@ -630,6 +704,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
             ...(includeFreeRegion ? { free_delivery_region: freeRegion } : {}),
             ...(includePlaces ? { free_delivery_regions: freeRegions, free_delivery_country: freeCountry } : {}),
             ...(includeCondition ? { item_condition: itemCondition ?? "new" } : {}),
+            ...(includeSize && size ? size : {}),
           };
       if (data.id) {
         return supabaseAdmin.from("products").update(body).eq("id", data.id).select("id,slug").single();
@@ -641,15 +716,20 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
     let includeFreeRegion = Boolean(ext);
     let includePlaces = Boolean(ext);
     let includeCondition = Boolean(ext);
-    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces, includeCondition);
+    let includeSize = Boolean(size);
+    let result = await write(Boolean(ext), includeRegion, includeFreeRegion, includePlaces, includeCondition, includeSize);
     let extendedSaved = Boolean(ext);
     let regionSaved = Boolean(ext);
     let freeRegionSaved = Boolean(ext);
     let placesSaved = Boolean(ext);
     let conditionSaved = Boolean(ext);
-    for (let attempt = 0; result.error && ext && isMissingSchema(result.error) && attempt < 5; attempt += 1) {
+    let sizeSaved = Boolean(size);
+    for (let attempt = 0; result.error && isMissingSchema(result.error) && attempt < 6; attempt += 1) {
       const message = result.error.message ?? "";
-      if (includeCondition && message.includes("item_condition")) {
+      if (includeSize && /price_hint_tzs_from|capacity_text_en|capacity_text_sw|availability_type|lead_time_days|width_cm|depth_cm|height_cm/.test(message)) {
+        includeSize = false;
+        sizeSaved = false;
+      } else if (includeCondition && message.includes("item_condition")) {
         includeCondition = false;
         conditionSaved = false;
       } else if (includePlaces && (message.includes("free_delivery_regions") || message.includes("free_delivery_country"))) {
@@ -662,15 +742,16 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
         includeRegion = false;
         regionSaved = false;
       } else {
-        result = await write(false, false, false, false, false);
+        result = await write(false, false, false, false, false, false);
         extendedSaved = false;
         regionSaved = false;
         freeRegionSaved = false;
         placesSaved = false;
         conditionSaved = false;
+        sizeSaved = false;
         break;
       }
-      result = await write(true, includeRegion, includeFreeRegion, includePlaces, includeCondition);
+      result = await write(true, includeRegion, includeFreeRegion, includePlaces, includeCondition, includeSize);
     }
     if (result.error?.code === "23505" && /sku/i.test(result.error.message)) {
       throw new Error("Another product already uses this SKU");
@@ -726,7 +807,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       });
     }
 
-    await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots);
+    await syncProductAngles(supabaseAdmin, productId, data.angle_uploads, data.clear_angle_slots, data.angle_urls);
     await syncProductVideo(supabaseAdmin, productId, videoUrl, data.clear_video);
 
     const notice = [
@@ -735,6 +816,7 @@ export const upsertAdminProduct = createServerFn({ method: "POST" })
       ext && extendedSaved && !freeRegionSaved ? migrationNeeded("0018_free_delivery_region.sql") : "",
       ext && extendedSaved && !placesSaved ? migrationNeeded("0019_free_delivery_places.sql") : "",
       ext && extendedSaved && !conditionSaved ? migrationNeeded("0020_product_condition.sql") : "",
+      size && !sizeSaved ? migrationNeeded("0030_product_size.sql") : "",
     ].filter(Boolean).join(" ");
     return { id: productId, slug, extendedSaved, notice };
   });
@@ -1032,6 +1114,17 @@ export const confirmSubmittedPayment = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { completePayment } = await import("@/lib/order-payments.server");
     await completePayment(supabaseAdmin, data.paymentId, { provider: "Confirmed by GK furnish" });
+    return { ok: true };
+  });
+
+/** Refuse a payment the customer submitted. The reason is stored. This does not add money. */
+export const rejectSubmittedPayment = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((d) => z.object({ paymentId: z.string().uuid(), reason: z.string().trim().min(3).max(300) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { failPayment } = await import("@/lib/order-payments.server");
+    await failPayment(supabaseAdmin, data.paymentId, "failed", { source: "admin_reject", reason: data.reason });
     return { ok: true };
   });
 

@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ColorImageChoices, TextChoices } from "@/components/site/SelectChoices";
 import { formatPrice, formatPriceSpan } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { saveBuyNow } from "@/lib/buy-now";
+import { trackEvent } from "@/lib/analytics";
 import { useCart } from "@/lib/cart";
 import type { Product } from "@/lib/catalog";
 import { optionLabel, optionPriceRows, parseCatalogColor, parseOptionList, selectedOptionPrice } from "@/lib/order-options";
@@ -29,6 +31,18 @@ export function useAddToCart() {
   const { t } = useLang();
   return async (product: Product, choice: ProductChoice, buyNow = false) => {
     if (asksForPrice(product)) return;
+    if (buyNow) {
+      trackEvent("buy_now_click", { product_id: product.id });
+      saveBuyNow({
+        product_id: product.id,
+        quantity: choice.quantity,
+        material: choice.material,
+        size: choice.size,
+        color: choice.color,
+      });
+      void nav({ to: "/checkout", search: { buy: true } });
+      return;
+    }
     await cart.add({
       product_id: product.id,
       quantity: choice.quantity,
@@ -36,10 +50,6 @@ export function useAddToCart() {
       size: choice.size,
       color: choice.color,
     });
-    if (buyNow) {
-      void nav({ to: "/checkout" });
-      return;
-    }
     toast.success(t.cart.added, {
       action: { label: t.cart.viewCart, onClick: () => void nav({ to: "/cart" }) },
     });
@@ -156,11 +166,11 @@ export function OrderDialog({
           </div>
           {total && <p className="text-sm text-muted-foreground">{t.order.estimate}: <strong className="text-navy">{total}</strong></p>}
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" className="btn-base btn-gold" disabled={busy || !canBuy} onClick={() => void submit(false)}>
-              {t.cart.add}
-            </button>
-            <button type="button" className="btn-base btn-navy" disabled={busy || !canBuy} onClick={() => void submit(true)}>
+            <button type="button" className="btn-base btn-gold min-h-11" disabled={busy || !canBuy} onClick={() => void submit(true)}>
               {t.cart.buyNow}
+            </button>
+            <button type="button" className="btn-base btn-outline-navy min-h-11" disabled={busy || !canBuy} onClick={() => void submit(false)}>
+              {t.cart.add}
             </button>
           </div>
         </div>

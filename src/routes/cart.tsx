@@ -5,11 +5,15 @@ import { EmptyState } from "@/components/brand/EmptyState";
 import { QtyStepper } from "@/components/brand/QtyStepper";
 import { formatPrice } from "@/config/site";
 import { localized, useLang } from "@/i18n/LanguageProvider";
+import { fill } from "@/i18n/fill";
+import { WhatsAppOrderLink } from "@/components/site/WhatsAppOrderLink";
 import { useCart } from "@/lib/cart";
 import { deliveryFeeStatusFor } from "@/lib/delivery";
 import { optionLabel } from "@/lib/order-options";
 import { asksForPrice, isPurchasable } from "@/lib/product-display";
 import { productImageSrc } from "@/lib/product-image";
+import { absoluteUrl } from "@/lib/seo";
+import { whatsAppOrderText } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/cart")({
@@ -23,6 +27,19 @@ function CartPage() {
   const blocked = cart.entries.some((e) => !e.product || asksForPrice(e.product) || e.unitPrice == null || !isPurchasable(e.product));
   const products = cart.entries.flatMap((e) => (e.product ? [e.product] : []));
   const freeDelivery = deliveryFeeStatusFor("delivery", products) === "free";
+  const cartText = whatsAppOrderText([
+    t.whatsapp.cartIntro,
+    ...cart.entries.map((entry) =>
+      [
+        entry.product?.name ?? t.cart.title,
+        [entry.material, entry.size, entry.color].filter(Boolean).join(", "),
+        fill(t.whatsapp.quantity, { count: entry.quantity }),
+        entry.product ? absoluteUrl(`/products/${entry.product.slug}`) : "",
+      ]
+        .filter(Boolean)
+        .join(" — "),
+    ),
+  ]);
 
   return (
     <div className="bg-sand">
@@ -148,6 +165,11 @@ function CartPage() {
                       {t.cart.checkout}
                       <ArrowRight className="h-4 w-4" />
                     </Link>
+                  )}
+                  {cart.entries.length > 0 && (
+                    <WhatsAppOrderLink source="cart" text={cartText} className="btn-base btn-outline-navy mt-2 min-h-11 w-full">
+                      {t.whatsapp.orderButton}
+                    </WhatsAppOrderLink>
                   )}
                   <Link to="/products" className="btn-base btn-ghost mt-2 w-full">
                     {t.cart.keepShopping}

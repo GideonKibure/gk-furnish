@@ -1,5 +1,6 @@
-import { Link2, MessageCircle } from "lucide-react";
+import { Link2, MessageCircle, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 function FacebookIcon() {
@@ -35,10 +36,26 @@ export function ShareButtons({
 }) {
   const encoded = encodeURIComponent(url);
   const text = encodeURIComponent(title);
-  const item = "icon-btn h-9 w-9 border border-border bg-white";
+  const item = "icon-btn h-11 w-11 border border-border bg-white";
+  async function share() {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title, text: title, url });
+        trackEvent("share_product", { method: "system" });
+      } catch {
+        /* the customer closed the share sheet */
+      }
+      return;
+    }
+    trackEvent("share_product", { method: "whatsapp" });
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`, "_blank", "noopener,noreferrer");
+  }
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <span className="text-sm font-medium text-muted-foreground">{label}:</span>
+      <button type="button" className={item} aria-label={label} onClick={() => void share()}>
+        <Share2 className="h-4 w-4" />
+      </button>
       <a
         className={item}
         href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}`}
@@ -63,6 +80,7 @@ export function ShareButtons({
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"
+        onClick={() => trackEvent("share_product", { method: "whatsapp" })}
       >
         <MessageCircle className="h-4 w-4" />
       </a>

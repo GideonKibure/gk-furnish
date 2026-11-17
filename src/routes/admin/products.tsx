@@ -23,6 +23,7 @@ import {
   listAdminCategories,
   listAdminProducts,
   setAdminProductStatus,
+  signProductPhotoUpload,
   signProductVideoUpload,
   updateProductStock,
   upsertAdminProduct,
@@ -31,6 +32,7 @@ import { freeDeliveryPlaces, TZ_REGIONS } from "@/lib/delivery";
 import { asksForPrice } from "@/lib/product-display";
 import { humanize, productStatusTone } from "@/lib/ops/status";
 import { supabase } from "@/integrations/supabase/client";
+import { QuickAddProduct } from "@/components/admin/QuickAddProduct";
 import { imageFor } from "@/data/images";
 import { downloadToDevice, photoFileName } from "@/lib/download-file";
 import {
@@ -49,6 +51,22 @@ import {
   type OptionPrice,
 } from "@/lib/order-options";
 import { PRODUCT_ANGLE_SLOTS, productGalleryItems, productImageSrc, productVideoSrc, sortedProductImages } from "@/lib/product-image";
+
+function optionalCm(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 10) / 10;
+}
+
+function optionalDays(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Math.round(Number(raw));
+  if (!Number.isInteger(n) || n < 1 || n > 365) return null;
+  return n;
+}
 
 function freeDeliveryInput(fd: FormData) {
   const country = fd.get("free_delivery_country") === "on";
@@ -311,6 +329,7 @@ function AdminProductsPage() {
   const listCats = useServerFn(listAdminCategories);
   const save = useServerFn(upsertAdminProduct);
   const signVideo = useServerFn(signProductVideoUpload);
+  const signPhoto = useServerFn(signProductPhotoUpload);
   const remove = useServerFn(deleteAdminProduct);
   const setStock = useServerFn(updateProductStock);
   const setStatus = useServerFn(setAdminProductStatus);
@@ -587,10 +606,27 @@ function AdminProductsPage() {
       }
 
       const angle_uploads: { slot: number; file: Awaited<ReturnType<typeof fileToUpload>> }[] = [];
+      const angle_urls: { slot: number; url: string }[] = [];
       for (let slot = 0; slot < angles.length; slot++) {
         const a = angles[slot];
         if (!a?.file) continue;
-        angle_uploads.push({ slot, file: await fileToUpload(a.file) });
+        try {
+          const { compressProductPhoto } = await import("@/lib/compress-photo");
+          const compressed = await compressProductPhoto(a.file);
+          const signed = await signPhoto({ data: { ext: "webp" } });
+          const [fullUp, cardUp] = await Promise.all([
+            supabase.storage.from("product-images").uploadToSignedUrl(signed.full.path, signed.full.token, compressed.full, { contentType: "image/webp" }),
+            supabase.storage.from("product-images").uploadToSignedUrl(signed.card.path, signed.card.token, compressed.card, { contentType: "image/webp" }),
+          ]);
+          if (fullUp.error || cardUp.error) throw new Error(fullUp.error?.message ?? cardUp.error?.message ?? "Photo upload failed");
+          angle_urls.push({ slot, url: signed.publicUrl });
+        } catch (err) {
+          const fallback = await fileToUpload(a.file).catch(() => null);
+          if (!fallback) {
+            throw new Error(err instanceof Error ? err.message : "The photo was not uploaded. Choose it again.");
+          }
+          angle_uploads.push({ slot, file: fallback });
+        }
       }
       const clear_angle_slots = angles
         .map((a, slot) => (a?.clear && !a.file ? slot : -1))
@@ -629,6 +665,18 @@ function AdminProductsPage() {
             available_region: TZ_REGIONS.find((region) => region === String(fd.get("available_region") ?? "")) ?? null,
             item_condition: fd.get("item_condition") === "used" ? "used" : "new",
           },
+          size: {
+            width_cm: optionalCm(fd.get("width_cm")),
+            depth_cm: optionalCm(fd.get("depth_cm")),
+            height_cm: optionalCm(fd.get("height_cm")),
+            capacity_text_en: String(fd.get("capacity_text_en") ?? "").trim() || null,
+            capacity_text_sw: String(fd.get("capacity_text_sw") ?? "").trim() || null,
+            availability_type: fd.get("availability_type") === "ready" || fd.get("availability_type") === "made_to_order"
+              ? (fd.get("availability_type") as "ready" | "made_to_order")
+              : null,
+            lead_time_days: optionalDays(fd.get("lead_time_days")),
+            price_hint_tzs_from: optionalCm(fd.get("price_hint_tzs_from")),
+          },
           id: editing?.id,
           category_id: String(fd.get("category_id")),
           name: String(fd.get("name")),
@@ -647,6 +695,7 @@ function AdminProductsPage() {
           is_featured: fd.get("is_featured") === "on",
           image_key: String(fd.get("image_key") ?? ""),
           angle_uploads: angle_uploads.length ? angle_uploads : undefined,
+          angle_urls: angle_urls.length ? angle_urls : undefined,
           clear_angle_slots: clear_angle_slots.length ? clear_angle_slots : undefined,
           video_url,
           clear_video: Boolean(video.clear && !video.file),
@@ -738,12 +787,22 @@ function AdminProductsPage() {
         title="Products"
         description="Catalogue items with prices per material and size, photos, video and stock."
         action={
-          <button type="button" className={btn("gold")} onClick={openCreate}>
+          <button type="button" className={btn("gold", undefined, "hidden lg:inline-flex")} onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Add product
           </button>
         }
       />
+
+      {!formOpen && (
+        <QuickAddProduct
+          categories={cats}
+          onCreated={() => {
+            void listProducts().then(setProducts);
+          }}
+          onMore={openCreate}
+        />
+      )}
 
       {formOpen && (
         <AdminCard className="mb-6">
@@ -818,6 +877,47 @@ function AdminProductsPage() {
                 defaultValue={prefill?.stock_quantity ?? 0}
               />
             </div>
+
+            <fieldset className="grid gap-3 rounded-xl border border-[#E5E5E5] bg-[#F9FAFB] p-4 md:col-span-2 md:grid-cols-2">
+              <legend className="px-1 text-sm font-semibold text-navy">Size and availability</legend>
+              <p className="text-xs text-[#6B7280] md:col-span-2">Optional. Leave blank when you do not know. Run 0030_product_size.sql before the first save.</p>
+              <div>
+                <label className="field-label">Width (cm)</label>
+                <input name="width_cm" type="number" min={0} step="0.1" className="field-input" defaultValue={prefill?.width_cm ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Depth (cm)</label>
+                <input name="depth_cm" type="number" min={0} step="0.1" className="field-input" defaultValue={prefill?.depth_cm ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Height (cm)</label>
+                <input name="height_cm" type="number" min={0} step="0.1" className="field-input" defaultValue={prefill?.height_cm ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Lead time (days)</label>
+                <input name="lead_time_days" type="number" min={1} max={365} step={1} className="field-input" defaultValue={prefill?.lead_time_days ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Availability</label>
+                <select name="availability_type" className="field-input" defaultValue={prefill?.availability_type ?? ""}>
+                  <option value="">Not set</option>
+                  <option value="ready">Ready now</option>
+                  <option value="made_to_order">Made to order</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label">From price guide (TZS)</label>
+                <input name="price_hint_tzs_from" type="number" min={0} step={100} className="field-input" placeholder="Only if the price box is empty" defaultValue={prefill?.price_hint_tzs_from ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Capacity (English)</label>
+                <input name="capacity_text_en" className="field-input" placeholder="Seats 4" maxLength={80} defaultValue={prefill?.capacity_text_en ?? ""} />
+              </div>
+              <div>
+                <label className="field-label">Capacity (Kiswahili)</label>
+                <input name="capacity_text_sw" className="field-input" placeholder="Inakaa watu 4" maxLength={80} defaultValue={prefill?.capacity_text_sw ?? ""} />
+              </div>
+            </fieldset>
 
             <fieldset className="grid gap-3 rounded-xl border border-[#E5E5E5] bg-[#F9FAFB] p-4 md:col-span-2 md:grid-cols-2">
               <legend className="px-1 text-sm font-semibold text-navy">Catalogue details</legend>
@@ -1364,7 +1464,7 @@ function AdminProductsPage() {
               title={products.length ? "No products match" : "No products yet"}
               action={
                 !products.length && (
-                  <button type="button" className={btn("gold")} onClick={openCreate}>
+                  <button type="button" className={btn("gold", undefined, "hidden lg:inline-flex")} onClick={openCreate}>
                     <Plus className="h-4 w-4" /> Add product
                   </button>
                 )

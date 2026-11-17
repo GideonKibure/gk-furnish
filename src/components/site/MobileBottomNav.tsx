@@ -1,11 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, LayoutGrid, ShoppingBag, ShoppingCart, UserRound, Wrench } from "lucide-react";
+import { Home, LayoutGrid, ShoppingBag, ShoppingCart, Sparkles, UserRound, Wrench } from "lucide-react";
 import { useCustomerName } from "@/hooks/use-customer-name";
 import { useLang } from "@/i18n/LanguageProvider";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { CartCountBadge } from "./HeaderActions";
-import { useAuthPopup } from "@/hooks/use-auth-popup";
 import { UserMark } from "./UserMark";
 
 /** Fixed tab bar for phones and tablets. */
@@ -14,7 +13,6 @@ export function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
   const { user, letter } = useCustomerName();
-  const { open } = useAuthPopup();
   const signedIn = Boolean(user);
 
   const tabs = [
@@ -49,13 +47,21 @@ export function MobileBottomNav() {
       active: pathname.startsWith("/cart") || pathname.startsWith("/checkout"),
       badge: count,
     },
-    {
-      key: "account",
-      to: signedIn ? ("/account" as const) : ("/account/login" as const),
-      label: t.shell.account,
-      icon: UserRound,
-      active: pathname.startsWith("/account"),
-    },
+    signedIn
+      ? {
+          key: "account",
+          to: "/account" as const,
+          label: t.shell.account,
+          icon: UserRound,
+          active: pathname.startsWith("/account"),
+        }
+      : {
+          key: "custom",
+          to: "/custom-order" as const,
+          label: t.shell.custom,
+          icon: Sparkles,
+          active: pathname.startsWith("/custom-order"),
+        },
   ];
 
   return (
@@ -63,23 +69,11 @@ export function MobileBottomNav() {
       <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
         {tabs.map(({ key, to, label, icon: Icon, active, badge }) => (
           <li key={key}>
-            {key === "account" && !signedIn ? (
-              <button
-                type="button"
-                onClick={() => open({ reason: "account", mode: "signin" })}
-                className="flex h-full w-full flex-col items-center justify-center gap-1 text-[0.7rem] font-semibold text-muted-foreground"
-              >
-                <span className="auth-wave relative rounded-full">
-                  <Icon className="h-[1.35rem] w-[1.35rem]" strokeWidth={1.8} />
-                </span>
-                {label}
-              </button>
-            ) : (
             <Link
               to={to}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-full flex-col items-center justify-center gap-1 text-[0.7rem] font-semibold transition-colors",
+                "flex h-full flex-col items-center justify-center gap-1 px-1 text-center text-[0.7rem] font-semibold leading-tight transition-colors",
                 active ? "text-gold-ink" : "text-muted-foreground hover:text-navy",
               )}
             >
@@ -93,7 +87,6 @@ export function MobileBottomNav() {
               </span>
               {label}
             </Link>
-            )}
           </li>
         ))}
       </ul>

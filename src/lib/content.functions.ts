@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdmin } from "@/integrations/supabase/admin-auth";
 import { isMissingSchema } from "@/lib/db-compat";
+import { TZ_REGIONS } from "@/lib/delivery";
 import {
   BUILTIN_PREFIX,
   DEFAULT_GALLERY,
@@ -49,6 +50,24 @@ const SettingsInput = z.object({
   airtel_enabled: z.boolean().optional(),
   nmb_enabled: z.boolean().optional(),
   order_completion_hours: z.number().int().min(1).max(720).optional(),
+  warranty_months_structure: z.number().int().min(0).max(120).nullable().optional(),
+  warranty_months_finish: z.number().int().min(0).max(120).nullable().optional(),
+  inspection_window_hours: z.number().int().min(1).max(720).nullable().optional(),
+  refund_processing_days: z.number().int().min(0).max(365).nullable().optional(),
+  ready_made_return_window_hours: z.number().int().min(0).max(2160).nullable().optional(),
+  unpaid_expiry_days: z.number().int().min(0).max(90).nullable().optional(),
+  quote_unpaid_expiry_days: z.number().int().min(0).max(90).nullable().optional(),
+  reminders_enabled: z.boolean().optional(),
+  policy_version: z.string().trim().max(40).optional().or(z.literal("")),
+  delivery_zones: z
+    .array(
+      z.object({
+        region: z.enum(TZ_REGIONS),
+        fee_tzs: z.number().int().positive().max(10_000_000).nullable(),
+      }),
+    )
+    .max(40)
+    .optional(),
 });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
@@ -84,9 +103,32 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
       ...(data.nmb_enabled === undefined ? {} : { nmb_enabled: data.nmb_enabled }),
     };
     const completion = data.order_completion_hours === undefined ? {} : { order_completion_hours: data.order_completion_hours };
-    const write = (body: typeof base & Partial<typeof extras> & Partial<typeof toggles> & Partial<typeof completion>) =>
+    const policy = {
+      ...(data.warranty_months_structure === undefined ? {} : { warranty_months_structure: data.warranty_months_structure }),
+      ...(data.warranty_months_finish === undefined ? {} : { warranty_months_finish: data.warranty_months_finish }),
+      ...(data.inspection_window_hours === undefined ? {} : { inspection_window_hours: data.inspection_window_hours }),
+      ...(data.refund_processing_days === undefined ? {} : { refund_processing_days: data.refund_processing_days }),
+      ...(data.ready_made_return_window_hours === undefined ? {} : { ready_made_return_window_hours: data.ready_made_return_window_hours }),
+      ...(data.unpaid_expiry_days === undefined ? {} : { unpaid_expiry_days: data.unpaid_expiry_days }),
+      ...(data.policy_version === undefined ? {} : { policy_version: data.policy_version || null }),
+    };
+    const write = (body: typeof base & Partial<typeof extras> & Partial<typeof toggles> & Partial<typeof completion> & Partial<typeof policy>) =>
       supabaseAdmin.from("site_settings").upsert(body).select("*").single();
-    let result = await write({ ...base, ...extras, ...toggles, ...completion });
+    const reminders = {
+      ...(data.quote_unpaid_expiry_days === undefined ? {} : { quote_unpaid_expiry_days: data.quote_unpaid_expiry_days }),
+      ...(data.reminders_enabled === undefined ? {} : { reminders_enabled: data.reminders_enabled }),
+    };
+    const zones = data.delivery_zones === undefined ? {} : { delivery_zones: data.delivery_zones };
+    let result = await write({ ...base, ...extras, ...toggles, ...completion, ...policy, ...reminders, ...zones });
+    if (result.error && isMissingSchema(result.error) && (result.error.message ?? "").includes("delivery_zones")) {
+      result = await write({ ...base, ...extras, ...toggles, ...completion, ...policy, ...reminders });
+    }
+    if (result.error && isMissingSchema(result.error) && /reminders_enabled|quote_unpaid_expiry_days/.test(result.error.message ?? "")) {
+      result = await write({ ...base, ...extras, ...toggles, ...completion, ...policy });
+    }
+    if (result.error && isMissingSchema(result.error) && /warranty_months_structure|policy_version|inspection_window_hours/.test(result.error.message ?? "")) {
+      result = await write({ ...base, ...extras, ...toggles, ...completion });
+    }
     if (result.error && isMissingSchema(result.error) && (result.error.message ?? "").includes("order_completion_hours")) {
       result = await write({ ...base, ...extras, ...toggles });
     }

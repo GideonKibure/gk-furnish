@@ -152,7 +152,7 @@ export function LikeButton({ product }: { product: Product }) {
       }
       title={`${counts.likes.toLocaleString()} ${lang === "sw" ? "waliopenda" : "likes"}`}
       className={cn(
-        "grid h-9 w-9 place-items-center rounded-full bg-white/95 shadow-sm transition-colors hover:bg-white",
+        "grid h-11 w-11 place-items-center rounded-full bg-white/95 shadow-sm transition-colors hover:bg-white",
         liked ? "text-danger" : "text-navy",
       )}
     >
@@ -178,7 +178,7 @@ export function ProductEngagement({
     <div
       className={cn(
         "flex items-center gap-x-3 text-sm text-muted-foreground",
-        compact ? "h-9 overflow-hidden" : "flex-wrap gap-y-1",
+        compact ? "min-h-11" : "flex-wrap gap-y-1",
       )}
     >
       <span
@@ -205,7 +205,7 @@ export function ProductEngagement({
         }
         aria-pressed={liked}
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-muted",
+          "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-muted",
           liked ? "text-danger" : "text-muted-foreground",
         )}
       >

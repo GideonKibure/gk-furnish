@@ -18,6 +18,11 @@ export function DeliveryFields({
   const { t } = useLang();
   const set = (key: keyof DeliveryValues) => (e: { target: { value: string } }) =>
     onChange({ ...value, [key]: e.target.value });
+  const described = (key: "region" | "address_line") => {
+    const message = errors[key];
+    if (!message) return { "aria-invalid": false as const };
+    return { "aria-invalid": true as const, "aria-describedby": `${idPrefix}-${key}-error` };
+  };
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div>
@@ -29,7 +34,7 @@ export function DeliveryFields({
           className="field-input"
           value={value.region}
           onChange={set("region")}
-          aria-invalid={Boolean(errors.region)}
+          {...described("region")}
         >
           <option value="">{t.delivery.chooseRegion}</option>
           {TZ_REGIONS.map((r) => (
@@ -38,7 +43,11 @@ export function DeliveryFields({
             </option>
           ))}
         </select>
-        {errors.region && <p className="field-error">{errors.region}</p>}
+        {errors.region && (
+          <p id={`${idPrefix}-region-error`} className="field-error">
+            {errors.region}
+          </p>
+        )}
       </div>
       <div>
         <label className="field-label" htmlFor={`${idPrefix}-district`}>
@@ -63,9 +72,13 @@ export function DeliveryFields({
           placeholder={t.delivery.areaPlaceholder}
           value={value.address_line}
           onChange={set("address_line")}
-          aria-invalid={Boolean(errors.address_line)}
+          {...described("address_line")}
         />
-        {errors.address_line && <p className="field-error">{errors.address_line}</p>}
+        {errors.address_line && (
+          <p id={`${idPrefix}-address_line-error`} className="field-error">
+            {errors.address_line}
+          </p>
+        )}
       </div>
     </div>
   );

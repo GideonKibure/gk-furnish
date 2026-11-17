@@ -1,4 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
+import { assertAdminMember } from "@/lib/admin-gate";
 import { requireSupabaseAuth } from "./auth-middleware";
 
 /**
@@ -15,9 +16,7 @@ export const requireAdmin = createMiddleware({ type: "function" })
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    if (error || !data) {
-      throw new Error("Forbidden: admin access required");
-    }
+    assertAdminMember(!error && Boolean(data));
 
     return next({
       context: {

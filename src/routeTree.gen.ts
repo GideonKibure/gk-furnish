@@ -19,6 +19,7 @@ import { Route as CustomOrderRouteImport } from './routes/custom-order'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
+import { Route as PoliciesRouteImport } from './routes/policies'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProcessRouteImport } from './routes/process'
 import { Route as ServicesRouteImport } from './routes/services'
@@ -39,6 +40,7 @@ import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as AdminExpensesRouteImport } from './routes/admin/expenses'
 import { Route as AdminFinanceRouteImport } from './routes/admin/finance'
 import { Route as AdminForgotRouteImport } from './routes/admin/forgot'
+import { Route as AdminHealthRouteImport } from './routes/admin/health'
 import { Route as AdminImagesRouteImport } from './routes/admin/images'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
@@ -67,6 +69,8 @@ import { Route as AccountOrdersNumberRouteImport } from './routes/account.orders
 import { Route as AccountRequestsIndexRouteImport } from './routes/account.requests.index'
 import { Route as AccountRequestsNumberRouteImport } from './routes/account.requests.$number'
 import { Route as ApiCronPalmpesaRouteImport } from './routes/api/cron/palmpesa'
+import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
+import { Route as ApiCronSnippeRouteImport } from './routes/api/cron/snippe'
 import { Route as ApiWebhooksPalmpesaRouteImport } from './routes/api/webhooks/palmpesa'
 import { Route as ApiWebhooksSnippeRouteImport } from './routes/api/webhooks/snippe'
 
@@ -118,6 +122,11 @@ const GalleryRoute = GalleryRouteImport.update({
 const OrderSuccessRoute = OrderSuccessRouteImport.update({
   id: '/order-success',
   path: '/order-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliciesRoute = PoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -218,6 +227,11 @@ const AdminFinanceRoute = AdminFinanceRouteImport.update({
 const AdminForgotRoute = AdminForgotRouteImport.update({
   id: '/forgot',
   path: '/forgot',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHealthRoute = AdminHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminImagesRoute = AdminImagesRouteImport.update({
@@ -360,6 +374,16 @@ const ApiCronPalmpesaRoute = ApiCronPalmpesaRouteImport.update({
   path: '/api/cron/palmpesa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
+  id: '/api/cron/reminders',
+  path: '/api/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronSnippeRoute = ApiCronSnippeRouteImport.update({
+  id: '/api/cron/snippe',
+  path: '/api/cron/snippe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksPalmpesaRoute = ApiWebhooksPalmpesaRouteImport.update({
   id: '/api/webhooks/palmpesa',
   path: '/api/webhooks/palmpesa',
@@ -382,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/policies': typeof PoliciesRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
   '/services': typeof ServicesRoute
@@ -400,6 +425,7 @@ export interface FileRoutesByFullPath {
   '/admin/expenses': typeof AdminExpensesRoute
   '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
@@ -429,6 +455,8 @@ export interface FileRoutesByFullPath {
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
   '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/snippe': typeof ApiCronSnippeRoute
   '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests/': typeof AccountRequestsIndexRoute
@@ -443,6 +471,7 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/policies': typeof PoliciesRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
   '/services': typeof ServicesRoute
@@ -461,6 +490,7 @@ export interface FileRoutesByTo {
   '/admin/expenses': typeof AdminExpensesRoute
   '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
@@ -490,6 +520,8 @@ export interface FileRoutesByTo {
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
   '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/snippe': typeof ApiCronSnippeRoute
   '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests': typeof AccountRequestsIndexRoute
@@ -506,6 +538,7 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/gallery': typeof GalleryRoute
   '/order-success': typeof OrderSuccessRoute
+  '/policies': typeof PoliciesRoute
   '/privacy': typeof PrivacyRoute
   '/process': typeof ProcessRoute
   '/services': typeof ServicesRoute
@@ -524,6 +557,7 @@ export interface FileRoutesById {
   '/admin/expenses': typeof AdminExpensesRoute
   '/admin/finance': typeof AdminFinanceRoute
   '/admin/forgot': typeof AdminForgotRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/images': typeof AdminImagesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
@@ -553,6 +587,8 @@ export interface FileRoutesById {
   '/account/orders/$number': typeof AccountOrdersNumberRoute
   '/account/requests/$number': typeof AccountRequestsNumberRoute
   '/api/cron/palmpesa': typeof ApiCronPalmpesaRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/snippe': typeof ApiCronSnippeRoute
   '/api/webhooks/palmpesa': typeof ApiWebhooksPalmpesaRoute
   '/api/webhooks/snippe': typeof ApiWebhooksSnippeRoute
   '/account/requests/': typeof AccountRequestsIndexRoute
@@ -570,6 +606,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/policies'
     | '/privacy'
     | '/process'
     | '/services'
@@ -588,6 +625,7 @@ export interface FileRouteTypes {
     | '/admin/expenses'
     | '/admin/finance'
     | '/admin/forgot'
+    | '/admin/health'
     | '/admin/images'
     | '/admin/inventory'
     | '/admin/login'
@@ -617,6 +655,8 @@ export interface FileRouteTypes {
     | '/account/orders/$number'
     | '/account/requests/$number'
     | '/api/cron/palmpesa'
+    | '/api/cron/reminders'
+    | '/api/cron/snippe'
     | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests/'
@@ -631,6 +671,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/policies'
     | '/privacy'
     | '/process'
     | '/services'
@@ -649,6 +690,7 @@ export interface FileRouteTypes {
     | '/admin/expenses'
     | '/admin/finance'
     | '/admin/forgot'
+    | '/admin/health'
     | '/admin/images'
     | '/admin/inventory'
     | '/admin/login'
@@ -678,6 +720,8 @@ export interface FileRouteTypes {
     | '/account/orders/$number'
     | '/account/requests/$number'
     | '/api/cron/palmpesa'
+    | '/api/cron/reminders'
+    | '/api/cron/snippe'
     | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests'
@@ -693,6 +737,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/gallery'
     | '/order-success'
+    | '/policies'
     | '/privacy'
     | '/process'
     | '/services'
@@ -711,6 +756,7 @@ export interface FileRouteTypes {
     | '/admin/expenses'
     | '/admin/finance'
     | '/admin/forgot'
+    | '/admin/health'
     | '/admin/images'
     | '/admin/inventory'
     | '/admin/login'
@@ -740,6 +786,8 @@ export interface FileRouteTypes {
     | '/account/orders/$number'
     | '/account/requests/$number'
     | '/api/cron/palmpesa'
+    | '/api/cron/reminders'
+    | '/api/cron/snippe'
     | '/api/webhooks/palmpesa'
     | '/api/webhooks/snippe'
     | '/account/requests/'
@@ -756,6 +804,7 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   GalleryRoute: typeof GalleryRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
+  PoliciesRoute: typeof PoliciesRoute
   PrivacyRoute: typeof PrivacyRoute
   ProcessRoute: typeof ProcessRoute
   ServicesRoute: typeof ServicesRoute
@@ -777,6 +826,8 @@ export interface RootRouteChildren {
   AccountOrdersNumberRoute: typeof AccountOrdersNumberRoute
   AccountRequestsNumberRoute: typeof AccountRequestsNumberRoute
   ApiCronPalmpesaRoute: typeof ApiCronPalmpesaRoute
+  ApiCronRemindersRoute: typeof ApiCronRemindersRoute
+  ApiCronSnippeRoute: typeof ApiCronSnippeRoute
   ApiWebhooksPalmpesaRoute: typeof ApiWebhooksPalmpesaRoute
   ApiWebhooksSnippeRoute: typeof ApiWebhooksSnippeRoute
   AccountRequestsIndexRoute: typeof AccountRequestsIndexRoute
@@ -852,6 +903,13 @@ declare module '@tanstack/react-router' {
       path: '/order-success'
       fullPath: '/order-success'
       preLoaderRoute: typeof OrderSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policies': {
+      id: '/policies'
+      path: '/policies'
+      fullPath: '/policies'
+      preLoaderRoute: typeof PoliciesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -992,6 +1050,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot'
       fullPath: '/admin/forgot'
       preLoaderRoute: typeof AdminForgotRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/health': {
+      id: '/admin/health'
+      path: '/health'
+      fullPath: '/admin/health'
+      preLoaderRoute: typeof AdminHealthRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/images': {
@@ -1190,6 +1255,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronPalmpesaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/reminders': {
+      id: '/api/cron/reminders'
+      path: '/api/cron/reminders'
+      fullPath: '/api/cron/reminders'
+      preLoaderRoute: typeof ApiCronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/snippe': {
+      id: '/api/cron/snippe'
+      path: '/api/cron/snippe'
+      fullPath: '/api/cron/snippe'
+      preLoaderRoute: typeof ApiCronSnippeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/palmpesa': {
       id: '/api/webhooks/palmpesa'
       path: '/api/webhooks/palmpesa'
@@ -1216,6 +1295,7 @@ interface AdminRouteChildren {
   AdminExpensesRoute: typeof AdminExpensesRoute
   AdminFinanceRoute: typeof AdminFinanceRoute
   AdminForgotRoute: typeof AdminForgotRoute
+  AdminHealthRoute: typeof AdminHealthRoute
   AdminImagesRoute: typeof AdminImagesRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -1245,6 +1325,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminExpensesRoute: AdminExpensesRoute,
   AdminFinanceRoute: AdminFinanceRoute,
   AdminForgotRoute: AdminForgotRoute,
+  AdminHealthRoute: AdminHealthRoute,
   AdminImagesRoute: AdminImagesRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLoginRoute: AdminLoginRoute,
@@ -1278,6 +1359,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   GalleryRoute: GalleryRoute,
   OrderSuccessRoute: OrderSuccessRoute,
+  PoliciesRoute: PoliciesRoute,
   PrivacyRoute: PrivacyRoute,
   ProcessRoute: ProcessRoute,
   ServicesRoute: ServicesRoute,
@@ -1299,6 +1381,8 @@ const rootRouteChildren: RootRouteChildren = {
   AccountOrdersNumberRoute: AccountOrdersNumberRoute,
   AccountRequestsNumberRoute: AccountRequestsNumberRoute,
   ApiCronPalmpesaRoute: ApiCronPalmpesaRoute,
+  ApiCronRemindersRoute: ApiCronRemindersRoute,
+  ApiCronSnippeRoute: ApiCronSnippeRoute,
   ApiWebhooksPalmpesaRoute: ApiWebhooksPalmpesaRoute,
   ApiWebhooksSnippeRoute: ApiWebhooksSnippeRoute,
   AccountRequestsIndexRoute: AccountRequestsIndexRoute,

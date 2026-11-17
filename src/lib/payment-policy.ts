@@ -70,6 +70,13 @@ export function balanceDue(total: number, paid: number) {
   return Math.max(0, Math.round(total) - Math.round(paid));
 }
 
+/** Advance still to pay. Zero once the confirmed payments cover the advance. */
+export function advanceStillDue(advanceRequired: number, paid: number) {
+  const left = Math.round(advanceRequired) - Math.round(paid);
+  if (!Number.isFinite(left) || left <= 0) return 0;
+  return left;
+}
+
 type PolicyOrder = {
   total_amount: number;
   amount_paid: number;

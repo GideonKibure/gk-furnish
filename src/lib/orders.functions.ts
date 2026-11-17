@@ -51,6 +51,16 @@ const CustomInput = z.object({
       base64: z.string().max(7_000_000),
     })
     .optional(),
+  company_website: z.string().max(200).optional(),
+  turnstile_token: z.string().max(2000).optional(),
+  started_at: z.number().int().optional(),
+  extra_image: z
+    .object({
+      name: z.string().max(200),
+      type: z.enum(["image/jpeg", "image/png", "image/webp"]),
+      base64: z.string().max(7_000_000),
+    })
+    .optional(),
 });
 
 export const submitCustomOrder = createServerFn({ method: "POST" })
@@ -60,7 +70,21 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { isMissingSchema } = await import("@/lib/db-compat");
     const { notify } = await import("@/lib/notify.server");
-    const { reference_image, finish_image, product_image_url, ...fields } = data;
+    const { guardPublicForm } = await import("@/lib/abuse.server");
+    const { publicFormOutcome } = await import("@/lib/form-timing");
+    const outcome = publicFormOutcome(data.company_website, data.started_at, Date.now());
+    if (outcome === "silent") {
+      console.warn("honeypot custom_order");
+      return { requestNumber: "RQ-0000", trackingToken: null, type: data.furniture_type, quantity: data.quantity };
+    }
+    if (outcome === "slow") throw new Error("Please wait a few minutes and try again.");
+    await guardPublicForm(supabaseAdmin, {
+      form: "custom_order",
+      phone: data.phone,
+      companyWebsite: data.company_website,
+      turnstileToken: data.turnstile_token,
+    });
+    const { reference_image, finish_image, extra_image, product_image_url, company_website: _website, turnstile_token: _token, started_at: _started, ...fields } = data;
     const productImage = safeProductImage(product_image_url);
     async function uploadImage(image: { type: string; base64: string }) {
       const ext = image.type.split("/")[1];
@@ -76,6 +100,9 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       reference_image ? await uploadImage(reference_image) : productImage ? `product:${productImage}` : null,
       finish_image ? await uploadImage(finish_image) : null,
     );
+    const extraPath = extra_image ? await uploadImage(extra_image) : "";
+    const extraNote = extraPath ? `Photo: ${extraPath}` : "";
+    const requestNotes = [fields.additional_requirements, extraNote].filter(Boolean).join("\n");
     const n = (v?: string) => (v ? v : null);
     const base = {
       full_name: fields.full_name,
@@ -98,7 +125,7 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
         needed_by: fields.needed_by || null,
         budget: n(fields.budget),
         finish: n(fields.finish),
-        additional_requirements: composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: fields.additional_requirements }),
+        additional_requirements: composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: requestNotes }),
       })
       .select("id,request_number,tracking_token")
       .single();
@@ -107,7 +134,7 @@ export const submitCustomOrder = createServerFn({ method: "POST" })
       const notes = [
         fields.budget ? `Budget: ${fields.budget}` : "",
         fields.finish ? `Finish: ${fields.finish}` : "",
-        composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: fields.additional_requirements }) ?? "",
+        composeOrderNotes({ neededBy: fields.needed_by || undefined, notes: requestNotes }) ?? "",
       ]
         .filter(Boolean)
         .join("\n");

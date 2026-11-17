@@ -32,9 +32,13 @@ export function CategoryTile({
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "low"}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
           />
-        ) : null}
+        ) : (
+          <span className="flex h-full items-center justify-center px-3 text-center text-sm font-semibold text-navy">
+            {label}
+          </span>
+        )}
       </span>
       <span className="mt-2.5 block truncate text-center text-sm font-semibold text-navy group-hover:text-gold-ink">
         {label}

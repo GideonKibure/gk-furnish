@@ -7,6 +7,12 @@ const ADMIN_RULE_LABELS = {
   symbol: "At least one symbol (for example ! ? # @)",
 };
 
+/** When the owner policy is off, eight characters are enough so a reset is still possible. */
+export function passwordMeetsPolicy(password: string, strong: boolean) {
+  if (!strong) return password.length >= 8;
+  return adminPasswordChecks(password).every((check) => check.ok);
+}
+
 /** Strength rules for admin passwords; every rule must pass. */
 export function adminPasswordChecks(password: string, labels: typeof ADMIN_RULE_LABELS = ADMIN_RULE_LABELS) {
   return [

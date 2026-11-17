@@ -14,7 +14,7 @@ export function WalletPicker({
   onChange,
   label,
 }: {
-  value: WalletId;
+  value: WalletId | null;
   onChange: (wallet: WalletId) => void;
   label: string;
 }) {

@@ -1,9 +1,14 @@
 import { isMissingSchema } from "@/lib/db-compat";
 import { balanceDue } from "@/lib/payment-policy";
+import { completionAudit, shouldReduceStock, snippeReconcileEnabled, stockReductionForSale } from "@/lib/snippe-decision";
+import { processSnippeEvent } from "@/lib/snippe-flow";
 import { decideCallback, type LocalPayment } from "@/lib/palmpesa";
 import { fetchPalmPayment, palmpesaConfigured, readPalmMeta, startPalmPayment } from "@/lib/palmpesa.server";
 import { toSnippePhone } from "@/config/payments";
+import { loadSnippeSdk } from "@/lib/snippe-sdk.server";
 import { formatAmount, SITE } from "@/config/site";
+import { customerCancelDecision, type CustomerCancelDecision } from "@/lib/customer-cancel";
+import { PROMPT_TIMEOUT_REASON, promptWindowClosed } from "@/lib/prompt-window";
 
 type SupabaseAdmin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
@@ -25,7 +30,7 @@ export function onlinePaymentsConfigured() {
 async function snippeClient() {
   const apiKey = process.env["SNIPPE_API_KEY"]?.trim();
   if (!apiKey) return null;
-  const { Snippe } = await import("@snippe/sdk");
+  const { Snippe } = loadSnippeSdk();
   const site = (process.env["SITE_URL"]?.trim() || SITE.url).replace(/\/$/, "");
   const webhookUrl = process.env["SNIPPE_WEBHOOK_URL"]?.trim() || `${site}/api/webhooks/snippe`;
   return new Snippe({ apiKey, webhookUrl });
@@ -156,38 +161,167 @@ export async function deductStockForSale(
   const { finishedItemFor, recordMovement } = await import("@/lib/ops/inventory.server");
   const item = await finishedItemFor(supabaseAdmin, input.productId);
   if (item) {
-    const take = Math.min(input.quantity, Math.max(0, Math.floor(Number(item.quantity))));
-    if (take <= 0) return;
+    const plan = stockReductionForSale(Number(item.quantity), input.quantity);
+    if (plan.insufficient) {
+      await flagOrderNeedsAttention(supabaseAdmin, input.orderId, "stock insufficient");
+      return;
+    }
+    if (plan.deduct <= 0) return;
     try {
       await recordMovement(supabaseAdmin, {
         itemId: item.id,
         type: "sale_out",
-        quantityChange: -take,
+        quantityChange: -plan.deduct,
         unitCost: Number(item.unit_cost),
         refEntity: "order",
         refId: input.orderId,
         note: input.orderNumber ? `Order ${input.orderNumber}` : "Order",
         actor: "System",
       });
-      return;
     } catch (err) {
       console.warn("sale stock movement failed:", err instanceof Error ? err.message : err);
-      return;
     }
+    return;
   }
   const { data: product } = await supabaseAdmin
     .from("products")
     .select("stock_quantity")
     .eq("id", input.productId)
     .maybeSingle();
-  if (!product || product.stock_quantity <= 0) return;
+  if (!product) return;
+  const plan = stockReductionForSale(product.stock_quantity, input.quantity);
+  if (plan.insufficient) {
+    await flagOrderNeedsAttention(supabaseAdmin, input.orderId, "stock insufficient");
+    return;
+  }
+  if (plan.deduct <= 0) return;
   await supabaseAdmin
     .from("products")
     .update({
-      stock_quantity: Math.max(0, product.stock_quantity - input.quantity),
+      stock_quantity: product.stock_quantity - plan.deduct,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.productId);
+}
+
+/** Put back stock that was reserved for an order, once. Unpaid orders usually have none. */
+export async function releaseReservedStock(supabaseAdmin: SupabaseAdmin, orderId: string) {
+  let claimed = await supabaseAdmin
+    .from("orders")
+    .update({ stock_applied: false })
+    .eq("id", orderId)
+    .eq("stock_applied", true)
+    .select("id,order_number")
+    .maybeSingle();
+  if (claimed.error && isMissingSchema(claimed.error)) return;
+  if (claimed.error || !claimed.data) return;
+  const { data: items } = await supabaseAdmin.from("order_items").select("product_id,quantity").eq("order_id", orderId);
+  for (const item of items ?? []) {
+    if (!item.product_id || item.quantity <= 0) continue;
+    const { finishedItemFor, recordMovement } = await import("@/lib/ops/inventory.server");
+    const inventory = await finishedItemFor(supabaseAdmin, item.product_id);
+    if (inventory) {
+      try {
+        await recordMovement(supabaseAdmin, {
+          itemId: inventory.id,
+          type: "return_in",
+          quantityChange: item.quantity,
+          unitCost: Number(inventory.unit_cost),
+          refEntity: "order",
+          refId: orderId,
+          note: claimed.data.order_number ? `Released ${claimed.data.order_number}` : "Released unpaid order",
+          actor: "System",
+        });
+      } catch (err) {
+        console.warn("stock release failed:", err instanceof Error ? err.message : err);
+      }
+      continue;
+    }
+    const { data: product } = await supabaseAdmin.from("products").select("stock_quantity").eq("id", item.product_id).maybeSingle();
+    if (!product) continue;
+    await supabaseAdmin
+      .from("products")
+      .update({ stock_quantity: product.stock_quantity + item.quantity, updated_at: new Date().toISOString() })
+      .eq("id", item.product_id);
+  }
+}
+
+/** A confirmed payment on an order cancelled for non-payment reopens it, or flags the owner. */
+async function reopenUnpaidExpiry(supabaseAdmin: SupabaseAdmin, orderId: string) {
+  const { data: order } = await supabaseAdmin
+    .from("orders")
+    .select("id,status,cancel_reason,amount_paid,order_number")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return;
+  const { data: items } = await supabaseAdmin.from("order_items").select("product_id,quantity").eq("order_id", orderId);
+  let stockOk = true;
+  for (const item of items ?? []) {
+    if (!item.product_id) continue;
+    const { data: product } = await supabaseAdmin.from("products").select("stock_quantity").eq("id", item.product_id).maybeSingle();
+    if (!product || Number(product.stock_quantity) < item.quantity) {
+      stockOk = false;
+      break;
+    }
+  }
+  const { reopenDecision } = await import("@/lib/reminders");
+  const decision = reopenDecision({
+    status: order.status,
+    cancelReason: order.cancel_reason,
+    paid: Number(order.amount_paid),
+    stockOk,
+  });
+  if (decision === "ignore") return;
+  if (decision === "flag") {
+    await flagOrderNeedsAttention(
+      supabaseAdmin,
+      orderId,
+      "A confirmed payment arrived after this unpaid order was cancelled, and stock cannot cover it.",
+    );
+    return;
+  }
+  const { noteOrderHistory, writeOrderStatus } = await import("@/lib/ops/order-history.server");
+  const note = "Reopened: a confirmed payment arrived after the unpaid expiry.";
+  await writeOrderStatus(supabaseAdmin, orderId, "pending", { cancel_reason: null, status_reason: note });
+  await noteOrderHistory(supabaseAdmin, { orderId, status: "pending", note, actor: "System", statusChanged: true });
+  await refreshOrderPayments(supabaseAdmin, orderId, note, "System");
+  const { notify } = await import("@/lib/notify.server");
+  await notify({
+    audience: "staff",
+    type: "order_reopened",
+    title: `Payment reopened order ${order.order_number}`,
+    body: note,
+    link: "/admin/orders",
+    entity: "order",
+    entityId: orderId,
+  });
+}
+
+/** Flag an order when a confirmed sale cannot be covered. The payment itself still stands. */
+export async function flagOrderNeedsAttention(supabaseAdmin: SupabaseAdmin, orderId: string, reason: string) {
+  let result = await supabaseAdmin
+    .from("orders")
+    .update({ needs_attention: true, needs_attention_reason: reason })
+    .eq("id", orderId);
+  if (result.error && isMissingSchema(result.error)) {
+    const message = result.error.message ?? "";
+    if (message.includes("needs_attention_reason")) {
+      result = await supabaseAdmin.from("orders").update({ needs_attention: true }).eq("id", orderId);
+    } else if (message.includes("needs_attention")) {
+      result = await supabaseAdmin.from("orders").update({ needs_attention_reason: reason }).eq("id", orderId);
+    }
+  }
+  if (result.error && !isMissingSchema(result.error)) console.warn("[stock] could not flag order");
+  const { notify } = await import("@/lib/notify.server");
+  await notify({
+    audience: "staff",
+    type: "needs_attention",
+    title: "Order needs attention",
+    body: reason,
+    link: "/admin/orders",
+    entity: "order",
+    entityId: orderId,
+  });
 }
 
 /** Total refunded on an order (0 before migration 0008 creates the refunds table). */
@@ -202,11 +336,19 @@ export async function refundedTotal(supabaseAdmin: SupabaseAdmin, orderId: strin
 
 /** Recalculate the order's payment fields from its completed payments, net of refunds. */
 export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId: string, note?: string, actor?: string | null) {
-  const { data: order } = await supabaseAdmin
+  let loaded = await supabaseAdmin
     .from("orders")
-    .select("id,status,total_amount,advance_required")
+    .select("id,status,total_amount,advance_required,stock_applied")
     .eq("id", orderId)
     .single();
+  if (loaded.error && isMissingSchema(loaded.error)) {
+    loaded = await supabaseAdmin
+      .from("orders")
+      .select("id,status,total_amount,advance_required")
+      .eq("id", orderId)
+      .single();
+  }
+  const order = loaded.data;
   if (!order) return null;
   const { data: rows } = await supabaseAdmin
     .from("payments")
@@ -241,7 +383,11 @@ export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId
     await supabaseAdmin.from("orders").update({ ...fields, ...(nextStatus === "refunded" ? {} : { status: nextStatus }) }).eq("id", orderId);
   }
 
-  if (advancePaid && !fullyRefunded) await applyStockOnce(supabaseAdmin, orderId);
+  const stockApplied = "stock_applied" in order && order.stock_applied === true;
+  const stopped = order.status === "cancelled" || order.status === "refunded";
+  if (!stopped && shouldReduceStock({ stockApplied, advanceCovered: advancePaid && !fullyRefunded })) {
+    await applyStockOnce(supabaseAdmin, orderId);
+  }
   if (note) {
     const { noteOrderHistory } = await import("@/lib/ops/order-history.server");
     await noteOrderHistory(supabaseAdmin, {
@@ -259,7 +405,13 @@ export async function refreshOrderPayments(supabaseAdmin: SupabaseAdmin, orderId
 export async function completePayment(
   supabaseAdmin: SupabaseAdmin,
   paymentId: string,
-  details: { amount?: number | undefined; provider?: string | null; metadata?: unknown },
+  details: {
+    amount?: number | undefined;
+    provider?: string | null;
+    metadata?: unknown;
+    providerReference?: string;
+    confirmedVia?: "webhook" | "reconcile";
+  },
 ) {
   const { data: payment } = await supabaseAdmin
     .from("payments")
@@ -272,12 +424,14 @@ export async function completePayment(
   const receipt = payment.receipt_number ?? (await nextReceiptNumber(supabaseAdmin, payment.order_id, orderNumber));
 
   const paidAt = new Date().toISOString();
+  const audit = completionAudit(details);
   const patch = {
     status: "completed" as const,
     amount: received,
     provider: details.provider ?? null,
     receipt_number: receipt,
     paid_at: paidAt,
+    ...audit,
     ...(details.metadata !== undefined ? { metadata: JSON.parse(JSON.stringify(details.metadata)) } : {}),
     updated_at: paidAt,
   };
@@ -289,10 +443,10 @@ export async function completePayment(
     .select("id")
     .maybeSingle();
   if (updatedResult.error && isMissingSchema(updatedResult.error)) {
-    const { paid_at: _paidAt, ...withoutPaidAt } = patch;
+    const { paid_at: _paidAt, confirmed_via: _via, provider_reference: _reference, ...withoutNewColumns } = patch;
     updatedResult = await supabaseAdmin
       .from("payments")
-      .update(withoutPaidAt)
+      .update(withoutNewColumns)
       .eq("id", paymentId)
       .neq("status", "completed")
       .select("id")
@@ -311,6 +465,7 @@ export async function completePayment(
       details.provider ? ` via ${details.provider}` : ""
     }${mismatch}. Receipt ${receipt}.`,
   );
+  await reopenUnpaidExpiry(supabaseAdmin, payment.order_id);
   const { data: order } = await supabaseAdmin
     .from("orders")
     .select("order_number,customer_name,email,tracking_token,amount_due,total_amount")
@@ -339,6 +494,64 @@ export async function completePayment(
   }
 }
 
+export type CustomerCancelOutcome = CustomerCancelDecision | "wait" | "cancelled";
+
+/**
+ * Stop a payment the customer has not confirmed.
+ * Asks the provider first. Confirmed money and a payment waiting for the owner are left as they are.
+ * The order stays open.
+ */
+export async function cancelUnconfirmedPayment(
+  supabaseAdmin: SupabaseAdmin,
+  paymentId: string,
+): Promise<CustomerCancelOutcome> {
+  const load = async () => {
+    const { data } = await supabaseAdmin
+      .from("payments")
+      .select("id,status,snippe_reference,metadata")
+      .eq("id", paymentId)
+      .maybeSingle();
+    return data;
+  };
+  let payment = await load();
+  if (!payment) throw new Error("Payment not found");
+  if (customerCancelDecision(payment.status) !== "cancel") return customerCancelDecision(payment.status);
+
+  const palm = readPalmMeta(payment.metadata);
+  if (payment.snippe_reference) {
+    try {
+      await getSnippePaymentStatus(payment.snippe_reference);
+    } catch {
+      return "wait";
+    }
+    await reconcilePayment(supabaseAdmin, payment.id, payment.snippe_reference);
+  } else if (palm.source === "palmpesa" && palm.providerOrderId) {
+    try {
+      await fetchPalmPayment(palm.providerOrderId);
+    } catch {
+      return "wait";
+    }
+    await reconcilePalmPayment(supabaseAdmin, payment.id);
+  }
+
+  payment = await load();
+  if (!payment) throw new Error("Payment not found");
+  const decision = customerCancelDecision(payment.status);
+  if (decision !== "cancel") return decision;
+
+  await failPayment(supabaseAdmin, payment.id, "failed", {
+    ...metaRecord(payment.metadata),
+    source: "customer_cancel",
+    failure_reason: "CANCELLED",
+  });
+  const after = await load();
+  if (!after) throw new Error("Payment not found");
+  if (after.status === "completed") return "paid";
+  if (after.status === "needs_review") return "review";
+  if (after.status === "pending") return "wait";
+  return "cancelled";
+}
+
 export async function failPayment(supabaseAdmin: SupabaseAdmin, paymentId: string, status: "failed" | "expired", metadata?: unknown) {
   const { data: updated } = await supabaseAdmin
     .from("payments")
@@ -354,29 +567,99 @@ export async function failPayment(supabaseAdmin: SupabaseAdmin, paymentId: strin
   if (updated) await refreshOrderPayments(supabaseAdmin, updated.order_id);
 }
 
-/** Ask Snippe for the latest state of a pending payment (used when no webhook has arrived). */
-export async function reconcilePayment(supabaseAdmin: SupabaseAdmin, paymentId: string, reference: string) {
+/** Ask Snippe for one payment. Throws when the provider cannot be reached. */
+export async function getSnippePaymentStatus(reference: string) {
   const snippe = await snippeClient();
-  if (!snippe) return;
+  if (!snippe) throw new Error("Snippe is not configured");
+  const remote = await snippe.payments.get(reference);
+  return { status: remote.status, amount: remote.amount.value, currency: remote.amount.currency };
+}
+
+/** Hold a payment for the owner when Snippe's amount or currency does not match. */
+export async function markPaymentNeedsReview(supabaseAdmin: SupabaseAdmin, paymentId: string, reason: string) {
+  const { data: payment } = await supabaseAdmin.from("payments").select("id,order_id,status,metadata").eq("id", paymentId).maybeSingle();
+  if (!payment || payment.status === "completed" || payment.status === "needs_review") return;
+  const metadata =
+    payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+      ? { ...payment.metadata, needs_review: true, review_reason: reason }
+      : { needs_review: true, review_reason: reason };
+  const updated = await supabaseAdmin
+    .from("payments")
+    .update({ status: "needs_review", metadata, updated_at: new Date().toISOString() })
+    .eq("id", paymentId)
+    .neq("status", "completed");
+  if (updated.error) {
+    const fallback = await supabaseAdmin
+      .from("payments")
+      .update({ metadata, updated_at: new Date().toISOString() })
+      .eq("id", paymentId)
+      .neq("status", "completed");
+    if (fallback.error && !isMissingSchema(fallback.error)) console.warn("[snippe] review save failed");
+  }
+  const { notify } = await import("@/lib/notify.server");
+  await notify({
+    audience: "staff",
+    type: "payment_review",
+    title: "Payment needs review",
+    body: reason,
+    link: "/admin/payments",
+    entity: "payment",
+    entityId: paymentId,
+  });
+}
+
+/** Ask Snippe for the latest state of a pending payment and apply the same rules as the webhook. */
+export async function reconcilePayment(supabaseAdmin: SupabaseAdmin, paymentId: string, reference: string) {
+  if (!snippeReconcileEnabled(process.env)) return;
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .select("id,amount,currency,status,metadata")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || payment.status === "completed" || payment.status === "needs_review") return;
+  const meta = payment.metadata;
+  if (meta && typeof meta === "object" && !Array.isArray(meta) && meta["needs_review"] === true) return;
   try {
-    const remote = await snippe.payments.get(reference);
-    if (remote.status === "completed") {
-      await completePayment(supabaseAdmin, paymentId, { amount: remote.amount?.value, metadata: remote });
-    } else if (remote.status === "failed" || remote.status === "voided" || remote.status === "expired") {
-      await failPayment(supabaseAdmin, paymentId, remote.status === "expired" ? "expired" : "failed", remote);
-    }
+    await processSnippeEvent(
+      { id: `reconcile-${reference}`, type: null, reference, amount: null, currency: null },
+      "reconcile",
+      {
+        claim: async () => "untracked",
+        findByReference: async () => ({
+          id: payment.id,
+          amount: Number(payment.amount),
+          currency: payment.currency,
+          status: payment.status,
+          reference,
+          needsReview: false,
+        }),
+        getStatus: getSnippePaymentStatus,
+        complete: async (id, via, providerReference) => {
+          await completePayment(supabaseAdmin, id, { provider: "snippe", confirmedVia: via, providerReference });
+        },
+        fail: async (id, status) => {
+          await failPayment(supabaseAdmin, id, status);
+        },
+        review: async (id) => {
+          await markPaymentNeedsReview(supabaseAdmin, id, "Snippe amount or currency did not match this payment.");
+        },
+      },
+    );
   } catch (err) {
-    console.warn("[snippe reconcile]", err instanceof Error ? err.message : err);
+    console.warn("[snippe reconcile]", err instanceof Error ? err.message : "error");
   }
 }
 
-/** Ask Snippe about payments that are still open, including ones whose webhook was rejected. */
-export async function reconcileOpenSnippePayments(supabaseAdmin: SupabaseAdmin, options?: { orderId?: string; limit?: number }) {
-  if (!snippeConfigured()) return;
+/** Ask Snippe about payments that are still open, including ones whose webhook was missed. */
+export async function reconcileOpenSnippePayments(
+  supabaseAdmin: SupabaseAdmin,
+  options?: { orderId?: string; limit?: number; minAgeMs?: number; maxAgeMs?: number },
+) {
+  if (!snippeReconcileEnabled(process.env)) return;
   const limit = options?.limit ?? 8;
   let query = supabaseAdmin
     .from("payments")
-    .select("id,status,snippe_reference,created_at")
+    .select("id,status,snippe_reference,created_at,metadata")
     .eq("status", "pending")
     .not("snippe_reference", "is", null)
     .order("created_at", { ascending: false })
@@ -386,9 +669,58 @@ export async function reconcileOpenSnippePayments(supabaseAdmin: SupabaseAdmin, 
   const { data } = await query;
   for (const row of data ?? []) {
     if (!row.snippe_reference) continue;
-    if (Date.now() - new Date(row.created_at).getTime() < 3_000) continue;
+    const meta = row.metadata;
+    if (meta && typeof meta === "object" && !Array.isArray(meta) && meta["needs_review"] === true) continue;
+    const age = Date.now() - new Date(row.created_at).getTime();
+    const minAge = options?.minAgeMs ?? 3_000;
+    if (age < minAge) continue;
+    if (options?.maxAgeMs != null && age > options.maxAgeMs) continue;
     await reconcilePayment(supabaseAdmin, row.id, row.snippe_reference);
+    await expireUnconfirmedPrompt(supabaseAdmin, row.id);
   }
+}
+
+/**
+ * After five minutes a phone prompt that is still unconfirmed is expired.
+ * The order is cancelled only when nothing has been paid and no other payment is still open.
+ */
+export async function expireUnconfirmedPrompt(supabaseAdmin: SupabaseAdmin, paymentId: string) {
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .select("id,status,order_id,created_at,snippe_reference,metadata")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || payment.status !== "pending") return;
+  const palm = readPalmMeta(payment.metadata);
+  const prompted = Boolean(payment.snippe_reference) || palm.source === "palmpesa";
+  if (!prompted || !promptWindowClosed(payment.created_at, Date.now())) return;
+  await failPayment(supabaseAdmin, payment.id, "expired", {
+    ...metaRecord(payment.metadata),
+    source: "prompt_timeout",
+    reason: PROMPT_TIMEOUT_REASON,
+  });
+  const { data: order } = await supabaseAdmin
+    .from("orders")
+    .select("id,order_number,status,amount_paid,user_id")
+    .eq("id", payment.order_id)
+    .maybeSingle();
+  if (!order) return;
+  if (!["pending", "awaiting_payment"].includes(order.status)) return;
+  if (Math.round(Number(order.amount_paid)) > 0) return;
+  const { data: payments } = await supabaseAdmin
+    .from("payments")
+    .select("status")
+    .eq("order_id", order.id);
+  const stillOpen = (payments ?? []).some(
+    (row) => row.status === "pending" || row.status === "needs_review",
+  );
+  if (stillOpen) return;
+  await releaseReservedStock(supabaseAdmin, order.id);
+  const { cancelOrderRecord } = await import("@/lib/order-cancel.server");
+  await cancelOrderRecord(supabaseAdmin, order, PROMPT_TIMEOUT_REASON, {
+    userId: null,
+    label: "System",
+  });
 }
 
 /** Ask PalmPesa whether a payment that is still open (or was expired) has since completed. */
@@ -476,6 +808,7 @@ export async function reconcileOpenPalmPayments(supabaseAdmin: SupabaseAdmin, op
     if (meta.source !== "palmpesa" || !meta.providerOrderId) continue;
     if (row.status === "pending" && Date.now() - new Date(row.created_at).getTime() < 3_000) continue;
     await reconcilePalmPayment(supabaseAdmin, row.id);
+    if (row.status === "pending") await expireUnconfirmedPrompt(supabaseAdmin, row.id);
   }
 }
 

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingCart, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useCustomerName } from "@/hooks/use-customer-name";
 import { fill } from "@/i18n/fill";
 import { useLang } from "@/i18n/LanguageProvider";
@@ -26,6 +27,15 @@ export function CartCountBadge({ count, className }: { count: number; className?
 export function HeaderActions({ showAccount = true }: { showAccount?: boolean }) {
   const { t } = useLang();
   const { count } = useCart();
+  const seen = useRef(false);
+  const [cartStatus, setCartStatus] = useState("");
+  useEffect(() => {
+    if (!seen.current) {
+      seen.current = true;
+      return;
+    }
+    setCartStatus(fill(t.shell.cartCount, { count }));
+  }, [count, t]);
   const { user, ready, name, letter } = useCustomerName();
   const { open } = useAuthPopup();
   const signedOut = ready && !user;
@@ -33,6 +43,9 @@ export function HeaderActions({ showAccount = true }: { showAccount?: boolean })
 
   return (
     <div className="flex items-center gap-0.5">
+      <span className="sr-only" aria-live="polite">
+        {cartStatus}
+      </span>
       {showAccount &&
         (signedOut ? (
           <button
@@ -49,7 +62,7 @@ export function HeaderActions({ showAccount = true }: { showAccount?: boolean })
             to="/account"
             aria-label={name || t.nav.account}
             title={name || t.nav.account}
-            className="inline-flex h-10 items-center gap-2 rounded-full py-1 pl-1 pr-1 transition-colors hover:bg-muted lg:pr-2.5"
+            className="inline-flex h-11 items-center gap-2 rounded-full py-1 pl-1 pr-1 transition-colors hover:bg-muted lg:pr-2.5"
           >
             <UserMark letter={letter} />
             {firstName ? (

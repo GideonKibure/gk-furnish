@@ -7,6 +7,7 @@ import { localized, useLang } from "@/i18n/LanguageProvider";
 import { categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalog";
 import { breadcrumbLd, metaText, seo } from "@/lib/seo";
 import { freshShopSeed } from "@/lib/shop-order";
+import { CatalogueError, ShopPending } from "@/components/site/CatalogueState";
 
 export const Route = createFileRoute("/categories/$slug")({
   validateSearch: (s) => shopSearchSchema.omit({ cat: true }).parse(s),
@@ -44,6 +45,8 @@ export const Route = createFileRoute("/categories/$slug")({
     return { ...base, scripts: [{ type: "application/ld+json", children: JSON.stringify(graph) }] };
   },
   component: Cat,
+  pendingComponent: ShopPending,
+  errorComponent: CatalogueError,
 });
 
 function Cat() {
@@ -82,7 +85,7 @@ function Cat() {
               void navigate({
                 to: "/categories/$slug",
                 params: { slug },
-                search: { q: next.q, max: next.max, avail: next.avail, sort: next.sort },
+                search: { q: next.q, min: next.min, max: next.max, avail: next.avail, sort: next.sort },
                 replace: true,
                 resetScroll: false,
               })

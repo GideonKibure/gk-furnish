@@ -9,16 +9,18 @@ import {
   Download,
   MessageCircle,
   PackageSearch,
+  Phone,
   Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Breadcrumbs } from "@/components/brand/Breadcrumbs";
 import { EmptyState } from "@/components/brand/EmptyState";
 import { StatusPill } from "@/components/brand/StatusPill";
+import { MoneyTimeline } from "@/components/site/MoneyTimeline";
 import { PayInstructions } from "@/components/site/PayInstructions";
 import { WalletPicker } from "@/components/site/WalletPicker";
 import { RequestDetails } from "@/components/site/RequestDetails";
-import { formatAmount, waLink } from "@/config/site";
+import { formatAmount, telLink, waLink } from "@/config/site";
 import { getCheckoutConfig, startOrderPayment, submitPaymentProof } from "@/lib/checkout.functions";
 import { phoneMatchesWallet, type WalletId } from "@/lib/palmpesa";
 import { DEFAULT_PAY_ACCOUNTS, DEFAULT_PAY_METHODS } from "@/lib/pay-accounts";
@@ -28,6 +30,8 @@ import { statusLabel } from "@/i18n/status";
 import { downloadInvoice, downloadReceipt, purposeLabel } from "@/lib/invoice";
 import { respondToQuote } from "@/lib/requests.functions";
 import { getTracking, type TrackedOrder } from "@/lib/tracking.functions";
+import { CUSTOMER_STAGES, customerStageIndex, nextTrackStep, paymentCustomerState } from "@/lib/track-next";
+import { moneyStage } from "@/lib/policy";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/track/$token")({
@@ -40,16 +44,12 @@ export const Route = createFileRoute("/track/$token")({
   component: TrackPage,
 });
 
-const FLOW = ["pending", "confirmed", "in_production", "completed"] as const;
-
-function stepIndex(status: string) {
-  if (status === "awaiting_payment") return 0;
-  if (status === "processing") return 1;
-  if (status === "ready") return 2;
-  if (status === "out_for_delivery" || status === "delivered") return 3;
-  const i = (FLOW as readonly string[]).indexOf(status);
-  return i < 0 ? 0 : i;
-}
+const STAGE_COPY = {
+  ordered: "stageOrdered",
+  paid: "stagePaid",
+  production: "stageProduction",
+  received: "stageReceived",
+} as const;
 
 function OrderTracking({ order, token }: { order: TrackedOrder; token: string }) {
   const { t } = useLang();
@@ -80,9 +80,10 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
   const due = Math.max(order.advanceRequired - order.paid, 0) > 0 && order.paid < order.advanceRequired
     ? Math.min(order.balance, Math.max(order.advanceRequired - order.paid, 0))
     : order.balance;
-  const waiting = order.payments.some((p) => p.status === "pending");
-  const current = stepIndex(order.status);
-  const stopped = order.status === "cancelled" || order.status === "refunded";
+  const waiting = order.payments.some((p) => paymentCustomerState(p.status) === "pending");
+  const stage = customerStageIndex(order.status);
+  const stopped = stage === "cancelled" || stage === "refunded";
+  const next = nextTrackStep(order);
   const lines = order.items.map((i) => ({
     name: i.product_name,
     qty: i.quantity,
@@ -101,6 +102,38 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <div className="space-y-4">
+        <section className="panel p-4 md:p-5">
+          <h2 className="text-base font-bold">{t.track.nextTitle}</h2>
+          <p className="mt-2 text-sm text-navy">
+            {next.id === "cancelled"
+              ? t.track.stoppedCancelled
+              : next.id === "refunded"
+                ? t.track.stoppedRefunded
+                : next.id === "advance"
+                  ? fill(t.track.nextAdvance, { amount: formatAmount(next.amount) })
+                  : next.id === "design"
+                    ? t.track.nextDesign
+                    : next.id === "building"
+                      ? t.track.nextBuilding
+                      : next.id === "balance"
+                        ? `${fill(t.track.nextBalance, { amount: formatAmount(next.amount) })} ${
+                            next.delivery === "free"
+                              ? t.track.nextFeeFree
+                              : next.delivery === "confirmed" && next.fee != null && next.fee > 0
+                                ? fill(t.track.nextFeeAmount, { amount: formatAmount(next.fee) })
+                                : t.track.nextFeePending
+                          }`
+                        : fill(next.method === "collection" ? t.track.nextCollect : t.track.nextDeliver, {
+                            place: next.method === "collection" ? order.collectionAddress || order.location : order.location,
+                          })}
+          </p>
+          {order.completionHours != null ? (
+            <p className="mt-2 text-sm text-muted-foreground">{fill(t.track.expectedHours, { hours: String(order.completionHours) })}</p>
+          ) : null}
+          {order.neededBy ? (
+            <p className="mt-1 text-sm text-muted-foreground">{fill(t.track.requestedDate, { date: order.neededBy })}</p>
+          ) : null}
+        </section>
         {order.balance > 0 && order.status !== "cancelled" && (
           <section className="panel p-4 md:p-5">
             <h2 className="text-base font-bold">{t.track.howToPay}</h2>
@@ -230,39 +263,42 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
           </section>
         )}
         <section className="panel p-4 md:p-5">
+          <MoneyTimeline
+            current={moneyStage({
+              paid: order.paid,
+              advanceRequired: order.advanceRequired,
+              specsAgreed: order.specsAgreed,
+              status: order.status,
+            })}
+          />
+        </section>
+        <section className="panel p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold">{t.track.progress}</h2>
             <StatusPill status={order.status}>{statusLabel(t, order.status)}</StatusPill>
           </div>
           {stopped ? (
-            <p className="mt-3 text-sm text-danger">{statusLabel(t, order.status)}</p>
+            <p className="mt-3 text-sm font-semibold text-navy">{stage === "cancelled" ? t.track.stoppedCancelled : t.track.stoppedRefunded}</p>
           ) : (
             <ol className="mt-4 grid gap-3 sm:grid-cols-4">
-              {FLOW.map((s, i) => (
-                <li
-                  key={s}
-                  className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-1.5"
-                >
-                  {i <= current ? (
-                    <CheckCircle2
-                      className={cn(
-                        "h-5 w-5 shrink-0",
-                        i === current ? "text-gold-ink" : "text-success",
-                      )}
-                    />
-                  ) : (
-                    <Circle className="h-5 w-5 shrink-0 text-input" />
-                  )}
-                  <span
-                    className={cn(
-                      "text-xs font-medium",
-                      i <= current ? "text-navy" : "text-muted-foreground",
+              {CUSTOMER_STAGES.map((name, i) => {
+                const here = typeof stage === "number" && i === stage;
+                const done = typeof stage === "number" && i <= stage;
+                return (
+                  <li key={name} className="flex items-start gap-2 sm:flex-col sm:gap-1.5" aria-current={here ? "step" : undefined}>
+                    {done ? (
+                      <CheckCircle2 className={cn("h-5 w-5 shrink-0", here ? "text-gold-ink" : "text-success")} />
+                    ) : (
+                      <Circle className="h-5 w-5 shrink-0 text-input" />
                     )}
-                  >
-                    {statusLabel(t, s)}
-                  </span>
-                </li>
-              ))}
+                    <span className={cn("text-xs font-medium", done ? "text-navy" : "text-muted-foreground")}>
+                      {statusLabel(t, name === "ordered" ? "pending" : name === "paid" ? "confirmed" : name === "production" ? "in_production" : "completed")}
+                      {here ? ` · ${t.track.stageCurrent}` : ""}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{t.track[STAGE_COPY[name]]}</span>
+                  </li>
+                );
+              })}
             </ol>
           )}
           {order.history.length > 0 && (
@@ -301,9 +337,11 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
           ) : (
             <ul className="mt-2 space-y-2 text-sm">
               {order.payments.map((p) => {
+                const shown = paymentCustomerState(p.status);
                 const paidUpTo = order.payments
-                  .filter((x) => x.status === "completed" && x.updated_at <= p.updated_at)
+                  .filter((x) => paymentCustomerState(x.status) === "confirmed" && x.updated_at <= p.updated_at)
                   .reduce((sum, x) => sum + x.amount, 0);
+                const stateLabel = shown === "confirmed" ? t.track.payConfirmed : shown === "rejected" ? t.track.payRejected : t.track.payPending;
                 return (
                   <li
                     key={`${p.created_at}-${p.amount}-${p.status}`}
@@ -312,17 +350,17 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
                     <span>
                       <span className="font-semibold text-navy">{formatAmount(p.amount)}</span>{" "}
                       <span className="text-muted-foreground">
-                        {purposeLabel(p.purpose)} · {statusLabel(t, p.status)} ·{" "}
-                        {new Date(p.updated_at).toLocaleDateString("en-GB")}
+                        {purposeLabel(p.purpose)} · {p.provider || "—"} · {stateLabel} ·{" "}
+                        {new Date(p.created_at).toLocaleDateString("en-GB")}
                       </span>
                     </span>
-                    {p.receipt_number && (
+                    {shown === "confirmed" && p.receipt_number ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold-ink hover:underline"
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-gold-ink hover:underline"
                       onClick={() =>
                         downloadReceipt({
-                          receiptNumber: p.receipt_number ?? `RCT-${order.number}`,
+                          receiptNumber: p.receipt_number ?? "",
                           orderNumber: order.number,
                           paidAt: p.updated_at,
                           amount: p.amount,
@@ -336,9 +374,9 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
                       }
                     >
                       <Receipt className="h-3.5 w-3.5" />
-                      {p.receipt_number ?? t.pay.receipt}
+                      {t.track.downloadReceipt}
                     </button>
-                    )}
+                    ) : null}
                   </li>
                 );
               })}
@@ -431,11 +469,18 @@ function OrderTracking({ order, token }: { order: TrackedOrder; token: string })
               href={waLink(`${t.whatsapp.orderPrefix} ${order.number}.`)}
               target="_blank"
               rel="noreferrer"
-              className="btn-base btn-gold btn-sm"
+              className="btn-base btn-outline-navy btn-sm min-h-11"
             >
               <MessageCircle className="h-4 w-4" />
               {t.success.contactUs}
             </a>
+            <a href={telLink()} className="btn-base btn-outline-navy btn-sm min-h-11">
+              <Phone className="h-4 w-4" />
+              {t.track.callUs}
+            </a>
+            <Link to="/policies" className="btn-base btn-outline-navy btn-sm min-h-11">
+              {t.track.policies}
+            </Link>
           </div>
         </div>
       </aside>
@@ -482,6 +527,7 @@ function TrackPage() {
             </button>
           )}
         </div>
+        {data && data.kind !== "none" ? <p className="mt-2 text-sm text-navy">{t.track.saveReminder}</p> : null}
 
         <div className="mt-5">
           {isLoading ? (

@@ -20,6 +20,7 @@ import { getAdminDashboard } from "@/lib/admin.functions";
 import { JOB_STATUS_LABELS, type JobStatus } from "@/lib/ops/business";
 import { bucketLabel, DATE_RANGE_LABELS, type DateRange } from "@/lib/ops/date-range";
 import { orderStatusLabel, orderStatusTone } from "@/lib/ops/status";
+import { queueAgeLabel } from "@/lib/today-queue";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -201,6 +202,30 @@ function AdminDashboard() {
         <AdminLoading label="Loading dashboard…" />
       ) : (
         <div className={loading ? "space-y-5 opacity-60 transition-opacity" : "space-y-5 transition-opacity"}>
+          <section className="rounded-xl border border-[#E5E5E5] bg-white p-4">
+            <h2 className="text-base font-semibold text-navy">Today</h2>
+            {data.today.length === 0 ? (
+              <p className="mt-2 text-sm text-[#6B7280]">Nothing waiting</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-[#F0F0F0]">
+                {data.today.map((row) => {
+                  const age = queueAgeLabel(row.oldestAt, Date.now());
+                  return (
+                    <li key={row.id}>
+                      <a href={row.href} className="flex min-h-11 items-start justify-between gap-3 py-3">
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-navy">{row.label}</span>
+                          {age && <span className="mt-0.5 block text-xs text-[#6B7280]">Oldest: {age}</span>}
+                          {row.why && <span className="mt-0.5 block text-xs text-[#374151]">{row.why}</span>}
+                        </span>
+                        <span className="grid h-7 min-w-7 place-items-center rounded-full bg-gold px-2 text-sm font-semibold text-navy">{row.count}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               label="Total orders"
@@ -368,6 +393,21 @@ function AdminDashboard() {
                 <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 md:px-5">
                   <span className="truncate text-sm font-medium text-navy">{p.name}</span>
                   <StatusPill tone={p.out ? "danger" : "pending"}>{p.label}</StatusPill>
+                </li>
+              ))}
+            </ActionList>
+            <ActionList
+              title="Overdue follow-ups"
+              icon={<Clock3 className="h-4 w-4" />}
+              to="/admin/custom-orders"
+              count={data.overdueFollowUps.count}
+              empty="No request or payment is waiting past its reminder time."
+            >
+              {data.overdueFollowUps.rows.map((row) => (
+                <li key={row.id}>
+                  <a href={row.link} className="block px-4 py-2.5 text-sm font-semibold text-navy hover:bg-[#F9FAFB] md:px-5">
+                    {row.title}
+                  </a>
                 </li>
               ))}
             </ActionList>

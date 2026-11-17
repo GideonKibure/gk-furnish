@@ -8,6 +8,7 @@ import { categoriesQuery, productsQuery, ratingSummaryQuery } from "@/lib/catalo
 import { pageSectionsQuery } from "@/lib/site-content";
 import { freshShopSeed } from "@/lib/shop-order";
 import { seo } from "@/lib/seo";
+import { CatalogueError, ShopPending } from "@/components/site/CatalogueState";
 
 export const Route = createFileRoute("/products/")({
   validateSearch: (s) => shopSearchSchema.parse(s),
@@ -27,6 +28,8 @@ export const Route = createFileRoute("/products/")({
     return { shopSeed: freshShopSeed() };
   },
   component: Products,
+  pendingComponent: ShopPending,
+  errorComponent: CatalogueError,
 });
 
 function Products() {
